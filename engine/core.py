@@ -16,8 +16,8 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class Rule:
-    max_sec: int = 120        # 헛대여: 이만큼 안에 반납
-    max_m: float = 200.0      # 헛대여: 이만큼 덜 움직임
+    max_sec: int = 180        # 헛대여: 이만큼 안에 반납 (Phase 1 에서 1월로 확정: 3분)
+    max_m: float = 300.0      # 헛대여: 이만큼 덜 움직임 (300m)
     alarm_k: int = 2          # 서로 다른 사람 연속 헛대여 몇 번에 경보
     same_person: bool = True  # 같은 사람 재시도를 거를지 (who 가 없으면 무시)
 
@@ -128,3 +128,17 @@ def lead_time(R, F, window_days=7):
     return {"faults": n, "with_prior_alarm": len(L), "share_%": round(100 * len(L) / max(1, n), 1),
             "lead_h_median": round(float(np.median(L)), 1) if len(L) else None,
             "victims_mean": round(float(np.mean(victims)), 2) if victims else None}
+
+
+def unreported_chains(R, F, days=7):
+    """서로 다른 사람 연속 헛대여(2번 이상)가 끝난 뒤 days 일 안에 그 자전거 고장 신고가 없는 비율."""
+    fault_t = F.groupby("bike")["t"].apply(lambda s: np.sort(s.to_numpy())).to_dict()
+    sel = R["dud"] & ~R["retry"] & (R["streak"] >= 1)
+    miss = n = 0
+    for bike, t in zip(R.loc[sel, "bike"], R.loc[sel, "t1"]):
+        n += 1
+        ts = fault_t.get(bike)
+        t64 = np.datetime64(t)
+        if ts is None or not np.any((ts > t64) & (ts <= t64 + np.timedelta64(days, "D"))):
+            miss += 1
+    return round(100 * miss / max(1, n), 1)
