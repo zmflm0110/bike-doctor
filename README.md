@@ -72,6 +72,7 @@ node docs/build_pdf.js                       # docs/report.pdf, proposal.pdf, sl
 | `engine/` | 헛대여·연쇄·경보 규칙(`core.py`), 아침 목록(`morning.py`) |
 | `analysis/` | 검증: Phase 1 기준 선택, Phase 2 실시간 가능성, 현장 검증, 그림 |
 | `server/` | 서울 API(키체인), 매일 아침 목록 작업(목록 기록·다음 날 채점 SQLite)·예행연습, 웹 서버(구조대·현장조사 SQLite) |
+| `ios/` | 아이폰 앱(SwiftUI) — 엔진 패키지 `Core/`(리눅스에서도 검사), 화면 `App/`, `HeotgeoleumZero.xcodeproj` · 설치법 [`ios/README.md`](ios/README.md) |
 | `web/` | 웹앱 — 아침 목록·자전거 조회(QR)·구조대·시연·현장 조사 (홈 화면 추가 가능) |
 | `docs/` | 결과·보고서·현장 조사 절차 |
 | `tests/` | 엔진·서버·매일 작업·충전기 단위 테스트(pytest), 웹 화면 검사(`tests/web/smoke.js`)·오프라인 검사(`tests/web/offline.js`) |
