@@ -55,6 +55,19 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     const km = +nearRoute[10].match(/([\d.]+)km/)[1], cityKm = +route[10].match(/([\d.]+)km/)[1];
     check(km < cityKm, `내 근처 10곳 동선 ${km}km (순위 10곳 ${cityKm}km 보다 짧음)`);
     await page.evaluate(() => window.scrollTo(0, 0));
+    // 구 고르기 + 정비 담당용 CSV
+    const opt = await page.$$eval("#gu option", (o) => o.map((x) => [x.value, x.textContent]));
+    const [gu, label] = opt.slice(1).sort((a, b) => +b[1].match(/\((\d+)대/)[1] - +a[1].match(/\((\d+)대/)[1])[0];
+    const nGu = +label.match(/\((\d+)대/)[1];
+    await page.selectOption("#gu", gu);
+    const inList = await page.$$eval("#bike-list li", (li) => li.length);
+    check(inList === Math.min(nGu, 80) && (await page.textContent("#morning-summary")).startsWith(gu), `${gu} 만 보기 (${nGu}대)`);
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#csv-btn")]);
+    const csvText = fs.readFileSync(await dl.path(), "utf8");
+    const lines = csvText.replace(/^\ufeff/, "").trim().split("\r\n");
+    check(csvText.startsWith("\ufeff") && lines.length === nGu + 1 && lines.slice(1).every((l) => l.includes(`"${gu}"`)) && /^morning_2026-\d\d-\d\d_[a-z]+\.csv$/.test(dl.suggestedFilename()),
+      `CSV ${dl.suggestedFilename()} (${lines.length - 1}줄, 엑셀용 BOM)`);
+    await page.selectOption("#gu", "");
     // 아이폰: 입력칸 글자가 16px 보다 작으면 누를 때 화면이 확대된다, 홈 화면 아이콘은 PNG 여야 한다
     const small = await page.$$eval("input,select", (els) => els.filter((e) => e.type !== "file" && parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id));
     check(small.length === 0, "입력칸 글자 16px 이상 (아이폰 확대 방지)" + (small.length ? ": " + small : ""));
