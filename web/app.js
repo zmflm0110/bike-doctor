@@ -344,12 +344,21 @@ async function startReplay() {
 }
 $("#play").addEventListener("click", startReplay);
 
+// 처음 보여 줄 날: 주소에 ?day= 가 있으면 그날, 운영 중이면(최근 3일 안 목록) 가장 새 목록, 아니면 시연 날짜(6/15)
+function defaultDay(days) {
+  const want = new URLSearchParams(location.search).get("day");
+  if (want && days.includes(want)) return want;
+  const latest = days[days.length - 1];
+  const fresh = latest && Date.now() - new Date(latest + "T00:00:00+09:00").getTime() < 3 * 86400e3;
+  return fresh ? latest : days.includes("2026-06-15") ? "2026-06-15" : latest;
+}
+
 // ── 시작
 (async () => {
   const list = await getJSON("data/stations.json");
   list.forEach((s) => { s.name = s.name.trim(); state.stations[s.id] = s; });   // 원본 이름 앞에 빈칸이 붙은 곳이 많다
   const days = await getJSON("data/morning/index.json");
-  $("#day").innerHTML = days.map((d) => `<option ${d === "2026-06-15" ? "selected" : ""}>${d}</option>`).join("");
+  $("#day").innerHTML = days.map((d) => `<option ${d === defaultDay(days) ? "selected" : ""}>${d}</option>`).join("");
   $("#day").addEventListener("change", (e) => loadDay(e.target.value));
   await loadDay($("#day").value);
   stationOptions(null);

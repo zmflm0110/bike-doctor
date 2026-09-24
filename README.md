@@ -88,6 +88,11 @@ security add-generic-password -a bike-doctor -s datagokr -w '<공공데이터포
 ```sh
 .venv/bin/python server/daily_job.py --source api --api-url '<요청주소>'   # 최근 7일 → 오늘 아침 목록 + 어제 목록 채점
 ```
+매일 자동으로(맥 launchd — 06:10 아침 목록, 웹 서버 상시, `--ev` 면 충전기 수집도):
+```sh
+.venv/bin/python server/schedule.py install --api-url '<요청주소>'   # status · uninstall · print
+```
+앱은 최근 3일 안 목록이 있으면 가장 새 날을, 없으면 시연 날짜(6/15)를 먼저 보여 준다(`?day=YYYY-MM-DD` 로 지정 가능).
 열 이름이 예상과 다르면 받은 열 이름을 보여 주며 멈춘다 → `engine/core.py` 의 `FIELDS` 에 한 줄. 날짜 인자 이름이 다르면 `--date-param`.
 
 ## 자료·라이선스

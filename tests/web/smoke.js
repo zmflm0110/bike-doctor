@@ -137,6 +137,8 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     check(pr.ok && pb[0] === 0xff && pb[1] === 0xd8 && pb.length < 300000, `사진이 줄어 JPEG 로 저장 (${Math.round(pb.length / 1024)}KB)`);
     check(await page.$eval("#survey-thumb", (i) => i.hidden), "저장 뒤 사진 칸 비움");
     await shot("5_survey");
+    await page.goto(URL + "?day=2026-06-20", { waitUntil: "networkidle" });
+    check(await page.$eval("#day", (d) => d.value) === "2026-06-20", "주소의 ?day= 로 날짜 고르기");
     console.log("글자 대비 (다섯 탭 × 밝은·어두운 화면)");
     const low = [];
     for (const cs of ["light", "dark"]) {
