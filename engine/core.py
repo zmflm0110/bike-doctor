@@ -44,6 +44,49 @@ def load_tashu(path, nrows=None):
     return _finish(R)
 
 
+# API·파일마다 열 이름이 다르다 — 아는 이름을 통일 열로. (API 명세를 확인하면 여기에 한 줄 더하면 된다)
+FIELDS = {
+    "bike": ["자전거번호", "BIKE_NO", "bikeNo", "bike_no", "BIKE_ID", "bikeId"],
+    "t0": ["대여일시", "RENT_DT", "rentDt", "rent_dt", "RENT_DATE", "rentDate"],
+    "st0": ["대여 대여소번호", "대여대여소번호", "대여_대여소ID", "RENT_STATION_NO", "RENT_NO", "rentStationNo", "rent_station_no", "RENT_STATION_ID", "rentStationId"],
+    "t1": ["반납일시", "RTN_DT", "RETURN_DT", "returnDt", "rtnDt", "return_dt", "RETURN_DATE", "returnDate"],
+    "st1": ["반납대여소번호", "반납 대여소번호", "반납_대여소ID", "RTN_STATION_NO", "RETURN_STATION_NO", "RTN_NO", "returnStationNo", "rtnStationNo",
+            "return_station_no", "RETURN_STATION_ID", "returnStationId"],
+    "dist_m": ["이용거리(M)", "이용거리", "USE_DST", "USE_DISTANCE", "useDistance", "use_distance", "useDst"],
+    "born": ["생년", "BIRTH_YEAR", "BIRTH_YR", "birthYear", "birth_year"],
+    "sex": ["성별", "GENDER", "SEX", "SEX_CD", "gender", "sex"],
+}
+
+
+def from_rows(rows):
+    """API 응답 행(딕셔너리 목록) → 통일된 표. 필수 열(자전거·대여/반납 시각·대여소)을 못 찾으면 받은 열 이름을 보여 주며 멈춘다."""
+    if not rows:
+        return _finish(pd.DataFrame(columns=["bike", "t0", "st0", "t1", "st1", "dist_m", "who"]))
+    have = list(rows[0].keys())
+    pick = {}
+    for col, names in FIELDS.items():
+        hit = next((n for n in names if n in have), None) or next((h for h in have if h.lower() in {n.lower() for n in names}), None)
+        if hit:
+            pick[col] = hit
+    missing = [c for c in ("bike", "t0", "st0", "t1", "st1") if c not in pick]
+    if missing:
+        raise KeyError(f"대여이력 열을 못 찾음 {missing} — 받은 열: {have}. engine/core.py FIELDS 에 이름을 더하세요.")
+    D = pd.DataFrame(rows)
+    R = pd.DataFrame({c: D[h] for c, h in pick.items()})
+    for c in ("st0", "st1"):   # 대여소번호 '02720' 과 2720 을 같게 (파일은 5자리 글자)
+        R[c] = R[c].map(lambda x: str(x).strip().zfill(5) if str(x).strip().isdigit() else str(x).strip())
+    if "dist_m" not in R:
+        R["dist_m"] = 0.0
+    if "born" in R:
+        born = R.pop("born").replace({"": None, "\\N": None})
+        sex = R.pop("sex") if "sex" in R else pd.Series("?", index=R.index)
+        R["who"] = np.where(born.notna(), born.astype(str) + sex.fillna("?").astype(str), None)
+    else:
+        R.pop("sex") if "sex" in R else None
+        R["who"] = None
+    return _finish(R)
+
+
 def _finish(R):
     R["t0"] = pd.to_datetime(R["t0"], errors="coerce")
     R["t1"] = pd.to_datetime(R["t1"], errors="coerce")

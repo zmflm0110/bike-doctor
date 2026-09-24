@@ -81,6 +81,13 @@ node docs/build_pdf.js                       # docs/report.pdf, docs/slides.pdf
 security add-generic-password -a bike-doctor -s seoul-openapi -w '<서울 열린데이터광장 키>'
 security add-generic-password -a bike-doctor -s datagokr -w '<공공데이터포털 키>'
 ```
+맥이 아닌 서버에서는 환경변수 `SEOUL_OPENAPI_KEY`, `DATAGOKR_KEY`.
+
+공공데이터포털 키가 오면 (대여이력 API 명세의 요청주소만 확인):
+```sh
+.venv/bin/python server/daily_job.py --source api --api-url '<요청주소>'   # 최근 7일 → 오늘 아침 목록 + 어제 목록 채점
+```
+열 이름이 예상과 다르면 받은 열 이름을 보여 주며 멈춘다 → `engine/core.py` 의 `FIELDS` 에 한 줄. 날짜 인자 이름이 다르면 `--date-param`.
 
 ## 자료·라이선스
 - 대여이력·고장신고·대여소: 서울 열린데이터광장(서울시설공단), 대전 타슈: 공공데이터포털. 원본은 저장소에 넣지 않고 `data/download.py` 로 받는다.

@@ -119,5 +119,8 @@
   웹앱 — QR·입력 글자를 innerHTML 에 그대로 넣던 것 이스케이프(QR 에 HTML 을 심는 장난 차단), 구조대 확인 결과(GET /api/rescue)를 의심 자전거에 표시하고 고장 확인된 대여소를 정비 순위 맨 위로.
   검사 — `tests/web/smoke.js`(다섯 탭 14항목, 임시 DB), `offline.js` 가 서버를 직접 띄우고 합격·불합격 종료 코드(예전 pkill 은 리눅스에서 자기 셸까지 죽였음), GitHub Actions.
   Phase 7 — 시연 영상 자동 녹화(`tests/web/record_demo.js` → `docs/demo/demo.mp4`, 1분 27초 자막), 발표 `docs/slides.html`(10장, 오프라인)·`slides.pdf`, 보고서 `report.pdf`(`docs/build_pdf.js`).
+  Phase 3 — `fetch_rentals_api` 를 명세 없이 채움: 요청주소만 넣으면 하루씩·쪽 넘겨 받고(표준·odcloud 두 응답 형식, 한 건이면 딕셔너리로 오는 경우),
+  열 이름은 `engine/core.py` FIELDS 로 맞춤(대여소번호 5자리 맞추기, 생년·성별 없으면 2분 규칙), 오류 코드는 크게 멈춤. 가짜 API 서버로 테스트 5개(총 16개).
+  키는 환경변수로도(맥이 아닌 서버). 키 2 가 오면 할 일: 요청주소 확인 → `daily_job.py --source api --api-url ...`.
   함정: 마크다운 변환기가 "12~23%" 의 물결표 한 쌍을 취소선으로 바꿈 → 물결표 이스케이프.
 - 현재 사용자 없이 할 수 있는 큰 일은 거의 끝남. 남은 것: 키 1·2(실시간·자전거별 일별·충전기), 현장 조사, 대회 정보, Xcode(네이티브 앱), https 결정.
