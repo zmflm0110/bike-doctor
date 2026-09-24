@@ -1,10 +1,17 @@
-// 실행: server/app.py 8765 를 켠 뒤  PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 node tests/web/offline.js http://localhost:8765/index.html [normal|evict|notiles]
-// (npm i playwright 필요. 검사 중 서버를 끄고 지도 조각 주소를 막아 진짜 오프라인을 만든다 — Playwright 의 setOffline 만으로는 서비스워커 요청이 안 끊긴다)
+// 실행: PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 node tests/web/offline.js [normal|evict|notiles]
+// (npm i playwright 필요. 서버를 직접 띄웠다가 검사 중 끄고, 지도 조각 주소를 막아 진짜 오프라인을 만든다 — Playwright 의 setOffline 만으로는 서비스워커 요청이 안 끊긴다)
 // 오프라인 시연 검사: 한 번 열어 서비스워커가 캐시하게 한 뒤, 네트워크를 끊고 새로고침 → 시연 재생.
-const { chromium } = require("playwright");
-const URL = process.argv[2] || "http://localhost:8765/index.html";
+const { launch } = require("./browser");
+const { spawn } = require("child_process");
+const fs = require("fs"), os = require("os"), path = require("path");
+const MODE = process.argv[2] || "normal";
+const PORT = 8890 + Math.floor(Math.random() * 100);
+const URL = `http://localhost:${PORT}/index.html`;
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME || (process.env.HOME + "/Library/Caches/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell") });
+  const db = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "hz-")), "t.sqlite");
+  const srv = spawn(process.env.PYTHON || "python3", [path.resolve(__dirname, "../../server/app.py"), String(PORT)], { env: { ...process.env, BIKE_DB: db }, stdio: "ignore" });
+  for (let i = 0; i < 50; i++) { try { await fetch(URL); break; } catch { await new Promise((r) => setTimeout(r, 100)); } }
+  const browser = await launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   let page = await ctx.newPage();
   const errors = [];
@@ -16,10 +23,11 @@ const URL = process.argv[2] || "http://localhost:8765/index.html";
   console.log("온라인: SW 제어", await page.evaluate(() => !!navigator.serviceWorker.controller), "| Leaflet", await page.evaluate(() => typeof L));
   errors.length = 0;
   const cdp = await ctx.newCDPSession(page);
-  if (process.argv[3] === "notiles") { await page.evaluate(() => caches.delete("hz-tiles")); await cdp.send("Network.clearBrowserCache"); console.log("지도 조각 캐시까지 비움"); }
-  if (process.argv[3] === "evict") { await cdp.send("Network.clearBrowserCache"); console.log("HTTP 캐시 비움 (서비스워커 캐시는 남김)"); }
+  if (MODE === "notiles") { await page.evaluate(() => caches.delete("hz-tiles")); await cdp.send("Network.clearBrowserCache"); console.log("지도 조각 캐시까지 비움"); }
+  if (MODE === "evict") { await cdp.send("Network.clearBrowserCache"); console.log("HTTP 캐시 비움 (서비스워커 캐시는 남김)"); }
   // 진짜로 끊기: 우리 서버를 끄고(같은 출처), 지도 조각 주소는 서비스워커 요청까지 막는다(PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1)
-  require("child_process").execSync("pkill -f 'server/app.py 8765' || true");
+  srv.kill();
+  await new Promise((r) => srv.once("exit", r));
   let blocked = 0;
   await ctx.route(/tile\.openstreetmap\.org/, (r) => { blocked++; return r.abort(); });
   await ctx.setOffline(true);
@@ -40,8 +48,12 @@ const URL = process.argv[2] || "http://localhost:8765/index.html";
     stationCanvas: !!document.querySelector("#replay-map .leaflet-overlay-pane canvas"),
     tilesLoaded: [...document.querySelectorAll("#replay-map img.leaflet-tile")].filter((i) => i.complete && i.naturalWidth > 0).length }));
   console.log("시연:", JSON.stringify(n));
-  await page.screenshot({ path: "shot_offline_" + (process.argv[3] || "normal") + ".png" });
+  await page.screenshot({ path: path.join(os.tmpdir(), "shot_offline_" + MODE + ".png") });
   console.log("막은 지도 조각 요청:", blocked);
   console.log("오류:", errors.length ? errors.slice(0, 6) : "없음");
   await browser.close();
+  // 합격: 오프라인에서도 라이브러리·시연 재생이 되고, 오류는 막은 지도 조각 요청뿐
+  const bad = errors.filter((e) => !/tile|ERR_FAILED|Failed to load resource/.test(e));
+  if (+n.alarm <= 0 || !n.stationCanvas || bad.length) { console.log("불합격", JSON.stringify({ n, bad })); process.exit(1); }
+  console.log("합격");
 })();

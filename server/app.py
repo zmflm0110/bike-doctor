@@ -8,11 +8,11 @@ API
   POST /api/survey   현장 조사: {"station": "02720", "bike": "SPB-12345", "status": "타이어", "note": "", "lat": .., "lon": ..}
   GET  /api/survey.csv  현장 조사 전체를 CSV 로 (analysis/field_validation.py 가 읽음)
 """
-import json, pathlib, sqlite3, sys
+import json, os, pathlib, sqlite3, sys
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DB = ROOT / "data" / "rescue.sqlite"
+DB = pathlib.Path(os.environ.get("BIKE_DB") or ROOT / "data" / "rescue.sqlite")   # 검사는 BIKE_DB 로 따로
 VERDICTS = {"체인·기어", "타이어", "안장·핸들", "브레이크", "멀쩡함"}
 STATUSES = VERDICTS | {"기타 고장"}
 
@@ -125,7 +125,11 @@ def serve(port=8765, https=False):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(tls / "server.crt", tls / "server.key")
         httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
-        host = subprocess.run(["scutil", "--get", "LocalHostName"], capture_output=True, text=True).stdout.strip()
+        try:   # 맥의 Bonjour 이름. 맥이 아니면 호스트 이름으로
+            host = subprocess.run(["scutil", "--get", "LocalHostName"], capture_output=True, text=True).stdout.strip()
+        except FileNotFoundError:
+            host = ""
+        host = host or __import__("socket").gethostname().split(".")[0]
         print(f"https://{host}.local:{port}  (같은 와이파이의 아이폰에서)")
     else:
         print(f"http://localhost:{port}")
