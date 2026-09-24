@@ -108,6 +108,14 @@ def fetch_rentals_api(start, end, url=None, key=None, per_page=1000, date_params
     return R[(R["t0"] >= lo) & (R["t0"] < hi)].reset_index(drop=True)
 
 
+def write_scores(c, out=None):
+    """다음 날 아침 채점 결과를 앱이 읽게 → web/data/morning/scores.json {목록 날짜: {listed, rode, first_dud}}"""
+    out = out or OUT / "scores.json"
+    rows = c.execute("select day, listed, rode, first_dud from scores order by day").fetchall()
+    json.dump({d: {"listed": n, "rode": r, "first_dud": k} for d, n, r, k in rows}, open(out, "w"))
+    return len(rows)
+
+
 def write(days, station_name, only_latest):
     OUT.mkdir(parents=True, exist_ok=True)
     keys = [max(days)] if only_latest else sorted(days)
@@ -137,7 +145,10 @@ def main():
         today = dt.date.today()
         R = fetch_rentals_api(today - dt.timedelta(days=LOOKBACK_DAYS), today - dt.timedelta(days=1), url=a.api_url, date_params=a.date_param)
         print(f"받은 대여 {len(R):,}건 ({R['t0'].min()} ~ {R['t0'].max()})" if len(R) else "받은 대여 0건 — 날짜 인자·주소를 확인하세요")
-        items, scored = run_morning(db(), today.isoformat(), R, stn)
+        c = db()
+        items, scored = run_morning(c, today.isoformat(), R, stn)
+        OUT.mkdir(parents=True, exist_ok=True)
+        write_scores(c)
         days = {today.isoformat(): items}
         written = write(days, stn, only_latest=True)
         if scored:

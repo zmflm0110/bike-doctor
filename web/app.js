@@ -1,6 +1,6 @@
 // 헛걸음 제로 — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
 const $ = (s) => document.querySelector(s);
-const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "" };
+const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {} };
 let here = null;   // 내 위치 (📍 버튼을 눌렀을 때만)
 // QR·입력에서 온 글자를 화면에 넣을 때는 반드시 거친다 (QR 에 HTML 을 심어 두는 장난 막기)
 const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -88,6 +88,13 @@ $("#csv-btn").addEventListener("click", () => {
 function renderRetro(bikes) {
   const known = bikes.filter((b) => typeof b.truth_first_rider_dud === "boolean");
   const box = $("#morning-retro");
+  const sc = state.scores[state.day];
+  if (!known.length && sc && !state.gu) {   // 운영: 다음 날 아침 매일 작업이 채점해 둔 것
+    box.hidden = false;
+    box.innerHTML = `<b>이 목록은 맞았을까?</b> 다음 날 아침 채점: 목록 ${sc.listed}대 중 그날 누가 빌린 ${sc.rode}대, 첫 이용자 ` +
+      `<b class="confirmed">${sc.first_dud}명(${sc.rode ? Math.round((100 * sc.first_dud) / sc.rode) : 0}%)</b>이 또 바로 반납했어요. 평소엔 약 2.5% 예요.`;
+    return;
+  }
   if (!known.length) { box.hidden = true; return; }
   const hit = known.filter((b) => b.truth_first_rider_dud).length;
   box.hidden = false;
@@ -358,6 +365,7 @@ function defaultDay(days) {
   const list = await getJSON("data/stations.json");
   list.forEach((s) => { s.name = s.name.trim(); state.stations[s.id] = s; });   // 원본 이름 앞에 빈칸이 붙은 곳이 많다
   const days = await getJSON("data/morning/index.json");
+  try { state.scores = await getJSON("data/morning/scores.json"); } catch {}   // 운영 중에만 있음
   $("#day").innerHTML = days.map((d) => `<option ${d === defaultDay(days) ? "selected" : ""}>${d}</option>`).join("");
   $("#day").addEventListener("change", (e) => loadDay(e.target.value));
   await loadDay($("#day").value);
