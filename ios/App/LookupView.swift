@@ -36,6 +36,9 @@ struct LookupView: View {
             }
             .navigationTitle("자전거 조회")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsButton() } }
+            .onAppear {   // 실행 인자 `-lookup SPB-69683` (화면 사진·시연용)
+                if result == nil, let q = UserDefaults.standard.string(forKey: "lookup") { input = q; lookup(q) }
+            }
             .fullScreenCover(isPresented: $scanning) {
                 QRScanner { code in
                     scanning = false
