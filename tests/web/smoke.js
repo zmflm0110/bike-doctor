@@ -33,6 +33,12 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     check((await page.$$("#station-rank li")).length === 10, "정비 순위 10곳");
     check((await page.$$("#map path.leaflet-interactive")).length > 5, "지도에 의심 대여소 표시");
     await shot("1_morning");
+    // 아이폰: 입력칸 글자가 16px 보다 작으면 누를 때 화면이 확대된다, 홈 화면 아이콘은 PNG 여야 한다
+    const small = await page.$$eval("input,select", (els) => els.filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id));
+    check(small.length === 0, "입력칸 글자 16px 이상 (아이폰 확대 방지)" + (small.length ? ": " + small : ""));
+    const touch = await page.$eval('link[rel="apple-touch-icon"]', (l) => l.href);
+    const icon = await fetch(touch);
+    check(icon.ok && icon.headers.get("content-type") === "image/png", "홈 화면 아이콘 PNG");
     const first = await page.$eval("#bike-list li b", (b) => b.textContent);
 
     console.log("자전거 조회");
