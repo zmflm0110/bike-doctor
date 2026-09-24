@@ -1,0 +1,51 @@
+# 헛걸음 제로 아이폰 앱 — Xcode 프로젝트 정의. HeotgeoleumZero.xcodeproj 는 이 파일로 만든다:
+#   xcodegen generate   (맥: brew install xcodegen / 리눅스: docker swift 로 빌드 — ios/README.md)
+name: HeotgeoleumZero
+options:
+  bundleIdPrefix: kr.bikedoctor
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: ko
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""          # Xcode → Signing & Capabilities 에서 내 Apple ID(Personal Team) 고르기
+packages:
+  HeotgeoleumCore:
+    path: Core
+targets:
+  HeotgeoleumZero:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: ../web/data         # 웹앱과 같은 자료를 그대로 앱에 넣는다 (앱 안 'data' 폴더)
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: HeotgeoleumCore
+    scheme: {}                    # 공유 스킴 (xcodebuild·CI 가 쓴다)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.bikedoctor.heotgeoleumzero
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: 헛걸음 제로
+        CFBundleDevelopmentRegion: ko
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: ""
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSCameraUsageDescription: 따릉이 QR 을 읽고, 현장 조사 때 고장 부위 사진을 찍으려고 카메라를 씁니다.
+        NSLocationWhenInUseUsageDescription: 가까운 대여소·의심 자전거와 정비 동선을 보여 주려고 지금 위치를 씁니다. 위치는 조사 기록에만 붙고 따로 모으지 않습니다.
+        NSLocalNetworkUsageDescription: 같은 와이파이의 맥 서버로 구조대 확인·현장 조사 기록을 보냅니다.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true

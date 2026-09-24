@@ -1,0 +1,55 @@
+# 아이폰 앱: 맥(Xcode)에서 엔진 검사 + 앱 빌드 + 시뮬레이터에서 켜서 화면 사진 (서명 없이)
+name: ios
+on:
+  push:
+    paths: ["ios/**", "web/data/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+          xcodebuild -version
+      - name: 엔진 검사 (swift test)
+        working-directory: ios/Core
+        run: swift test
+      - name: 프로젝트가 project.yml 과 같은지
+        working-directory: ios
+        run: |
+          brew install xcodegen >/dev/null
+          cp HeotgeoleumZero.xcodeproj/project.pbxproj /tmp/before.pbxproj
+          xcodegen generate
+          diff -q /tmp/before.pbxproj HeotgeoleumZero.xcodeproj/project.pbxproj || echo "::warning::xcodeproj 가 project.yml 과 다름 — xcodegen generate 후 커밋"
+      - name: 앱 빌드 (시뮬레이터)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project HeotgeoleumZero.xcodeproj -scheme HeotgeoleumZero -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build.log | grep -E "error:|warning: .*App/|BUILD" || true
+          grep -q "BUILD SUCCEEDED" build.log
+      - name: 시뮬레이터에서 켜고 화면 사진
+        working-directory: ios
+        run: |
+          DEV=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          xcrun simctl boot "$DEV"; xcrun simctl bootstatus "$DEV" -b
+          APP=$(find build/Build/Products -name "HeotgeoleumZero.app" -maxdepth 3 | head -1)
+          xcrun simctl install "$DEV" "$APP"
+          xcrun simctl privacy "$DEV" grant location kr.bikedoctor.heotgeoleumzero || true
+          xcrun simctl location "$DEV" set 37.5556,126.9106 || true
+          xcrun simctl launch "$DEV" kr.bikedoctor.heotgeoleumzero
+          sleep 12
+          mkdir -p shots; xcrun simctl io "$DEV" screenshot shots/1_launch.png
+          xcrun simctl spawn "$DEV" log show --last 1m --predicate 'process == "HeotgeoleumZero"' --style compact | tail -40 || true
+          # 앱이 살아 있는지 (바로 죽으면 실패)
+          xcrun simctl spawn "$DEV" launchctl list | grep -q heotgeoleumzero
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-shots
+          path: |
+            ios/shots/
+            ios/build.log

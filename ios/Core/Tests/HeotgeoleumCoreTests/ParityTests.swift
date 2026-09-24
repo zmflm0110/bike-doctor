@@ -3,7 +3,7 @@ import XCTest
 
 /// 아이폰 앱 엔진이 웹앱과 같은 답을 내는지 — 정답은 웹앱에서 뽑은 Fixtures/parity.json (node tests/web/parity_fixture.js)
 final class ParityTests: XCTestCase {
-    static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     static let store = try! DataStore(root: repo.appendingPathComponent("web/data"))
     static let fixture: [String: Any] = {
         let url = Bundle.module.url(forResource: "parity", withExtension: "json", subdirectory: "Fixtures")!
