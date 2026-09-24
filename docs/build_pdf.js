@@ -1,4 +1,4 @@
-// 제출용 PDF 만들기: 발표(docs/slides.html → slides.pdf), 보고서(docs/report.md → report.html·report.pdf)
+// 제출용 PDF 만들기: 발표(docs/slides.html → slides.pdf), 보고서·제안서(docs/report.md·proposal.md → .pdf)
 //   npm i playwright marked && node docs/build_pdf.js
 // 인터넷 없이 된다(그림은 docs/ 안의 파일). 한글 글꼴은 기기에 있는 것(맥: Apple SD Gothic Neo, 리눅스: Noto Sans CJK).
 const fs = require("fs"), path = require("path");
@@ -21,19 +21,21 @@ const CSS = `
   .foot { margin-top: 30px; color: #5d6b69; font-size: 8.5pt; }`;
 
 (async () => {
-  const md = fs.readFileSync(path.join(DOCS, "report.md"), "utf8").replace(/\s*\(초안\)/, "").replace(/~/g, "\\~");   // 12~23% 가 취소선으로 바뀌지 않게
-  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>헛걸음 제로 — 보고서</title><style>${CSS}</style></head><body>` +
-    marked.parse(md) + `<p class="foot">코드·자료 재현: README.md · 만든 날 ${new Date().toISOString().slice(0, 10)}</p></body></html>`;
-  fs.writeFileSync(path.join(DOCS, "report.html"), html);
   const browser = await launch();
   const page = await browser.newPage();
-  await page.goto("file://" + path.join(DOCS, "report.html"), { waitUntil: "load" });
-  await page.pdf({ path: path.join(DOCS, "report.pdf"), format: "A4", printBackground: true,
-    displayHeaderFooter: true, headerTemplate: "<span></span>",
-    footerTemplate: '<div style="font-size:8px;width:100%;text-align:center;color:#888"><span class="pageNumber"></span> / <span class="totalPages"></span></div>' });
+  for (const [name, title] of [["report", "헛걸음 제로 — 보고서"], ["proposal", "헛걸음 제로 — 서울시설공단 제안서"]]) {
+    const md = fs.readFileSync(path.join(DOCS, name + ".md"), "utf8").replace(/\s*\(초안\)/, "").replace(/~/g, "\\~");   // 12~23% 가 취소선으로 바뀌지 않게
+    const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title><style>${CSS}</style></head><body>` +
+      marked.parse(md) + `<p class="foot">코드·자료 재현: README.md · 만든 날 ${new Date().toISOString().slice(0, 10)}</p></body></html>`;
+    fs.writeFileSync(path.join(DOCS, name + ".html"), html);
+    await page.goto("file://" + path.join(DOCS, name + ".html"), { waitUntil: "load" });
+    await page.pdf({ path: path.join(DOCS, name + ".pdf"), format: "A4", printBackground: true,
+      displayHeaderFooter: true, headerTemplate: "<span></span>",
+      footerTemplate: '<div style="font-size:8px;width:100%;text-align:center;color:#888"><span class="pageNumber"></span> / <span class="totalPages"></span></div>' });
+  }
   await page.goto("file://" + path.join(DOCS, "slides.html"), { waitUntil: "load" });
   await page.emulateMedia({ media: "print" });
   await page.pdf({ path: path.join(DOCS, "slides.pdf"), width: "1280px", height: "720px", printBackground: true, preferCSSPageSize: true });
   await browser.close();
-  for (const f of ["report.pdf", "slides.pdf"]) console.log(f, (fs.statSync(path.join(DOCS, f)).size / 1e6).toFixed(1) + "MB");
+  for (const f of ["report.pdf", "proposal.pdf", "slides.pdf"]) console.log(f, (fs.statSync(path.join(DOCS, f)).size / 1e6).toFixed(1) + "MB");
 })();
