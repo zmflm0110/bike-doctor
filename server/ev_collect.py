@@ -35,7 +35,11 @@ def fetch(zcode, period):
         q = urllib.parse.urlencode({"serviceKey": k, "dataType": "JSON", "pageNo": page, "numOfRows": 9999, "period": period, "zcode": zcode})
         with urllib.request.urlopen(f"{URL}?{q}", timeout=60) as r:
             data = json.loads(r.read().decode("utf-8"))
-        items = data.get("items", {}).get("item", []) if isinstance(data.get("items"), dict) else data.get("items", [])
+        items = data.get("items", {}).get("item", []) if isinstance(data.get("items"), dict) else data.get("items") or []
+        if isinstance(items, dict):   # 한 건이면 목록이 아니라 딕셔너리로 온다
+            items = [items]
+        if not items and str(data.get("resultCode", "00")) not in ("00", "0"):
+            raise RuntimeError(f"API 오류 {data.get('resultCode')}: {data.get('resultMsg')}")
         rows += items
         total = int(data.get("totalCount", len(rows)))
         if len(rows) >= total or not items:
