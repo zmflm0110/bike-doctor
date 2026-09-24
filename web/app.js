@@ -124,15 +124,28 @@ function stopScan() {
   v.hidden = true; $("#scan-btn").textContent = "QR 로 찍기";
 }
 
-// ── 구조대 (지금은 이 기기에만 저장 — Phase 3 서버가 생기면 전송)
+// ── 구조대 (이 기기에 남기고, 서버가 있으면 정비 쪽으로 보냄)
 function rescueLog() { try { return JSON.parse(localStorage.getItem("rescue") || "[]"); } catch { return []; } }
-window.rescueSave = (bike, verdict) => {
+window.rescueSave = async (bike, verdict) => {
   const log = rescueLog();
   log.unshift({ bike, verdict, at: new Date().toLocaleString("ko-KR"), day: state.day });
   try { localStorage.setItem("rescue", JSON.stringify(log.slice(0, 200))); } catch {}
   renderRescue();
-  $("#lookup-result").innerHTML += `<div class="result ok">고마워요! "${verdict}" 로 기록했어요.</div>`;
+  // 서버가 있으면 정비 쪽으로 보낸다. 없으면(정적 호스팅·오프라인) 이 기기에만 남는다.
+  let sent = "";
+  try {
+    const r = await fetch("api/rescue", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bike, verdict, day: state.day }) });
+    if (r.ok) { const j = await r.json(); sent = ` 지금까지 ${j.count}명이 이 자전거를 확인했어요.`; }
+  } catch {}
+  toast(`고마워요! ${bike} 를 "${verdict}" 로 기록했어요.${sent}`);
 };
+function toast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
 function renderRescue() {
   if (!state.morning) return;
   const done = new Set(rescueLog().filter((x) => x.day === state.day).map((x) => x.bike));
