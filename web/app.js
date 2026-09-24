@@ -57,12 +57,19 @@ function renderRank(bikes) {
   }).join("");
 }
 
+// 지도 바탕: 지도 조각(인터넷) + 대여소 전체를 옅은 점으로 — 오프라인이라 조각이 없어도 점들이 서울 모양을 그린다
+function baseMap(id, opts = {}) {
+  const map = L.map(id, opts).setView([37.55, 126.99], 11);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, crossOrigin: true, attribution: "© OpenStreetMap" }).addTo(map);
+  const r = L.canvas({ padding: 0.5 });
+  Object.values(state.stations).forEach((s) =>
+    L.circleMarker([s.lat, s.lon], { renderer: r, radius: 1.5, stroke: false, fillColor: "#64748b", fillOpacity: 0.35, interactive: false }).addTo(map));
+  return map;
+}
+
 function renderMap(bikes) {
   if (typeof L === "undefined") { $("#map").textContent = "지도를 불러오지 못했어요(오프라인). 아래 목록을 보세요."; return; }
-  if (!state.map) {
-    state.map = L.map("map").setView([37.55, 126.99], 11);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(state.map);
-  }
+  if (!state.map) state.map = baseMap("map");
   if (state.layer) state.layer.remove();
   state.layer = L.layerGroup().addTo(state.map);
   groupByStation(bikes).forEach(([id, arr]) => {
@@ -174,8 +181,7 @@ const lastStation = {};
 async function startReplay() {
   if (!replay) replay = await getJSON("data/replay_2026-06-15.json");
   if (!rmap && typeof L !== "undefined") {
-    rmap = L.map("replay-map", { zoomControl: false }).setView([37.55, 126.99], 11);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(rmap);
+    rmap = baseMap("replay-map", { zoomControl: false });
     rlayer = L.layerGroup().addTo(rmap);
   }
   if (timer) { clearInterval(timer); timer = null; $("#play").textContent = "▶ 재생"; return; }
