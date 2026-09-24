@@ -4,7 +4,9 @@
 서로 다른 두 사람이 연달아 3분 안에 같은 대여소에 반납한 자전거는 다음 사람도 35~44% 가 포기한다(평소 2.5%, 약 14배).
 서울 3개월·대전 2개월, 약 1천만 건으로 검증.
 
-- 보고서 초안: [`docs/report.md`](docs/report.md) · 핵심 표: [`docs/results.md`](docs/results.md) · 계획·진행 기록: [`PLAN.md`](PLAN.md) · 발표 구성: [`docs/slides.md`](docs/slides.md)
+- 보고서 초안: [`docs/report.md`](docs/report.md) ([PDF](docs/report.pdf)) · 핵심 표: [`docs/results.md`](docs/results.md) · 계획·진행 기록: [`PLAN.md`](PLAN.md)
+- 발표: [`docs/slides.html`](docs/slides.html) (브라우저로 열고 ←/→, F 전체 화면, [PDF](docs/slides.pdf)) · 말할 거리·예상 질문: [`docs/slides.md`](docs/slides.md)
+- 시연 영상: [`docs/demo/demo.mp4`](docs/demo/demo.mp4) (1분 27초, 자막 포함) · 앱 화면: [`docs/shots/`](docs/shots)
 
 ## 핵심 결과
 | | 결과 | 근거 |
@@ -28,7 +30,7 @@
 | 4 웹앱 | 🟡 거의 | 아침 목록·자전거 조회(QR)·구조대·시연·현장 조사 5개 탭, 진짜 오프라인 시연 검사 통과, 집 와이파이 https | 아이폰 실기기 확인 |
 | 5 현장 검증 | ⏳ 준비 완료 | 현장 조사 탭·서버 API·검증 스크립트·절차 문서 | 2주간 대여소 5곳+ 자전거 150대+ 조사, 친구 구조대 시범 |
 | 6 넓히기 (전기차 충전기) | 🟡 뼈대 | 헛충전 연쇄 엔진·수집기·테스트 | 인증키로 1~2주 수집 → 검증 |
-| 7 대회 패키지 | 🟡 초안 | 보고서 초안, 발표 10장 구성·예상 질문 | 목표 대회 정해지면 형식 맞추기, 시연 영상 |
+| 7 대회 패키지 | 🟡 거의 | 보고서(PDF), 발표 10장(HTML·PDF)·예상 질문, 시연 영상 자동 녹화 | 목표 대회 정해지면 형식 맞추기, 이름·학교, 현장 조사 결과 채우기 |
 
 ## 사람이 해야 하는 것
 | 할 일 | 왜 |
@@ -54,6 +56,14 @@ node tests/web/smoke.js                     # 웹앱 다섯 탭 휴대폰 화면
 PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 node tests/web/offline.js evict   # 진짜 오프라인 시연 검사 (normal|evict|notiles)
 ```
 GitHub 에 올리면 `.github/workflows/test.yml` 이 위 검사를 전부 돌린다(원본 자료·인증키 불필요).
+
+제출물 다시 만들기 (`npm i playwright marked`):
+```sh
+SHOTS=docs/shots node tests/web/smoke.js     # 앱 화면 사진 (발표에 쓰임)
+node tests/web/record_demo.js                # 시연 영상 → docs/demo/demo.webm·demo.mp4 (mp4 는 ffmpeg 필요, FFMPEG=경로)
+node docs/build_pdf.js                       # docs/report.pdf, docs/slides.pdf
+```
+인터넷이 되는 곳에서 찍으면 지도 조각이 깔린다(안 되면 대여소 점 바탕).
 
 ## 구성
 | 폴더 | 내용 |

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>헛걸음 제로 — 발표</title>
+<!-- 발표: 브라우저로 열고 ←/→ (또는 클릭), F 전체 화면. PDF: node docs/build_pdf.js → docs/slides.pdf
+     인터넷 없이 열리도록 글꼴·그림 모두 이 폴더 안 것만 쓴다. 내용·말할 거리는 docs/slides.md -->
+<style>
+  :root { --ink: #17201f; --muted: #5d6b69; --accent: #0f766e; --red: #d9480f; --yellow: #d99a06; --good: #2b8a3e; --bg: #f6f7f6; --line: #dfe5e3; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #1d2322; }
+  body { font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", "Noto Sans CJK KR", "Noto Sans KR", sans-serif; color: var(--ink); }
+  .slide { width: 1280px; height: 720px; background: var(--bg); position: relative; overflow: hidden; padding: 64px 80px; display: none; }
+  .slide.on { display: block; }
+  .deck { position: fixed; left: 50%; top: 50%; transform-origin: 0 0; }
+  h1 { font-size: 64px; margin: 0 0 12px; letter-spacing: -1.5px; }
+  h2 { font-size: 40px; margin: 0 0 28px; letter-spacing: -0.8px; }
+  p, li { font-size: 26px; line-height: 1.5; }
+  ul { padding-left: 1.1em; margin: 0; } li { margin: 6px 0; }
+  .kicker { color: var(--accent); font-weight: 700; font-size: 20px; letter-spacing: 1px; margin-bottom: 10px; }
+  .muted { color: var(--muted); }
+  .big { font-size: 120px; font-weight: 800; letter-spacing: -4px; line-height: 1; }
+  .num { position: absolute; right: 36px; bottom: 26px; font-size: 16px; color: var(--muted); }
+  .src { position: absolute; left: 80px; bottom: 26px; font-size: 15px; color: var(--muted); }
+  .row { display: flex; gap: 40px; align-items: flex-start; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px 26px; }
+  .stat { flex: 1; }
+  .stat b { display: block; font-size: 54px; letter-spacing: -1.5px; }
+  .stat span { font-size: 20px; color: var(--muted); }
+  .red { color: var(--red); } .good { color: var(--good); } .acc { color: var(--accent); }
+  .phone { height: 560px; border-radius: 28px; border: 8px solid #111; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+  .title { background: linear-gradient(135deg, #0f766e, #134e4a); color: #fff; }
+  .title .kicker, .title .muted { color: #b7e4dd; }
+  .timeline { display: flex; gap: 14px; margin: 26px 0 10px; }
+  .timeline div { flex: 1; border-radius: 14px; padding: 16px; font-size: 22px; background: #fff; border: 2px solid var(--line); text-align: center; }
+  .timeline .dud { border-color: var(--red); color: var(--red); font-weight: 700; }
+  .timeline .alarm { background: var(--red); color: #fff; border-color: var(--red); font-weight: 700; }
+  table { border-collapse: collapse; font-size: 22px; }
+  td, th { padding: 8px 16px; border-bottom: 1px solid var(--line); text-align: right; } th:first-child, td:first-child { text-align: left; }
+  .bar { height: 26px; background: var(--accent); border-radius: 6px; }
+  .hint { position: fixed; bottom: 10px; right: 14px; color: #8a9896; font-size: 12px; }
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { background: none; }
+    .deck { position: static; transform: none !important; }
+    .slide { display: block !important; page-break-after: always; break-after: page; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<section class="slide title">
+  <div class="kicker">공공자전거 공개 데이터 · 고장 예보</div>
+  <h1 style="font-size:84px;margin-top:120px">헛걸음 제로</h1>
+  <p style="font-size:34px;margin:0">앞사람들의 헛걸음이 고장을 알려 준다</p>
+  <p class="muted" style="margin-top:120px">이름 · 학교 (대회 정해지면 채움)</p>
+  <div class="num" style="color:#b7e4dd">1</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">장면</div>
+  <h2>QR 을 찍고, 페달을 밟았더니 체인이 헛돈다</h2>
+  <div class="row">
+    <div style="flex:1.3">
+      <p>그냥 반납하고 옆 자전거를 빌린다. 신고는… 귀찮다.</p>
+      <p>그런데 이 자전거, <b class="red">내 앞에서도 여러 명이 똑같이 포기했다.</b></p>
+      <p class="acc"><b>기록엔 다 남아 있었다.</b></p>
+    </div>
+    <div class="card" style="flex:1">
+      <p class="muted" style="font-size:20px;margin:0 0 8px">SPB-69683 · 힐스테이트에코 대여소 (2026-06 실제 기록)</p>
+      <p style="font-size:22px;margin:0">6월 14일 23:30 까지<br>서로 다른 <b class="red">28명</b>이 연달아<br>빌리고 3분 안에 같은 곳에 반납<br>→ 다음 날 첫 이용자도 또 반납</p>
+    </div>
+  </div>
+  <div class="num">2</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">문제</div>
+  <h2>공단은 신고가 있어야 고장을 안다</h2>
+  <div class="row" style="margin-top:20px">
+    <div class="card stat"><b>10만 대+</b><span>따릉이 고장 신고, 매년</span></div>
+    <div class="card stat"><b>1순위</b><span>이용자 불만 "고장 자전거가 너무 많다"</span></div>
+    <div class="card stat"><b class="red">49~61%</b><span>연속 헛대여 중 7일 뒤에도 신고 없음</span></div>
+  </div>
+  <p style="margin-top:40px">고장 자전거는 앱에 <b>"대여 가능"</b> 으로 남아, 다음 사람이 또 빌렸다가 또 반납한다.</p>
+  <div class="src">헤럴드경제 2026-09 · 서울 열린데이터광장 대여이력·고장신고 2026년 1·3·6월</div>
+  <div class="num">3</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">아이디어</div>
+  <h2>헛대여 = 3분 안에, 300m 도 안 가고, 같은 곳에 반납</h2>
+  <p>한 번은 우연(마음이 바뀜). <b>서로 다른 사람이 연달아</b> 포기하면 자전거 탓.</p>
+  <div class="timeline">
+    <div>정상 이용</div><div class="dud">A 가 25초 만에 반납</div><div class="dud">B 가 40초 만에 반납</div><div class="alarm">경보 (노랑)</div><div class="alarm" style="background:#9a3412">3연속 = 빨강</div>
+  </div>
+  <ul style="margin-top:26px">
+    <li>같은 사람이 다시 빌려 본 것은 한 번으로 (생년·성별, 없으면 "반납 2분 안 재대여")</li>
+    <li>기준은 <b>1월 자료로만</b> 정하고, 3·6월과 대전에 <b>그대로</b> 시험 — 미리 본 데이터에 맞추지 않기</li>
+  </ul>
+  <div class="num">4</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">증거 1 · 두 도시, 다섯 달, 약 1천만 건</div>
+  <div class="row">
+    <img src="fig_chain.png" style="width:720px;border-radius:12px;background:#fff" alt="앞선 포기 수에 따른 다음 사람 포기 확률">
+    <div style="flex:1">
+      <p style="margin-top:30px">앞선 포기 0명</p><div class="big" style="font-size:92px">2.5%</div>
+      <p style="margin-top:34px">서로 다른 2명</p><div class="big red" style="font-size:92px">35~44%</div>
+      <p class="muted" style="margin-top:24px">약 <b>14배</b>. 우연이 아니다.</p>
+    </div>
+  </div>
+  <div class="num">5</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">증거 2</div>
+  <h2>신고보다 하루 가까이 빠르다</h2>
+  <div class="row">
+    <div class="card stat"><b class="acc">20~25시간</b><span>경보 → 고장 신고 (중앙값)</span></div>
+    <div class="card stat"><b class="red">3.5~4.6명</b><span>그 사이 한 자전거에서 헛걸음</span></div>
+    <div class="card stat"><b>51.8~60.2%</b><span>경보 정밀도 (다른 달·도시, 1월과 ±2.3%p) · 3연속 약 70%</span></div>
+  </div>
+  <p style="margin-top:40px">막을 수 있던 헛걸음: 서울 하루 <b class="good">90~243명</b>, 대전 하루 <b class="good">114~132명</b></p>
+  <div class="src">docs/phase1.md · docs/report.md 5-2, 5-3</div>
+  <div class="num">6</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">솔직함</div>
+  <h2>공개 실시간 자료로는 안 된다 — 직접 재서 확인</h2>
+  <div class="row">
+    <div style="flex:1">
+      <p>실시간 API 는 대여소별 <b>대수</b>만 준다. 30초마다 찍어도 "−1 뒤 +1" 깜빡임의 87% 는 남의 평범한 대여·반납.</p>
+      <p>대여소 경보 정밀도 <b class="red">0.2~1.7%</b> → 쓸 수 없다.</p>
+    </div>
+    <div class="card" style="flex:1">
+      <p style="margin:0"><b class="acc">대신: 매일 아침 목록</b> (하루 늦은 자전거별 기록)</p>
+      <table style="margin-top:10px;width:100%">
+        <tr><th>달</th><th>목록</th><th>첫 이용자 헛걸음</th><th>미신고</th></tr>
+        <tr><td>1월</td><td>45대</td><td>42.1%</td><td>81.6%</td></tr>
+        <tr><td>3월</td><td>59대</td><td>35.6%</td><td>76.1%</td></tr>
+        <tr><td>6월</td><td>78대</td><td>33.6%</td><td>65.8%</td></tr>
+      </table>
+    </div>
+  </div>
+  <p style="margin-top:28px">→ "공단이 자전거별 실시간 자료를 <b>켜기만 하면</b> 실시간 경고" — 알고리즘은 준비됨</p>
+  <div class="num">7</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">시연 · 웹앱 (아이폰 홈 화면, 오프라인에서도)</div>
+  <div class="row" style="gap:28px;justify-content:center">
+    <img class="phone" src="shots/1_morning.png" alt="아침 목록">
+    <img class="phone" src="shots/2_lookup.png" alt="자전거 조회">
+    <img class="phone" src="shots/4_replay.png" alt="하루 재생">
+  </div>
+  <p class="muted" style="text-align:center;font-size:20px;margin-top:14px">아침 목록·정비 순위 &nbsp;·&nbsp; 번호/QR 조회 → "서로 다른 28명이 바로 반납" &nbsp;·&nbsp; 6/15 하루 재생 (영상: docs/demo/demo.mp4)</p>
+  <div class="num">8</div>
+</section>
+
+<section class="slide">
+  <div class="kicker">함께 고치기</div>
+  <h2>3초 구조대 → 정비</h2>
+  <div class="row">
+    <div style="flex:1.2">
+      <ul>
+        <li>경보 뒤 다음 대여까지 중앙값 <b>30분</b>, 그 사이 같은 대여소 이용자 중앙값 <b>2명</b></li>
+        <li>경보의 <b>65%</b> 는 확인해 줄 사람이 있다</li>
+        <li>"체인·타이어·안장·멀쩡함" 한 번 탭 → 확인된 곳이 정비 순위 맨 위</li>
+        <li>고장 종류 힌트: 단말기 헛대여는 중앙값 13초, 타이어·체인은 37초</li>
+      </ul>
+      <p class="card" style="font-size:22px;margin-top:24px">현장 조사 (2주, 자전거 150대+): <span class="muted">결과 채울 자리 — docs/field_protocol.md</span></p>
+    </div>
+    <img class="phone" style="height:520px" src="shots/3_rescue.png" alt="구조대">
+  </div>
+  <div class="num">9</div>
+</section>
+
+<section class="slide title">
+  <div class="kicker">넓히기</div>
+  <h2 style="color:#fff">같은 엔진, 다른 곳</h2>
+  <ul style="color:#e6f4f1">
+    <li>대전 타슈 — 이미 검증 (정밀도 58.5~60.2%)</li>
+    <li>전기차 충전기 "헛충전" 연쇄 — 엔진·수집기 준비 (2026 권익위 충전 민원주의보)</li>
+    <li>세종 어울링, 창원 누비자 … 대여기록이 공개된 곳 어디든</li>
+  </ul>
+  <p style="font-size:46px;font-weight:800;margin-top:70px;letter-spacing:-1px">신고를 기다리지 말고, 흔적을 읽자.</p>
+  <div class="num" style="color:#b7e4dd">10</div>
+</section>
+
+</div>
+<div class="hint">←/→ 넘기기 · F 전체 화면</div>
+<script>
+  const slides = [...document.querySelectorAll(".slide")];
+  let i = Math.max(0, Math.min(slides.length - 1, (+location.hash.slice(1) || 1) - 1));
+  const deck = document.getElementById("deck");
+  function fit() {
+    const s = Math.min(innerWidth / 1280, innerHeight / 720);
+    deck.style.transform = `scale(${s}) translate(-640px, -360px)`;
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle("on", k === i));
+    history.replaceState(null, "", "#" + (i + 1));
+  }
+  addEventListener("keydown", (e) => {
+    if (["ArrowRight", "PageDown", " ", "Enter"].includes(e.key)) show(i + 1);
+    if (["ArrowLeft", "PageUp", "Backspace"].includes(e.key)) show(i - 1);
+    if (e.key === "f" || e.key === "F") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  });
+  addEventListener("click", (e) => show(e.clientX < innerWidth / 3 ? i - 1 : i + 1));
+  addEventListener("resize", fit);
+  fit(); show(i);
+</script>
+</body>
+</html>

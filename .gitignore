@@ -8,3 +8,5 @@ node_modules/
 data/rescue.sqlite
 data/*.sqlite
 data/tls/
+docs/demo/*.webm
+docs/report.html
