@@ -4,7 +4,7 @@
     python server/app.py 8443 --https   # 집 와이파이 안 https (아이폰 위치·QR) — 먼저 server/https_local.sh
 API
   POST /api/rescue   {"bike": "SPB-12345", "verdict": "체인·기어", "day": "2026-06-15"}  → {"ok": true, "count": n}
-  GET  /api/rescue   → 자전거별 확인 수·결과 요약 (정비 순위에 '사람이 확인함' 표시용)
+  GET  /api/rescue   → 자전거별 확인 수·결과 요약, 구조대 + 현장 조사 (정비 순위에 '사람이 확인함' 표시용)
   POST /api/survey   현장 조사: {"station": "02720", "bike": "SPB-12345", "status": "타이어", "note": "", "lat": .., "lon": ..,
                      "photo": "data:image/jpeg;base64,..."(선택, 폰에서 줄인 사진 — data/photos/ 에 저장)}
   GET  /api/survey.csv  현장 조사 전체를 CSV 로 (analysis/field_validation.py 가 읽음, photo 열 = 사진 파일 이름)
@@ -134,8 +134,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             return self.wfile.write(body)
         if self.path.startswith("/api/rescue"):
-            with db() as c:
-                rows = c.execute("select bike, verdict, count(*) from rescue group by bike, verdict").fetchall()
+            with db() as c:   # 구조대 확인 + 현장 조사(사람이 본 것은 모두 '사람 확인')
+                rows = c.execute("select bike, v, count(*) from (select bike, verdict v from rescue union all select bike, status v from survey)"
+                                 " group by bike, v").fetchall()
             out = {}
             for bike, verdict, n in rows:
                 out.setdefault(bike, {})[verdict] = n
