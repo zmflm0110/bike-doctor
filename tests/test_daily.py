@@ -3,7 +3,7 @@ import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import pandas as pd
 from engine.core import _finish
-from server.daily_job import db, run_morning
+from server.daily_job import db, run_morning, write_scores
 
 
 def ride(bike, t, sec, who):
@@ -21,3 +21,7 @@ def test_list_then_score_next_morning(tmp_path):
     items, scored = run_morning(c, "2026-06-03", _finish(pd.DataFrame(day2)), {})
     assert scored[:4] == ("2026-06-02", 1, 1, 1)      # 목록 1대, 그날 빌림 1대, 첫 이용자 헛걸음 1
     assert items == []                                 # 정상 이용으로 연쇄 끊김 → 오늘 목록에서 빠짐
+
+    write_scores(c, tmp_path / "scores.json")
+    import json
+    assert json.load(open(tmp_path / "scores.json")) == {"2026-06-02": {"listed": 1, "rode": 1, "first_dud": 1}}
