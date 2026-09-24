@@ -218,5 +218,56 @@ $("#play").addEventListener("click", startReplay);
   $("#day").innerHTML = days.map((d) => `<option ${d === "2026-06-15" ? "selected" : ""}>${d}</option>`).join("");
   $("#day").addEventListener("change", (e) => loadDay(e.target.value));
   await loadDay($("#day").value);
+  stationOptions(null);
+  flushQueue();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 })();
+
+// ── 현장 조사 (검증용): 보이는 그대로 기록 → 서버, 안 되면 폰에 모아 두고 다음에 보냄
+const SURVEY_STATUS = ["멀쩡함", "타이어", "체인·기어", "안장·핸들", "브레이크", "기타 고장"];
+let here = null;
+function queue() { try { return JSON.parse(localStorage.getItem("survey_queue") || "[]"); } catch { return []; } }
+function setQueue(q) { try { localStorage.setItem("survey_queue", JSON.stringify(q)); } catch {} }
+async function flushQueue() {
+  const q = queue(); const left = [];
+  for (const rec of q) {
+    try { const r = await fetch("api/survey", { method: "POST", body: JSON.stringify(rec) }); if (!r.ok && r.status !== 400) left.push(rec); }
+    catch { left.push(rec); }
+  }
+  setQueue(left);
+  return left.length;
+}
+function stationOptions(center, filter = "") {
+  const list = Object.values(state.stations).filter((s) => !filter || s.name.includes(filter));
+  if (center) list.sort((a, b) => dist(a, center) - dist(b, center));
+  else list.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  $("#survey-station").innerHTML = list.slice(0, center ? 30 : 3000)
+    .map((s) => `<option value="${s.id}">${s.name}${center ? ` · ${Math.round(dist(s, center))}m` : ""}</option>`).join("");
+}
+function dist(a, b) {
+  const R = 6371000, toR = Math.PI / 180, dLat = (b.lat - a.lat) * toR, dLon = (b.lon - a.lon) * toR;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * toR) * Math.cos(b.lat * toR) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+$("#station-filter").addEventListener("input", (e) => stationOptions(here, e.target.value.trim()));
+$("#near-btn").addEventListener("click", () => {
+  if (!navigator.geolocation) return toast("이 기기는 위치를 못 써요. 목록에서 골라 주세요.");
+  navigator.geolocation.getCurrentPosition((p) => { here = { lat: p.coords.latitude, lon: p.coords.longitude }; stationOptions(here, $("#station-filter").value.trim()); },
+    () => toast("위치를 쓸 수 없어요(아이폰은 https 주소에서만). 이름으로 찾아 주세요."), { enableHighAccuracy: true, timeout: 8000 });
+});
+$("#survey-choices").innerHTML = SURVEY_STATUS.map((st) => `<button class="${st === "멀쩡함" ? "fine" : "bad"}" data-st="${st}">${st}</button>`).join("");
+$("#survey-form").addEventListener("submit", (e) => e.preventDefault());
+$("#survey-choices").addEventListener("click", async (e) => {
+  const st = e.target.dataset.st; if (!st) return;
+  const bike = $("#survey-bike").value.trim();
+  if (!/SPB\s*-?\s*\d{3,6}/i.test(bike)) return toast("자전거 번호(SPB-00000)를 먼저 넣어 주세요.");
+  const rec = { station: $("#survey-station").value, bike, status: st, note: $("#survey-note").value, lat: here && here.lat, lon: here && here.lon,
+                at: new Date().toISOString() };
+  setQueue([...queue(), rec]);
+  const left = await flushQueue();
+  const n = (+(localStorage.getItem("survey_n") || 0)) + 1;
+  try { localStorage.setItem("survey_n", n); } catch {}
+  $("#survey-count").textContent = `오늘 이 기기로 ${n}대 기록${left ? ` (서버에 못 보낸 ${left}건은 폰에 보관 중)` : ""}`;
+  $("#survey-bike").value = ""; $("#survey-note").value = "";
+  toast(`${bike.toUpperCase()} → ${st}`);
+});
