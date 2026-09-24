@@ -66,6 +66,9 @@ struct ReplayView: View {
             .navigationTitle("시연")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsButton() } }
             .onReceive(tick) { _ in step() }
+            .onAppear {   // 실행 인자 `-autoplay YES` 면 바로 1시간/초로 재생 (화면 사진·시연용)
+                if player == nil, UserDefaults.standard.bool(forKey: "autoplay") { speed = 3600; toggle() }
+            }
         }
     }
 

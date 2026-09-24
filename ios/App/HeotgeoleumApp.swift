@@ -17,6 +17,8 @@ struct HeotgeoleumApp: App {
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @State private var showSettings = false
+    // 처음 열 탭 — 실행 인자 `-tab replay` 도 받는다(UserDefaults 인자 영역). 화면 사진·시연용
+    @State private var tab = UserDefaults.standard.string(forKey: "tab") ?? "morning"
 
     var body: some View {
         Group {
@@ -25,12 +27,12 @@ struct RootView: View {
             } else if model.store == nil {
                 ProgressView("불러오는 중…")
             } else {
-                TabView {
-                    MorningView().tabItem { Label("아침 목록", systemImage: "list.bullet.rectangle") }
-                    LookupView().tabItem { Label("자전거 조회", systemImage: "qrcode.viewfinder") }
-                    RescueView().tabItem { Label("구조대", systemImage: "hand.raised") }
-                    ReplayView().tabItem { Label("시연", systemImage: "play.circle") }
-                    SurveyView().tabItem { Label("현장 조사", systemImage: "checklist") }
+                TabView(selection: $tab) {
+                    MorningView().tabItem { Label("아침 목록", systemImage: "list.bullet.rectangle") }.tag("morning")
+                    LookupView().tabItem { Label("자전거 조회", systemImage: "qrcode.viewfinder") }.tag("lookup")
+                    RescueView().tabItem { Label("구조대", systemImage: "hand.raised") }.tag("rescue")
+                    ReplayView().tabItem { Label("시연", systemImage: "play.circle") }.tag("replay")
+                    SurveyView().tabItem { Label("현장 조사", systemImage: "checklist") }.tag("survey")
                 }
                 .tint(Palette.accent)
             }

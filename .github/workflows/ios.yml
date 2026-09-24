@@ -40,12 +40,29 @@ jobs:
           xcrun simctl install "$DEV" "$APP"
           xcrun simctl privacy "$DEV" grant location kr.bikedoctor.heotgeoleumzero || true
           xcrun simctl location "$DEV" set 37.5556,126.9106 || true
-          xcrun simctl launch "$DEV" kr.bikedoctor.heotgeoleumzero
-          sleep 12
-          mkdir -p shots; xcrun simctl io "$DEV" screenshot shots/1_launch.png
-          xcrun simctl spawn "$DEV" log show --last 1m --predicate 'process == "HeotgeoleumZero"' --style compact | tail -40 || true
-          # 앱이 살아 있는지 (바로 죽으면 실패)
-          xcrun simctl spawn "$DEV" launchctl list | grep -q heotgeoleumzero
+          ID=kr.bikedoctor.heotgeoleumzero
+          mkdir -p shots
+          shot() {   # 이름, 기다릴 초, 실행 인자…
+            name=$1; wait=$2; shift 2
+            xcrun simctl terminate "$DEV" $ID 2>/dev/null || true
+            xcrun simctl launch "$DEV" $ID "$@"
+            sleep "$wait"
+            xcrun simctl io "$DEV" screenshot "shots/$name.png"
+            xcrun simctl spawn "$DEV" launchctl list | grep -q heotgeoleumzero || { echo "::error::$name 에서 앱이 죽음"; exit 1; }
+          }
+          shot 1_morning 15 -tab morning
+          shot 2_lookup 6 -tab lookup -lookup SPB-69683
+          shot 3_rescue 6 -tab rescue
+          shot 4_replay 12 -tab replay -autoplay YES
+          shot 5_survey 6 -tab survey
+          xcrun simctl spawn "$DEV" log show --last 3m --predicate 'process == "HeotgeoleumZero" AND messageType == error' --style compact | grep -v -E "Metal|CoreFSCache" | tail -20 || true
+      - name: 화면 사진을 기록에 (작게, base64 — 기록만 볼 수 있는 곳에서 확인용)
+        working-directory: ios
+        run: |
+          for f in shots/*.png; do
+            sips -Z 520 -s format jpeg -s formatOptions 55 "$f" --out "/tmp/$(basename "$f" .png).jpg" >/dev/null
+            echo "=== SHOT $(basename "$f" .png)"; base64 -i "/tmp/$(basename "$f" .png).jpg" | tr -d '\n'; echo; echo "=== END"
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
