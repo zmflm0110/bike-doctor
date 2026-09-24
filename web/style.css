@@ -51,3 +51,4 @@ video { width: 100%; border-radius: 12px; margin-top: 8px; }
 .feed .경보 { color: var(--red); } .feed .막을 { color: var(--good); font-weight: 600; } .feed .고장 { color: var(--accent); }
 footer { color: var(--muted); font-size: 11px; padding: 12px 16px 28px; text-align: center; }
 @media (max-width: 520px) { .counters { grid-template-columns: repeat(2, 1fr); } }
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(20px + env(safe-area-inset-bottom)); background: var(--fg); color: var(--bg); padding: 12px 14px; border-radius: 12px; font-size: 14px; z-index: 2000; box-shadow: 0 6px 20px rgba(0,0,0,.2); }

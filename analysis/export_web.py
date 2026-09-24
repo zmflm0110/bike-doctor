@@ -9,6 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import numpy as np, pandas as pd
 from engine.core import Rule, load_seoul, load_faults, mark
+from engine.morning import morning_lists
 
 RULE = Rule(max_sec=180, max_m=300, alarm_k=2)
 OUT = ROOT / "web" / "data"
@@ -30,31 +31,13 @@ def main(ym="2606", replay_day="2026-06-15"):
     json.dump([{"id": r.id, "name": str(r.name), "gu": str(r.gu), "lat": round(float(r.lat), 6), "lon": round(float(r.lon), 6)}
                for r in S.itertuples()], open(OUT / "stations.json", "w"), ensure_ascii=False)
 
-    R = mark(load_seoul(ROOT / "data" / "raw" / f"rent_{ym}.csv"), RULE)
+    base = load_seoul(ROOT / "data" / "raw" / f"rent_{ym}.csv")
     F = load_faults(ROOT / "data" / "raw" / "fault_2601-2606.csv")
-    R["day"] = R["t0"].dt.normalize()
-    d, retry, streak = R["dud"].to_numpy(), R["retry"].to_numpy(), R["streak"].to_numpy()
-    R["chain_after"] = np.where(d & ~retry, streak + 1, np.where(d, streak, 0))
-    last = R.groupby(["bike", "day"]).tail(1)
-    flagged = last[last["chain_after"] >= RULE.alarm_k]
-    fault_t = F.groupby("bike")["t"].apply(lambda s: np.sort(s.to_numpy())).to_dict()
-    Rb = {k: v for k, v in R[["bike", "t0", "dud", "day", "st0"]].groupby("bike")}
-    days = {}
-    for r in flagged.itertuples():
-        nd = r.day + pd.Timedelta(days=1)
-        g = Rb[r.bike]
-        later = g[g["t0"] >= nd]
-        ft = fault_t.get(r.bike)
-        reported = bool(ft is not None and np.any((ft >= np.datetime64(r.t1) - np.timedelta64(7, "D")) & (ft < np.datetime64(nd))))
-        item = {"bike": r.bike, "station": r.st1, "station_name": st_name.get(r.st1, r.st1), "chain": int(r.chain_after),
-                "level": "빨강" if r.chain_after >= 3 else "노랑", "last_dud": r.t1.strftime("%m-%d %H:%M"), "reported": reported,
-                # 검증용(시연 모드에서만 공개): 오늘 첫 대여가 또 헛걸음이었나
-                "truth_first_rider_dud": bool(later["dud"].iloc[0]) if not later.empty else None}
-        days.setdefault(nd.strftime("%Y-%m-%d"), []).append(item)
+    days = morning_lists(base, F, RULE, st_name)
     for day, items in days.items():
-        items.sort(key=lambda x: (-x["chain"], x["station"]))
         json.dump({"date": day, "rule": "서로 다른 사람이 3분·300m 안 반납을 2번 이상 이어서 한 뒤 아직 정상 이용이 없는 자전거",
                    "bikes": items}, open(OUT / "morning" / f"{day}.json", "w"), ensure_ascii=False)
+    R = mark(base, RULE)
     json.dump(sorted(days), open(OUT / "morning" / "index.json", "w"))
 
     # 시연용 하루

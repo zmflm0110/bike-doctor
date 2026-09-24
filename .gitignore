@@ -5,3 +5,4 @@ data/cache/
 *.pyc
 .DS_Store
 node_modules/
+data/rescue.sqlite
