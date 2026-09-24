@@ -67,7 +67,7 @@ const GU_EN = { 강남구: "gangnam", 강동구: "gangdong", 강북구: "gangbuk
 // 정비 담당에게 보낼 목록 — 엑셀에서 바로 열리게(UTF-8 BOM). 서버 없이 폰·정적 호스팅에서도 된다.
 function morningCSV(bikes) {
   const q = (x) => `"${String(x ?? "").replace(/"/g, '""')}"`;
-  const head = ["기준일", "구", "대여소번호", "대여소", "자전거번호", "서로 다른 사람 연속 헛대여(명)", "단계", "마지막 헛대여", "고장 신고", "구조대 확인"];
+  const head = ["기준일", "구", "대여소번호", "대여소", "자전거번호", "서로 다른 사람 연속 헛대여(명)", "단계", "마지막 헛대여", "고장 신고", "사람 확인(구조대·현장 조사)"];
   const rows = groupByStation(bikes).flatMap(([, arr]) => arr).map((b) => {
     const c = checkedOf(b.bike);
     return [state.day, guOf(b), b.station, b.station_name, b.bike, b.chain, b.level, b.last_dud, b.reported ? "있음" : "없음",
@@ -109,7 +109,7 @@ function renderRoute(bikes) {
   let groups = groupByStation(bikes).map(([id, arr]) => ({ id, arr, ...state.stations[id] })).filter((s) => s.lat);
   if (here) groups.sort((a, b) => meters(here, a) - meters(here, b));
   const top = groups.slice(0, 10);
-  if (!top.length) { $("#route-list").innerHTML = ""; return; }
+  if (!top.length) { $("#route-list").innerHTML = ""; if (state.routeLayer) state.routeLayer.remove(); return; }
   const start = here ? { lat: here.lat, lon: here.lon, name: "내 위치" } : top[0];
   const stops = planRoute(start, here ? top : top.slice(1));
   const all = here ? stops : [top[0], ...stops];
