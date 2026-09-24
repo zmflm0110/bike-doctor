@@ -1,6 +1,8 @@
 // 헛걸음 제로 — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
 const $ = (s) => document.querySelector(s);
-const state = { stations: {}, day: null, morning: null, map: null, layer: null };
+const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {} };
+// QR·입력에서 온 글자를 화면에 넣을 때는 반드시 거친다 (QR 에 HTML 을 심어 두는 장난 막기)
+const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 async function getJSON(path) {
   const r = await fetch(path);
@@ -29,30 +31,53 @@ async function loadDay(day) {
     `<b>${bikes.length}</b>대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 ` +
     `(빨강 ${red}대). 이 중 <b>${unrep}</b>대는 아직 아무도 고장 신고를 안 했어요.`;
   renderMap(bikes);
-  renderRank(bikes);
-  $("#bike-list").innerHTML = bikes.slice(0, 80).map(bikeRow).join("");
+  renderLists();
   renderRescue();
+  loadChecked();
+}
+function renderLists() {
+  if (!state.morning) return;
+  renderRank(state.morning.bikes);
+  $("#bike-list").innerHTML = state.morning.bikes.slice(0, 80).map(bikeRow).join("");
+}
+
+// 구조대가 서버에 보낸 확인 결과 (자전거별 {판정: 명}) — 정비 순위에 '사람이 봤음' 으로 붙인다. 서버가 없으면(정적·오프라인) 조용히 건너뜀.
+async function loadChecked() {
+  try { const r = await fetch("api/rescue"); if (r.ok) { state.checked = await r.json(); renderLists(); } } catch {}
+}
+function checkedOf(bike) {
+  const v = state.checked[bike] || {};
+  const total = Object.values(v).reduce((a, b) => a + b, 0);
+  return { total, broken: total - (v["멀쩡함"] || 0) };
+}
+function checkedBadge(bike) {
+  const c = checkedOf(bike);
+  if (!c.total) return "";
+  return c.broken ? ` · <b class="confirmed">사람 확인: 고장 ${c.broken}/${c.total}</b>` : ` · 사람 확인: 멀쩡함 ${c.total}`;
 }
 
 function bikeRow(b) {
   return `<li><div><b>${b.bike}</b> <span class="muted">${b.station_name}</span><br>` +
-    `<span class="muted">서로 다른 ${b.chain}명 연속 · 마지막 ${b.last_dud}${b.reported ? " · 신고됨" : " · <b>미신고</b>"}</span></div>` +
+    `<span class="muted">서로 다른 ${b.chain}명 연속 · 마지막 ${b.last_dud}${b.reported ? " · 신고됨" : " · <b>미신고</b>"}${checkedBadge(b.bike)}</span></div>` +
     `<span class="tag ${b.level}">${b.level}</span></li>`;
 }
 
 function groupByStation(bikes) {
   const g = {};
   bikes.forEach((b) => (g[b.station] = g[b.station] || []).push(b));
-  // 우선순위 = 연쇄 길이의 합 (그만큼 사람들이 이미 헛걸음했고, 앞으로도 날 가능성이 큼)
-  return Object.entries(g).sort((a, b) => sumChain(b[1]) - sumChain(a[1]) || b[1].length - a[1].length);
+  // 우선순위: 구조대가 고장이라고 확인한 자전거가 있는 곳 먼저, 그다음 연쇄 길이의 합 (그만큼 사람들이 이미 헛걸음했고, 앞으로도 날 가능성이 큼)
+  return Object.entries(g).sort((a, b) => sumBroken(b[1]) - sumBroken(a[1]) || sumChain(b[1]) - sumChain(a[1]) || b[1].length - a[1].length);
 }
+const sumBroken = (arr) => arr.filter((b) => checkedOf(b.bike).broken > 0).length;
 const maxChain = (arr) => Math.max(...arr.map((b) => b.chain));
 const sumChain = (arr) => arr.reduce((t, b) => t + b.chain, 0);
 
 function renderRank(bikes) {
   $("#station-rank").innerHTML = groupByStation(bikes).slice(0, 10).map(([id, arr]) => {
     const s = state.stations[id];
-    return `<li><div><b>${s ? s.name : id}</b><br><span class="muted">${s ? s.gu : ""} · 의심 ${arr.length}대 · 헛걸음 ${sumChain(arr)}명 누적 (최대 ${maxChain(arr)}명 연속)</span></div>` +
+    const nb = sumBroken(arr);
+    return `<li><div><b>${s ? s.name : id}</b><br><span class="muted">${s ? s.gu : ""} · 의심 ${arr.length}대 · 헛걸음 ${sumChain(arr)}명 누적 (최대 ${maxChain(arr)}명 연속)` +
+      `${nb ? ` · <b class="confirmed">구조대 확인 고장 ${nb}대</b>` : ""}</span></div>` +
       `<span class="tag ${arr.some((b) => b.level === "빨강") ? "빨강" : "노랑"}">${arr.length}</span></li>`;
   }).join("");
 }
@@ -95,7 +120,8 @@ function lookup(raw) {
       `<div class="choices"><button onclick="rescueSave('${id}','체인·기어')">체인·기어 문제</button><button onclick="rescueSave('${id}','타이어')">타이어</button>` +
       `<button onclick="rescueSave('${id}','안장·핸들')">안장·핸들</button><button class="fine" onclick="rescueSave('${id}','멀쩡함')">멀쩡해 보여요</button></div></div>`;
   } else {
-    out.innerHTML = `<div class="result ok"><h3>✓ ${id}</h3>어제까지 기록에 헛걸음 연쇄가 없어요.</div>`;
+    out.innerHTML = m ? `<div class="result ok"><h3>✓ ${esc(id)}</h3>어제까지 기록에 헛걸음 연쇄가 없어요.</div>`
+      : `<div class="result">따릉이 번호(SPB-00000)를 못 찾았어요: <code>${esc(String(raw).slice(0, 60))}</code></div>`;
   }
 }
 $("#lookup-form").addEventListener("submit", (e) => { e.preventDefault(); lookup($("#bike-input").value); });
@@ -143,7 +169,7 @@ window.rescueSave = async (bike, verdict) => {
   try {
     const r = await fetch("api/rescue", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bike, verdict, day: state.day }) });
-    if (r.ok) { const j = await r.json(); sent = ` 지금까지 ${j.count}명이 이 자전거를 확인했어요.`; }
+    if (r.ok) { const j = await r.json(); sent = ` 지금까지 ${j.count}명이 이 자전거를 확인했어요.`; loadChecked(); }
   } catch {}
   toast(`고마워요! ${bike} 를 "${verdict}" 로 기록했어요.${sent}`);
 };
@@ -205,7 +231,7 @@ async function startReplay() {
         feed.insertAdjacentHTML("afterbegin", `<li class="${e.type.split(" ")[0]}">${text}</li>`);
       }
     }
-    const h = Math.min(24, Math.floor(clock / 3600)), m = Math.floor((clock % 3600) / 60);
+    const m = Math.floor((clock % 3600) / 60);
     $("#clock").textContent = (clock >= 86400 ? "다음 날 " : "") + `${String(Math.floor(clock / 3600) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     $("#c-dud").textContent = c["헛대여"] + c["경보"] + c["막을 수 있던 헛걸음"];
     $("#c-alarm").textContent = c["경보"];

@@ -42,7 +42,7 @@
 
 ## 바로 해 보기
 ```sh
-python3 -m venv .venv && .venv/bin/pip install pandas numpy openpyxl matplotlib tabulate pytest
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python data/download.py          # 원본 자료 (인증키 불필요, 약 1.7GB)
 .venv/bin/python analysis/report.py        # 핵심 표 → docs/results.md
 .venv/bin/python analysis/export_web.py    # 앱 데이터 → web/data/
@@ -50,7 +50,10 @@ python3 -m venv .venv && .venv/bin/pip install pandas numpy openpyxl matplotlib 
 sh server/https_local.sh && .venv/bin/python server/app.py 8443 --https   # 아이폰(같은 와이파이)에서 위치·QR — 안내가 나옴
 .venv/bin/python server/rehearse.py       # 매일 아침 작업을 과거 파일로 7일 연속 예행연습 → docs/phase3_rehearsal.md
 .venv/bin/python -m pytest -q tests        # 테스트
+node tests/web/smoke.js                     # 웹앱 다섯 탭 휴대폰 화면 검사 (npm i playwright, 서버는 스스로 띄움)
+PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 node tests/web/offline.js evict   # 진짜 오프라인 시연 검사 (normal|evict|notiles)
 ```
+GitHub 에 올리면 `.github/workflows/test.yml` 이 위 검사를 전부 돌린다(원본 자료·인증키 불필요).
 
 ## 구성
 | 폴더 | 내용 |
@@ -60,7 +63,7 @@ sh server/https_local.sh && .venv/bin/python server/app.py 8443 --https   # 아�
 | `server/` | 서울 API(키체인), 매일 아침 목록 작업(목록 기록·다음 날 채점 SQLite)·예행연습, 웹 서버(구조대·현장조사 SQLite) |
 | `web/` | 웹앱 — 아침 목록·자전거 조회(QR)·구조대·시연·현장 조사 (홈 화면 추가 가능) |
 | `docs/` | 결과·보고서·현장 조사 절차 |
-| `tests/` | 엔진·서버·매일 작업·충전기 단위 테스트(pytest 11개), 웹 오프라인 검사(`tests/web/offline.js`) |
+| `tests/` | 엔진·서버·매일 작업·충전기 단위 테스트(pytest), 웹 화면 검사(`tests/web/smoke.js`)·오프라인 검사(`tests/web/offline.js`) |
 
 ## 인증키 (선택)
 코드·git 에 넣지 않고 macOS 키체인에:

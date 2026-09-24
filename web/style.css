@@ -57,3 +57,4 @@ footer { color: var(--muted); font-size: 11px; padding: 12px 16px 28px; text-ali
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; }
 .dot.r { background: #d9480f; } .dot.g { background: #2b8a3e; } .dot.b { background: #0f766e; }
 .choices.three { grid-template-columns: repeat(3, 1fr); } .choices .bad { border-color: var(--red); }
+.confirmed { color: var(--red); }
