@@ -1,6 +1,7 @@
 // 헛걸음 제로 — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
 const $ = (s) => document.querySelector(s);
 const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {} };
+let here = null;   // 내 위치 (📍 버튼을 눌렀을 때만)
 // QR·입력에서 온 글자를 화면에 넣을 때는 반드시 거친다 (QR 에 HTML 을 심어 두는 장난 막기)
 const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -24,6 +25,7 @@ document.querySelectorAll("#tabs button").forEach((b) =>
 async function loadDay(day) {
   state.day = day;
   state.morning = await getJSON(`data/morning/${day}.json`);
+  state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
   const bikes = state.morning.bikes;
   const red = bikes.filter((b) => b.level === "빨강").length;
   const unrep = bikes.filter((b) => !b.reported).length;
@@ -31,15 +33,62 @@ async function loadDay(day) {
     `<b>${bikes.length}</b>대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 ` +
     `(빨강 ${red}대). 이 중 <b>${unrep}</b>대는 아직 아무도 고장 신고를 안 했어요.`;
   renderMap(bikes);
+  renderRetro(bikes);
   renderLists();
   renderRescue();
   loadChecked();
 }
+
+// 뒤돌아 채점 — 지난 기록이라 '이 목록이 나온 뒤 처음 빌린 사람' 이 어땠는지 안다 (운영에서는 다음 날 아침 채점: server/daily_job.py)
+function renderRetro(bikes) {
+  const known = bikes.filter((b) => typeof b.truth_first_rider_dud === "boolean");
+  const box = $("#morning-retro");
+  if (!known.length) { box.hidden = true; return; }
+  const hit = known.filter((b) => b.truth_first_rider_dud).length;
+  box.hidden = false;
+  box.innerHTML = `<b>이 목록은 맞았을까?</b> (지난 기록이라 채점할 수 있어요) 목록이 나온 뒤 처음 빌린 사람 <b>${known.length}</b>명 중 ` +
+    `<b class="confirmed">${hit}명(${Math.round((100 * hit) / known.length)}%)</b>이 또 바로 반납했어요. 평소엔 약 2.5% 예요.` +
+    (bikes.length > known.length ? ` <span class="muted">(${bikes.length - known.length}대는 그 뒤 아무도 안 빌림)</span>` : "");
+}
 function renderLists() {
   if (!state.morning) return;
   renderRank(state.morning.bikes);
+  renderRoute(state.morning.bikes);
   $("#bike-list").innerHTML = state.morning.bikes.slice(0, 80).map(bikeRow).join("");
 }
+
+// 정비 동선: 순위 위 10곳을 (내 위치 또는 1위 대여소에서) 도는 순서 — route.js
+function renderRoute(bikes) {
+  // 위치를 모르면 순위 위 10곳, 알면 내 근처 의심 대여소 10곳 (서울 전체 10곳을 한 사람이 도는 건 비현실적 — 기사는 구역 단위로 움직인다)
+  let groups = groupByStation(bikes).map(([id, arr]) => ({ id, arr, ...state.stations[id] })).filter((s) => s.lat);
+  if (here) groups.sort((a, b) => meters(here, a) - meters(here, b));
+  const top = groups.slice(0, 10);
+  if (!top.length) { $("#route-list").innerHTML = ""; return; }
+  const start = here ? { lat: here.lat, lon: here.lon, name: "내 위치" } : top[0];
+  const stops = planRoute(start, here ? top : top.slice(1));
+  const all = here ? stops : [top[0], ...stops];
+  let cum = 0, prev = start;
+  $("#route-list").innerHTML = all.map((s, i) => {
+    cum += meters(prev, s); prev = s;
+    return `<li><div><b>${i + 1}. ${s.name}</b><br><span class="muted">의심 ${s.arr.length}대 · 여기까지 ${(cum / 1000).toFixed(1)}km</span></div>` +
+      `<span class="tag ${s.arr.some((b) => b.level === "빨강") ? "빨강" : "노랑"}">${s.arr.length}</span></li>`;
+  }).join("") + `<li class="total"><span>${here ? "내 위치에서 " : ""}모두 돌면 직선 <b>${(cum / 1000).toFixed(1)}km</b></span></li>`;
+  if (typeof L === "undefined" || !state.map) return;
+  if (state.routeLayer) state.routeLayer.remove();
+  state.routeLayer = L.layerGroup().addTo(state.map);
+  L.polyline([start, ...stops].map((p) => [p.lat, p.lon]), { color: "#0f766e", weight: 3, opacity: 0.8, dashArray: "6 6" }).addTo(state.routeLayer);
+  all.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "route-num", html: String(i + 1), iconSize: [20, 20] }) }).addTo(state.routeLayer));
+}
+
+// 위치 한 번 받기 (아이폰은 https 에서만) — 구조대·동선·현장 조사가 같이 쓴다
+function locate() {
+  return new Promise((ok, no) => {
+    if (!navigator.geolocation) return no(new Error("no geolocation"));
+    navigator.geolocation.getCurrentPosition((p) => { here = { lat: p.coords.latitude, lon: p.coords.longitude }; ok(here); }, no,
+      { enableHighAccuracy: true, timeout: 8000 });
+  });
+}
+const noLocation = () => toast("위치를 쓸 수 없어요(아이폰은 https 주소에서만). 목록 순서대로 보여 줄게요.");
 
 // 구조대가 서버에 보낸 확인 결과 (자전거별 {판정: 명}) — 정비 순위에 '사람이 봤음' 으로 붙인다. 서버가 없으면(정적·오프라인) 조용히 건너뜀.
 async function loadChecked() {
@@ -58,7 +107,8 @@ function checkedBadge(bike) {
 
 function bikeRow(b) {
   return `<li><div><b>${b.bike}</b> <span class="muted">${b.station_name}</span><br>` +
-    `<span class="muted">서로 다른 ${b.chain}명 연속 · 마지막 ${b.last_dud}${b.reported ? " · 신고됨" : " · <b>미신고</b>"}${checkedBadge(b.bike)}</span></div>` +
+    `<span class="muted">서로 다른 ${b.chain}명 연속 · 마지막 ${b.last_dud}${b.reported ? " · 신고됨" : " · <b>미신고</b>"}${checkedBadge(b.bike)}` +
+    `${b.truth_first_rider_dud === true ? " · 다음 사람도 반납" : b.truth_first_rider_dud === false ? " · 다음 사람은 탐" : ""}</span></div>` +
     `<span class="tag ${b.level}">${b.level}</span></li>`;
 }
 
@@ -182,12 +232,18 @@ function toast(msg) {
 function renderRescue() {
   if (!state.morning) return;
   const done = new Set(rescueLog().filter((x) => x.day === state.day).map((x) => x.bike));
-  const next = state.morning.bikes.find((b) => !done.has(b.bike));
+  let todo = state.morning.bikes.filter((b) => !done.has(b.bike));
+  const far = (b) => (here && state.stations[b.station] ? meters(here, state.stations[b.station]) : null);
+  if (here) todo = todo.slice().sort((a, b) => (far(a) ?? 1e12) - (far(b) ?? 1e12));   // 위치를 알면 가까운 순
+  const next = todo[0];
+  const away = (b) => (far(b) == null ? "" : far(b) < 1000 ? ` · ${Math.round(far(b))}m` : ` · ${(far(b) / 1000).toFixed(1)}km`);
   $("#rescue-card").innerHTML = next
-    ? `<div class="result warn"><h3>${next.station_name}의 ${next.bike}</h3>서로 다른 ${next.chain}명이 바로 반납했어요. 가까이 있다면 3초만 봐 주세요.` +
+    ? `<div class="result warn"><h3>${next.station_name}의 ${next.bike}${away(next)}</h3>서로 다른 ${next.chain}명이 바로 반납했어요. 가까이 있다면 3초만 봐 주세요.` +
       `<div class="choices"><button onclick="rescueSave('${next.bike}','체인·기어')">체인·기어</button><button onclick="rescueSave('${next.bike}','타이어')">타이어</button>` +
       `<button onclick="rescueSave('${next.bike}','안장·핸들')">안장·핸들</button><button class="fine" onclick="rescueSave('${next.bike}','멀쩡함')">멀쩡해요</button></div></div>`
     : `<div class="result ok">오늘 목록을 다 확인했어요!</div>`;
+  if (next && todo.length > 1)
+    $("#rescue-card").insertAdjacentHTML("beforeend", `<p class="muted">그다음: ${todo.slice(1, 4).map((b) => `${b.station_name} ${b.bike}${away(b)}`).join(" · ")}</p>`);
   $("#rescue-log").innerHTML = rescueLog().slice(0, 20).map((x) =>
     `<li><div><b>${x.bike}</b><br><span class="muted">${x.at}</span></div><span class="tag ${x.verdict === "멀쩡함" ? "ok" : "빨강"}">${x.verdict}</span></li>`).join("");
 }
@@ -245,7 +301,7 @@ $("#play").addEventListener("click", startReplay);
 // ── 시작
 (async () => {
   const list = await getJSON("data/stations.json");
-  list.forEach((s) => (state.stations[s.id] = s));
+  list.forEach((s) => { s.name = s.name.trim(); state.stations[s.id] = s; });   // 원본 이름 앞에 빈칸이 붙은 곳이 많다
   const days = await getJSON("data/morning/index.json");
   $("#day").innerHTML = days.map((d) => `<option ${d === "2026-06-15" ? "selected" : ""}>${d}</option>`).join("");
   $("#day").addEventListener("change", (e) => loadDay(e.target.value));
@@ -257,7 +313,6 @@ $("#play").addEventListener("click", startReplay);
 
 // ── 현장 조사 (검증용): 보이는 그대로 기록 → 서버, 안 되면 폰에 모아 두고 다음에 보냄
 const SURVEY_STATUS = ["멀쩡함", "타이어", "체인·기어", "안장·핸들", "브레이크", "기타 고장"];
-let here = null;
 function queue() { try { return JSON.parse(localStorage.getItem("survey_queue") || "[]"); } catch { return []; } }
 function setQueue(q) { try { localStorage.setItem("survey_queue", JSON.stringify(q)); return true; } catch { return false; } }
 async function flushQueue() {
@@ -282,17 +337,12 @@ function stationOptions(center, filter = "") {
   $("#survey-station").innerHTML = list.slice(0, center ? 30 : 3000)
     .map((s) => `<option value="${s.id}">${s.name}${center ? ` · ${Math.round(dist(s, center))}m` : ""}</option>`).join("");
 }
-function dist(a, b) {
-  const R = 6371000, toR = Math.PI / 180, dLat = (b.lat - a.lat) * toR, dLon = (b.lon - a.lon) * toR;
-  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * toR) * Math.cos(b.lat * toR) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(x));
-}
+const dist = (a, b) => meters(a, b);
 $("#station-filter").addEventListener("input", (e) => stationOptions(here, e.target.value.trim()));
-$("#near-btn").addEventListener("click", () => {
-  if (!navigator.geolocation) return toast("이 기기는 위치를 못 써요. 목록에서 골라 주세요.");
-  navigator.geolocation.getCurrentPosition((p) => { here = { lat: p.coords.latitude, lon: p.coords.longitude }; stationOptions(here, $("#station-filter").value.trim()); },
-    () => toast("위치를 쓸 수 없어요(아이폰은 https 주소에서만). 이름으로 찾아 주세요."), { enableHighAccuracy: true, timeout: 8000 });
-});
+$("#near-btn").addEventListener("click", () =>
+  locate().then(() => stationOptions(here, $("#station-filter").value.trim()), () => toast("위치를 쓸 수 없어요(아이폰은 https 주소에서만). 이름으로 찾아 주세요.")));
+$("#rescue-near").addEventListener("click", () => locate().then(renderRescue, noLocation));
+$("#route-here").addEventListener("click", () => locate().then(renderLists, noLocation));
 // 사진(선택): 폰에서 긴 변 1280px JPEG 로 줄여서 보낸다 (원본 몇 MB → 약 150KB). 번호판·얼굴이 안 나오게 — 절차 문서.
 let surveyPhoto = null;
 async function shrink(file, max = 1280, q = 0.7) {

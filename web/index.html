@@ -30,9 +30,13 @@
 <main>
   <section id="morning" class="tab on">
     <div class="summary" id="morning-summary"></div>
+    <div class="summary retro" id="morning-retro" hidden></div>
     <div id="map"></div>
     <h2>정비 먼저 볼 곳</h2>
     <ol id="station-rank" class="rank"></ol>
+    <h2>정비 동선 <span class="muted">(10곳을 도는 순서, 직선거리)</span></h2>
+    <button id="route-here" class="secondary">📍 내 근처 10곳으로</button>
+    <ol id="route-list" class="rank route"></ol>
     <h2>의심 자전거</h2>
     <ul id="bike-list" class="bikes"></ul>
   </section>
@@ -48,6 +52,7 @@
 
   <section id="rescue" class="tab">
     <p class="hint">근처 의심 자전거를 3초만 봐 주세요. 확인 결과는 정비로 이어집니다.</p>
+    <button id="rescue-near" class="secondary">📍 가까운 순서로</button>
     <div id="rescue-card"></div>
     <h2>내 구조 기록</h2>
     <ul id="rescue-log" class="bikes"></ul>
@@ -85,6 +90,7 @@
 
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="vendor/jsqr/jsQR.js"></script>
+<script src="route.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

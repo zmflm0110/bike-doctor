@@ -16,7 +16,8 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
   const srv = spawn(process.env.PYTHON || "python3", [path.join(ROOT, "server/app.py"), String(PORT)], { env: { ...process.env, BIKE_DB: db }, stdio: "ignore" });
   for (let i = 0; i < 50; i++) { try { await fetch(URL); break; } catch { await new Promise((r) => setTimeout(r, 100)); } }
   const browser = await launch();
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ko-KR", serviceWorkers: "block" });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ko-KR", serviceWorkers: "block",
+    permissions: ["geolocation"], geolocation: { latitude: 37.5556, longitude: 126.9106 } });   // 망원역 앞에 서 있다고
   await ctx.route(/tile\.openstreetmap\.org/, (r) => r.abort());   // 검사는 바깥 지도 조각 없이 (결과가 인터넷에 안 흔들리게)
   const page = await ctx.newPage();
   const errors = [];
@@ -32,7 +33,18 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     check(/\d+<\/b>대가/.test(await page.innerHTML("#morning-summary")), "요약 문장");
     check((await page.$$("#station-rank li")).length === 10, "정비 순위 10곳");
     check((await page.$$("#map path.leaflet-interactive")).length > 5, "지도에 의심 대여소 표시");
+    const retro = await page.textContent("#morning-retro");
+    check(/처음 빌린 사람 \d+명 중 \d+명\(\d+%\)/.test(retro), "뒤돌아 채점: " + retro.match(/\d+명 중 \d+명\(\d+%\)/)?.[0]);
+    const route = await page.$$eval("#route-list li", (li) => li.map((x) => x.textContent));
+    check(route.length === 11 && /모두 돌면 직선 [\d.]+km/.test(route[10]), "정비 동선 10곳 + 합계 " + (route[10] || "").trim());
+    check((await page.$$("#map .route-num")).length === 10, "지도에 동선 번호");
     await shot("1_morning");
+    await page.click("#route-here");
+    await page.waitForFunction(() => document.querySelector("#route-list").textContent.includes("내 위치에서"));
+    const nearRoute = await page.$$eval("#route-list li", (li) => li.map((x) => x.textContent));
+    const km = +nearRoute[10].match(/([\d.]+)km/)[1], cityKm = +route[10].match(/([\d.]+)km/)[1];
+    check(km < cityKm, `내 근처 10곳 동선 ${km}km (순위 10곳 ${cityKm}km 보다 짧음)`);
+    await page.evaluate(() => window.scrollTo(0, 0));
     // 아이폰: 입력칸 글자가 16px 보다 작으면 누를 때 화면이 확대된다, 홈 화면 아이콘은 PNG 여야 한다
     const small = await page.$$eval("input,select", (els) => els.filter((e) => e.type !== "file" && parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id));
     check(small.length === 0, "입력칸 글자 16px 이상 (아이폰 확대 방지)" + (small.length ? ": " + small : ""));
@@ -56,7 +68,11 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
 
     console.log("구조대");
     await tab("rescue");
-    const target = (await page.textContent("#rescue-card h3")).split("의 ").pop();
+    await page.click("#rescue-near");
+    await page.waitForFunction(() => /\d+(m|\.\dkm)$/.test(document.querySelector("#rescue-card h3").textContent));
+    const near = await page.textContent("#rescue-card h3");
+    check(/(\d+m|\d\.\dkm)$/.test(near), "가까운 의심 자전거부터: " + near);
+    const target = near.split("의 ").pop().split(" · ")[0];
     await page.click("#rescue-card button:has-text('타이어')");
     await page.waitForSelector(".toast");
     check((await page.textContent(".toast")).includes("1명이 이 자전거를 확인"), "제보가 서버에 들어감");
