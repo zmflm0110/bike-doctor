@@ -2,8 +2,9 @@
 
 출처:
   --source file --month 2606      월별 파일(열린데이터광장 OA-15182). 시연용. 한 달 치 전부의 아침 목록을 만든다.
-  --source api                    공공데이터포털 '서울시설공단_공공자전거 대여이력 정보'(키 2). 명세는 키 발급 뒤 확인 →
-                                  fetch_rentals_api() 를 채운다. 그 전엔 친절한 오류로 멈춘다.
+  --source api --api-url <주소>    공공데이터포털 '서울시설공단_공공자전거 대여이력 정보'(키 2). 명세의 요청주소만 넣으면
+                                  최근 7일을 하루씩·쪽마다 받아 목록을 만든다. 열 이름이 낯설면 받은 열을 보여 주며 멈춤
+                                  → engine/core.py FIELDS 에 한 줄. 날짜 인자 이름이 다르면 --date-param.
 그리고 키 1 이 있으면 실시간 대여소 현황을 web/data/status.json 에 남긴다(지도의 지금 자전거 수).
 """
 import argparse, datetime as dt, json, pathlib, sqlite3, sys
@@ -57,12 +58,54 @@ def run_morning(c, today, R, station_name):
     return items, score(c, yesterday, R)
 
 
-def fetch_rentals_api(start, end):
-    k = seoul_api.key("datagokr")
+def _items(data):
+    """공공데이터포털 응답에서 행 목록과 전체 건수를 꺼낸다. 형식 두 가지:
+    표준 {"response": {"header": {...}, "body": {"items": {"item": [...]}, "totalCount": n}}}, odcloud {"data": [...], "totalCount": n}."""
+    if isinstance(data.get("data"), list):
+        return data["data"], int(data.get("totalCount") or data.get("matchCount") or len(data["data"]))
+    resp = data.get("response", data)
+    head = resp.get("header", {})
+    if head and str(head.get("resultCode", "00")) not in ("00", "0", "000"):
+        raise RuntimeError(f"API 오류 {head.get('resultCode')}: {head.get('resultMsg')}")
+    body = resp.get("body", {})
+    items = body.get("items") or []
+    if isinstance(items, dict):
+        items = items.get("item") or []
+    if isinstance(items, dict):   # 한 건이면 목록이 아니라 딕셔너리로 온다
+        items = [items]
+    return items, int(body.get("totalCount") or len(items))
+
+
+def fetch_rentals_api(start, end, url=None, key=None, per_page=1000, date_params=None, max_pages=10000):
+    """공공데이터포털 대여이력 API → 통일된 표(load_seoul 과 같은 열). 하루씩 page 를 넘기며 받는다.
+    url: 상세기능 요청 주소 (환경변수 RENT_API_URL 또는 --api-url). 명세 확인 뒤 주소만 넣으면 된다.
+    date_params: 날짜를 넘기는 인자 이름 (기본 RENT_API_DATE_PARAM 또는 'searchDate', 값은 YYYYMMDD — 명세에 맞게)."""
+    import os, urllib.parse, urllib.request
+    from engine.core import from_rows
+    k = key or seoul_api.key("datagokr")
     if not k:
-        raise SystemExit("공공데이터포털 인증키가 키체인에 없습니다: security add-generic-password -a bike-doctor -s datagokr -w '<키>'")
-    raise SystemExit("대여이력 API 명세 확인 필요(키 발급 뒤 공공데이터포털 '서울시설공단_공공자전거 대여이력 정보' 상세기능) — "
-                     "받은 행을 load_seoul 과 같은 열(bike,t0,st0,t1,st1,dist_m,who)로 바꿔 돌려주면 된다.")
+        raise SystemExit("공공데이터포털 인증키가 없습니다: 키체인(security add-generic-password -a bike-doctor -s datagokr -w '<키>') 또는 DATAGOKR_KEY")
+    url = url or os.environ.get("RENT_API_URL")
+    if not url:
+        raise SystemExit("대여이력 API 주소가 없습니다 — 공공데이터포털 '서울시설공단_공공자전거 대여이력 정보' 상세기능의 요청주소를 "
+                         "RENT_API_URL 또는 --api-url 로. 날짜 인자 이름이 다르면 RENT_API_DATE_PARAM.")
+    dparam = date_params or os.environ.get("RENT_API_DATE_PARAM", "searchDate")
+    rows, day = [], start
+    while day <= end:
+        page = 1
+        while page <= max_pages:
+            q = {"serviceKey": k, "pageNo": page, "numOfRows": per_page, "page": page, "perPage": per_page,
+                 "type": "json", "returnType": "json", dparam: day.strftime("%Y%m%d")}
+            with urllib.request.urlopen(url + ("&" if "?" in url else "?") + urllib.parse.urlencode(q, safe="%"), timeout=60) as r:
+                items, total = _items(json.loads(r.read().decode("utf-8")))
+            rows += items
+            if not items or page * per_page >= total:
+                break
+            page += 1
+        day += dt.timedelta(days=1)
+    R = from_rows(rows).drop_duplicates(["bike", "t0", "st0"])   # 날짜 인자를 무시하는 API 면 날마다 같은 행이 온다
+    lo, hi = pd.Timestamp(start), pd.Timestamp(end) + pd.Timedelta(days=1)
+    return R[(R["t0"] >= lo) & (R["t0"] < hi)].reset_index(drop=True)
 
 
 def write(days, station_name, only_latest):
@@ -81,6 +124,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", choices=["file", "api"], default="file")
     ap.add_argument("--month", default="2606")
+    ap.add_argument("--api-url", help="대여이력 API 요청주소 (또는 환경변수 RENT_API_URL)")
+    ap.add_argument("--date-param", help="날짜 인자 이름 (기본 searchDate, 또는 RENT_API_DATE_PARAM)")
     a = ap.parse_args()
     stn = {s["id"]: s["name"] for s in json.load(open(ROOT / "web" / "data" / "stations.json"))}
     if a.source == "file":
@@ -90,7 +135,8 @@ def main():
         written = write(days, stn, only_latest=False)
     else:
         today = dt.date.today()
-        R = fetch_rentals_api(today - dt.timedelta(days=LOOKBACK_DAYS), today - dt.timedelta(days=1))
+        R = fetch_rentals_api(today - dt.timedelta(days=LOOKBACK_DAYS), today - dt.timedelta(days=1), url=a.api_url, date_params=a.date_param)
+        print(f"받은 대여 {len(R):,}건 ({R['t0'].min()} ~ {R['t0'].max()})" if len(R) else "받은 대여 0건 — 날짜 인자·주소를 확인하세요")
         items, scored = run_morning(db(), today.isoformat(), R, stn)
         days = {today.isoformat(): items}
         written = write(days, stn, only_latest=True)

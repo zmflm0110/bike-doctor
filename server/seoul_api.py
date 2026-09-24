@@ -4,18 +4,25 @@
     security add-generic-password -a bike-doctor -s seoul-openapi -w '<인증키>'
     security add-generic-password -a bike-doctor -s datagokr -w '<공공데이터포털 인증키>'
 
+맥이 아닌 서버·CI 에서는 환경변수로: SEOUL_OPENAPI_KEY, DATAGOKR_KEY (키체인보다 먼저 본다).
 키가 없으면 'sample' 키로 동작(서비스마다 최대 5건) — 형식 확인·시험용.
 """
-import json, subprocess, time, urllib.request
+import json, os, subprocess, time, urllib.request
 
 BASE = "http://openapi.seoul.go.kr:8088"
 
 
+ENV = {"seoul-openapi": "SEOUL_OPENAPI_KEY", "datagokr": "DATAGOKR_KEY"}
+
+
 def key(service="seoul-openapi"):
+    env = os.environ.get(ENV.get(service, ""), "").strip()
+    if env:
+        return env
     try:
         return subprocess.run(["security", "find-generic-password", "-a", "bike-doctor", "-s", service, "-w"],
-                              capture_output=True, text=True, check=True).stdout.strip()
-    except subprocess.CalledProcessError:
+                              capture_output=True, text=True, check=True).stdout.strip() or None
+    except (subprocess.CalledProcessError, FileNotFoundError):   # 키 없음 / 맥이 아님
         return None
 
 
