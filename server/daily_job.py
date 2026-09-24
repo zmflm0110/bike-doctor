@@ -20,8 +20,8 @@ DB = ROOT / "data" / "daily.sqlite"
 LOOKBACK_DAYS = 7   # 연쇄는 며칠씩 이어지기도 한다 — 일주일 치를 보고 오늘 아침 목록을 만든다 (server/rehearse.py 로 확인)
 
 
-def db(path=DB):
-    c = sqlite3.connect(path)
+def db(path=None):
+    c = sqlite3.connect(path or DB)
     c.execute("create table if not exists lists(day text, bike text, station text, chain int, level text, primary key(day, bike))")
     c.execute("create table if not exists scores(day text primary key, listed int, rode int, first_dud int, scored_at text)")
     return c
@@ -128,13 +128,14 @@ def write(days, station_name, only_latest):
     return keys
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", choices=["file", "api"], default="file")
     ap.add_argument("--month", default="2606")
     ap.add_argument("--api-url", help="대여이력 API 요청주소 (또는 환경변수 RENT_API_URL)")
     ap.add_argument("--date-param", help="날짜 인자 이름 (기본 searchDate, 또는 RENT_API_DATE_PARAM)")
-    a = ap.parse_args()
+    ap.add_argument("--today", help="이 날 아침인 것처럼 (놓친 날 다시 만들기·검사용, YYYY-MM-DD)")
+    a = ap.parse_args(argv)
     stn = {s["id"]: s["name"] for s in json.load(open(ROOT / "web" / "data" / "stations.json"))}
     if a.source == "file":
         R = load_seoul(ROOT / "data" / "raw" / f"rent_{a.month}.csv")
@@ -142,7 +143,7 @@ def main():
         days = morning_lists(R, F, station_name=stn, with_truth=False)
         written = write(days, stn, only_latest=False)
     else:
-        today = dt.date.today()
+        today = dt.date.fromisoformat(a.today) if a.today else dt.date.today()
         R = fetch_rentals_api(today - dt.timedelta(days=LOOKBACK_DAYS), today - dt.timedelta(days=1), url=a.api_url, date_params=a.date_param)
         print(f"받은 대여 {len(R):,}건 ({R['t0'].min()} ~ {R['t0'].max()})" if len(R) else "받은 대여 0건 — 날짜 인자·주소를 확인하세요")
         c = db()
