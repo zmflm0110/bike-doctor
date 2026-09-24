@@ -62,3 +62,6 @@ footer { color: var(--muted); font-size: 11px; padding: 12px 16px 28px; text-ali
   border-radius: 10px; background: var(--card); color: var(--muted); font-size: 14px; }
 .photo-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .photo-btn img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; }
+.retro { border-color: var(--accent); }
+.route li.total { justify-content: flex-start; color: var(--muted); }
+.route-num { background: var(--accent); color: #fff; border-radius: 50%; font: 700 11px/20px sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff; }

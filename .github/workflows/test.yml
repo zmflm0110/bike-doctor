@@ -13,6 +13,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
       - run: npm i --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
-      - run: node tests/web/smoke.js
+      - run: node tests/web/route.test.js && node tests/web/smoke.js
       - run: |
           for m in normal evict notiles; do PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 node tests/web/offline.js $m; done
