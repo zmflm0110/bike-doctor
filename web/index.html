@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="헛걸음 제로">
+<title>헛걸음 제로</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><img src="icon.svg" alt="" width="28" height="28"><div><h1>헛걸음 제로</h1><p>앞사람들의 헛걸음이 고장을 알려 줍니다</p></div></div>
+  <div class="date"><label>기준일 <select id="day"></select></label></div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="morning" class="on">아침 목록</button>
+  <button data-tab="lookup">자전거 조회</button>
+  <button data-tab="rescue">구조대</button>
+  <button data-tab="replay">시연</button>
+</nav>
+
+<main>
+  <section id="morning" class="tab on">
+    <div class="summary" id="morning-summary"></div>
+    <div id="map"></div>
+    <h2>정비 먼저 볼 곳</h2>
+    <ol id="station-rank" class="rank"></ol>
+    <h2>의심 자전거</h2>
+    <ul id="bike-list" class="bikes"></ul>
+  </section>
+
+  <section id="lookup" class="tab">
+    <p class="hint">따릉이를 빌리기 전에 자전거 번호(예: SPB-69683)를 넣거나 QR 을 비추세요.</p>
+    <form id="lookup-form"><input id="bike-input" placeholder="SPB-00000" autocomplete="off" autocapitalize="characters"><button>조회</button></form>
+    <button id="scan-btn" class="secondary">QR 로 찍기</button>
+    <video id="cam" playsinline muted hidden></video>
+    <canvas id="cam-canvas" hidden></canvas>
+    <div id="lookup-result"></div>
+  </section>
+
+  <section id="rescue" class="tab">
+    <p class="hint">근처 의심 자전거를 3초만 봐 주세요. 확인 결과는 정비로 이어집니다.</p>
+    <div id="rescue-card"></div>
+    <h2>내 구조 기록</h2>
+    <ul id="rescue-log" class="bikes"></ul>
+  </section>
+
+  <section id="replay" class="tab">
+    <p class="hint">2026년 6월 15일 서울 따릉이 실제 기록을 빠르게 다시 돌립니다.</p>
+    <div class="controls"><button id="play">▶ 재생</button><label>속도 <select id="speed"><option value="600">10분/초</option><option value="1800" selected>30분/초</option><option value="3600">1시간/초</option></select></label></div>
+    <div class="clock" id="clock">00:00</div>
+    <div class="counters">
+      <div><b id="c-dud">0</b><span>헛대여</span></div>
+      <div><b id="c-alarm">0</b><span>경보</span></div>
+      <div class="good"><b id="c-prev">0</b><span>막을 수 있던 헛걸음</span></div>
+      <div><b id="c-fault">0</b><span>뒤늦은 고장 신고</span></div>
+    </div>
+    <ul id="replay-feed" class="feed"></ul>
+  </section>
+</main>
+
+<footer>데이터: 서울 열린데이터광장 따릉이 대여이력·고장신고·대여소 정보. 경보 규칙: 서로 다른 사람이 3분·300m 안 반납을 2번 이상 이어서 함.</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
