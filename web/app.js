@@ -14,7 +14,7 @@ async function getJSON(path) {
 // ── 탭
 document.querySelectorAll("#tabs button").forEach((b) =>
   b.addEventListener("click", () => {
-    document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("on", x === b));
+    document.querySelectorAll("#tabs button").forEach((x) => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); });
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.id === b.dataset.tab));
     if (b.dataset.tab === "morning" && state.map) setTimeout(() => state.map.invalidateSize(), 50);
     if (b.dataset.tab === "rescue") renderRescue();
@@ -225,7 +225,7 @@ window.rescueSave = async (bike, verdict) => {
 };
 function toast(msg) {
   const t = document.createElement("div");
-  t.className = "toast"; t.textContent = msg;
+  t.className = "toast"; t.textContent = msg; t.setAttribute("role", "status");   // 화면 읽기 프로그램이 읽어 줌
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3200);
 }
