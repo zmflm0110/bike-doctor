@@ -12,6 +12,7 @@ python3 -m venv .venv && .venv/bin/pip install pandas numpy openpyxl matplotlib 
 .venv/bin/python analysis/report.py        # 핵심 표 → docs/results.md
 .venv/bin/python analysis/export_web.py    # 앱 데이터 → web/data/
 .venv/bin/python server/app.py             # http://localhost:8765 (웹앱 + 구조대·현장조사 API)
+sh server/https_local.sh && .venv/bin/python server/app.py 8443 --https   # 아이폰(같은 와이파이)에서 위치·QR — 안내가 나옴
 .venv/bin/python server/rehearse.py       # 매일 아침 작업을 과거 파일로 7일 연속 예행연습 → docs/phase3_rehearsal.md
 .venv/bin/python -m pytest -q tests        # 테스트
 ```

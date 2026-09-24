@@ -1,6 +1,7 @@
 """작은 서버 — 웹앱(web/)을 내보내고, 구조대 확인을 받아 SQLite 에 쌓는다. 표준 라이브러리만.
 
     python server/app.py            # http://localhost:8765
+    python server/app.py 8443 --https   # 집 와이파이 안 https (아이폰 위치·QR) — 먼저 server/https_local.sh
 API
   POST /api/rescue   {"bike": "SPB-12345", "verdict": "체인·기어", "day": "2026-06-15"}  → {"ok": true, "count": n}
   GET  /api/rescue   → 자전거별 확인 수·결과 요약 (정비 순위에 '사람이 확인함' 표시용)
@@ -114,11 +115,23 @@ class Handler(SimpleHTTPRequestHandler):
         pass
 
 
-def serve(port=8765):
+def serve(port=8765, https=False):
     httpd = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    print(f"http://localhost:{port}")
+    if https:
+        import ssl, subprocess
+        tls = ROOT / "data" / "tls"
+        if not (tls / "server.crt").exists():
+            raise SystemExit("인증서가 없습니다: sh server/https_local.sh 를 먼저 실행하세요")
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(tls / "server.crt", tls / "server.key")
+        httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+        host = subprocess.run(["scutil", "--get", "LocalHostName"], capture_output=True, text=True).stdout.strip()
+        print(f"https://{host}.local:{port}  (같은 와이파이의 아이폰에서)")
+    else:
+        print(f"http://localhost:{port}")
     httpd.serve_forever()
 
 
 if __name__ == "__main__":
-    serve(int(sys.argv[1]) if len(sys.argv) > 1 else 8765)
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    serve(int(args[0]) if args else 8765, https="--https" in sys.argv)
