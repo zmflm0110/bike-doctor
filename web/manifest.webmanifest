@@ -1,0 +1,3 @@
+{"name": "헛걸음 제로", "short_name": "헛걸음 제로", "start_url": "./", "display": "standalone",
+ "background_color": "#f6f7f6", "theme_color": "#0f766e", "lang": "ko",
+ "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml"}]}
