@@ -4,6 +4,8 @@ on:
   push:
     paths: ["ios/**", "web/data/**", ".github/workflows/ios.yml"]
   workflow_dispatch:
+permissions:
+  contents: write     # 화면 사진을 같은 가지의 ios/shots 에 커밋
 jobs:
   build:
     runs-on: macos-15
@@ -56,13 +58,16 @@ jobs:
           shot 4_replay 12 -tab replay -autoplay YES
           shot 5_survey 6 -tab survey
           xcrun simctl spawn "$DEV" log show --last 3m --predicate 'process == "HeotgeoleumZero" AND messageType == error' --style compact | grep -v -E "Metal|CoreFSCache" | tail -20 || true
-      - name: 화면 사진을 기록에 (작게, base64 — 기록만 볼 수 있는 곳에서 확인용)
+      - name: 화면 사진을 ios/shots 에 커밋 (작게, [skip ci])
+        if: github.event_name == 'push'
         working-directory: ios
         run: |
-          for f in shots/*.png; do
-            sips -Z 520 -s format jpeg -s formatOptions 55 "$f" --out "/tmp/$(basename "$f" .png).jpg" >/dev/null
-            echo "=== SHOT $(basename "$f" .png)"; base64 -i "/tmp/$(basename "$f" .png).jpg" | tr -d '\n'; echo; echo "=== END"
-          done
+          for f in shots/*.png; do sips -Z 900 "$f" --out "$f" >/dev/null; done
+          git config user.name "ios-ci"; git config user.email "ios-ci@users.noreply.github.com"
+          git add shots/*.png
+          git diff --cached --quiet && exit 0
+          git commit -m "아이폰 앱 화면 사진 (시뮬레이터, $(date -u +%F)) [skip ci]"
+          for i in 1 2 3; do git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep 5; done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
