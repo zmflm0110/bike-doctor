@@ -6,16 +6,55 @@
                                   fetch_rentals_api() 를 채운다. 그 전엔 친절한 오류로 멈춘다.
 그리고 키 1 이 있으면 실시간 대여소 현황을 web/data/status.json 에 남긴다(지도의 지금 자전거 수).
 """
-import argparse, datetime as dt, json, pathlib, sys
+import argparse, datetime as dt, json, pathlib, sqlite3, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import pandas as pd
-from engine.core import load_seoul, load_faults
-from engine.morning import morning_lists
+from engine.core import load_seoul, load_faults, mark
+from engine.morning import RULE, morning_lists
 from server import seoul_api
 
 OUT = ROOT / "web" / "data" / "morning"
-LOOKBACK_DAYS = 7   # 연쇄는 며칠씩 이어지기도 한다 — 일주일 치를 보고 오늘 아침 목록을 만든다
+DB = ROOT / "data" / "daily.sqlite"
+LOOKBACK_DAYS = 7   # 연쇄는 며칠씩 이어지기도 한다 — 일주일 치를 보고 오늘 아침 목록을 만든다 (server/rehearse.py 로 확인)
+
+
+def db(path=DB):
+    c = sqlite3.connect(path)
+    c.execute("create table if not exists lists(day text, bike text, station text, chain int, level text, primary key(day, bike))")
+    c.execute("create table if not exists scores(day text primary key, listed int, rode int, first_dud int, scored_at text)")
+    return c
+
+
+def record(c, day, items):
+    """오늘 아침 목록을 남긴다 (내일 아침 채점용)."""
+    with c:
+        c.execute("delete from lists where day = ?", (day,))
+        c.executemany("insert into lists values (?, ?, ?, ?, ?)", [(day, x["bike"], x["station"], x["chain"], x["level"]) for x in items])
+
+
+def score(c, day, R):
+    """어제(day) 목록 자전거를 어제 처음 빌린 '다른 사람' 이 헛걸음했나 — 매일 아침 어제 기록이 들어오면 채점 (Phase 3 합격 기준)."""
+    bikes = {b for (b,) in c.execute("select bike from lists where day = ?", (day,))}
+    if not bikes:
+        return None
+    M = mark(R[R["bike"].isin(bikes)], RULE)
+    lo = pd.Timestamp(day)
+    M = M[(M["t0"] >= lo) & (M["t0"] < lo + pd.Timedelta(days=1)) & ~M["retry"]]
+    first = M.groupby("bike").head(1)
+    row = (day, len(bikes), len(first), int(first["dud"].sum()), dt.datetime.now().isoformat(timespec="seconds"))
+    with c:
+        c.execute("insert or replace into scores values (?, ?, ?, ?, ?)", row)
+    return row
+
+
+def run_morning(c, today, R, station_name):
+    """today 아침: 어제까지의 기록 R(최근 LOOKBACK_DAYS 일) → 오늘 목록 기록 + 어제 목록 채점. 운영(api)·예행연습이 같이 쓴다."""
+    days = morning_lists(R, None, station_name=station_name, with_truth=False)
+    items = days.get(today, [])
+    record(c, today, items)
+    yesterday = (pd.Timestamp(today) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    return items, score(c, yesterday, R)
 
 
 def fetch_rentals_api(start, end):
@@ -52,8 +91,11 @@ def main():
     else:
         today = dt.date.today()
         R = fetch_rentals_api(today - dt.timedelta(days=LOOKBACK_DAYS), today - dt.timedelta(days=1))
-        days = morning_lists(R, None, station_name=stn, with_truth=False)
+        items, scored = run_morning(db(), today.isoformat(), R, stn)
+        days = {today.isoformat(): items}
         written = write(days, stn, only_latest=True)
+        if scored:
+            print(f"어제({scored[0]}) 목록 {scored[1]}대 중 어제 빌린 {scored[2]}대, 첫 이용자 헛걸음 {scored[3]}대")
     if seoul_api.key():
         json.dump({"at": dt.datetime.now().isoformat(timespec="seconds"), "stations": seoul_api.station_status()},
                   open(ROOT / "web" / "data" / "status.json", "w"), ensure_ascii=False)

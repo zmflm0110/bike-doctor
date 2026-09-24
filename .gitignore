@@ -6,3 +6,4 @@ data/cache/
 .DS_Store
 node_modules/
 data/rescue.sqlite
+data/*.sqlite
