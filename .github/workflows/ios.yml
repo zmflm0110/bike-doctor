@@ -59,7 +59,7 @@ jobs:
           shot 5_survey 6 -tab survey
           xcrun simctl spawn "$DEV" log show --last 3m --predicate 'process == "HeotgeoleumZero" AND messageType == error' --style compact | grep -v -E "Metal|CoreFSCache" | tail -20 || true
       - name: 화면 사진을 ios/shots 에 커밋 (작게, [skip ci])
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         working-directory: ios
         run: |
           for f in shots/*.png; do sips -Z 900 "$f" --out "$f" >/dev/null; done
