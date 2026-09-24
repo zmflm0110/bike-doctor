@@ -1,5 +1,5 @@
 // 웹앱(app.js·route.js)의 답을 뽑아 아이폰 앱(Swift) 검사의 정답으로 — 두 앱이 같은 목록·순위·동선을 내는지.
-//   node tests/web/parity_fixture.js   → ios/Tests/HeotgeoleumCoreTests/Fixtures/parity.json
+//   node tests/web/parity_fixture.js   → ios/Core/Tests/HeotgeoleumCoreTests/Fixtures/parity.json
 const { spawn } = require("child_process");
 const fs = require("fs"), os = require("os"), path = require("path");
 const { launch } = require("./browser");
@@ -37,7 +37,7 @@ const PORT = 9090 + Math.floor(Math.random() * 100);
     return [raw, m ? `SPB-${m[1].padStart(5, "0")}` : null];
   });
   await b.close(); srv.kill();
-  const file = path.join(ROOT, "ios/Tests/HeotgeoleumCoreTests/Fixtures/parity.json");
+  const file = path.join(ROOT, "ios/Core/Tests/HeotgeoleumCoreTests/Fixtures/parity.json");
   fs.writeFileSync(file, JSON.stringify(out, null, 1));
   console.log("→", file, Object.keys(out));
 })();

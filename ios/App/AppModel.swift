@@ -1,0 +1,191 @@
+import Foundation
+import Observation
+import CoreLocation
+import HeotgeoleumCore
+
+/// 앱 전체 상태 — 자료(앱에 넣은 web/data), 고른 날·구, 사람 확인, 내 위치, 서버, 조사 대기열.
+@Observable
+@MainActor
+final class AppModel {
+    var store: DataStore?
+    var loadError: String?
+    private(set) var day: String = ""
+    var morning: MorningList?
+    var gu: String = ""
+    var checked: Checked = [:]
+    var here: GeoPoint?
+    var toast: String?
+    var queued = 0
+    var rescueLog: [RescueEntry] = RescueEntry.load()
+
+    /// 맥 서버 주소 (예: http://내맥.local:8765). 비우면 기기에만 남긴다.
+    var serverURL: String = UserDefaults.standard.string(forKey: "serverURL") ?? ""
+    func saveServer() {
+        UserDefaults.standard.set(serverURL, forKey: "serverURL")
+        Task { queued = await queue.flush(with: client); await refreshChecked() }
+    }
+    var client: ServerClient? {
+        guard let u = URL(string: serverURL.trimmingCharacters(in: .whitespaces)), u.scheme?.hasPrefix("http") == true else { return nil }
+        return ServerClient(base: u)
+    }
+
+    let queue = SurveyQueue(file: URL.documentsDirectory.appendingPathComponent("survey_queue.json"))
+    private let locator = Locator()
+
+    func start() async {
+        guard store == nil else { return }
+        do {
+            guard let root = Bundle.main.url(forResource: "data", withExtension: nil) else { throw CocoaError(.fileNoSuchFile) }
+            let s = try DataStore(root: root)
+            store = s
+            select(day: s.defaultDay() ?? "")
+        } catch {
+            loadError = "앱 안의 자료(data 폴더)를 읽지 못했어요: \(error.localizedDescription)"
+        }
+        queued = await queue.flush(with: client)
+        await refreshChecked()
+    }
+
+    func select(day d: String) {
+        day = d
+        guard let store, !day.isEmpty else { return }
+        morning = try? store.morning(day)
+        if !gu.isEmpty, !(morning?.bikes.contains { store.gu(of: $0) == gu } ?? false) { gu = "" }
+    }
+
+    // MARK: 아침 목록
+
+    var shown: [SuspectBike] {
+        guard let store, let m = morning else { return [] }
+        return gu.isEmpty ? m.bikes : m.bikes.filter { store.gu(of: $0) == gu }
+    }
+    var groups: [StationGroup] { Morning.groupByStation(shown, checked: checked) }
+    var guCounts: [(String, Int)] {
+        guard let store, let m = morning else { return [] }
+        var n: [String: Int] = [:]
+        m.bikes.forEach { n[store.gu(of: $0), default: 0] += 1 }
+        return n.sorted { $0.key.compare($1.key, locale: Locale(identifier: "ko_KR")) == .orderedAscending }.map { ($0.key, $0.value) }
+    }
+    func station(_ id: String) -> Station? { store?.stations[id] }
+
+    /// 정비 담당용 CSV (엑셀용, 이름은 영문 — 웹앱과 같음)
+    var csv: CSVFile {
+        CSVFile(name: "morning_\(day)\(gu.isEmpty ? "" : "_" + (GuNames.english[gu] ?? "gu")).csv",
+                text: store.map { Morning.csv(day: day, bikes: shown, stations: $0.stations, checked: checked) } ?? "")
+    }
+
+    // MARK: 위치
+
+    /// 한 번 받기. 실패하면 알림 뒤 nil.
+    @discardableResult
+    func locate() async -> GeoPoint? {
+        do {
+            let c = try await locator.once()
+            here = GeoPoint(lat: c.latitude, lon: c.longitude)
+        } catch {
+            show("위치를 쓸 수 없어요. 설정 → 개인정보 보호 → 위치 서비스에서 허용해 주세요.")
+        }
+        return here
+    }
+
+    // MARK: 구조대·서버
+
+    func refreshChecked() async {
+        guard let client else { return }
+        if let c = try? await client.checked() { checked = c }
+    }
+
+    func rescue(_ bike: String, _ verdict: String) async {
+        rescueLog.insert(RescueEntry(bike: bike, verdict: verdict, day: day, at: Date()), at: 0)
+        RescueEntry.save(rescueLog)
+        var sent = ""
+        if let client, let n = try? await client.rescue(bike: bike, verdict: verdict, day: day) {
+            sent = " 지금까지 \(n)명이 이 자전거를 확인했어요."
+            await refreshChecked()
+        }
+        show("고마워요! \(bike) 를 \"\(verdict)\" 로 기록했어요.\(sent)")
+    }
+
+    func survey(_ r: SurveyRecord) async {
+        do { try await queue.add(r) } catch { show("기기에 저장하지 못했어요: \(error.localizedDescription)"); return }
+        queued = await queue.flush(with: client)
+        await refreshChecked()
+        show("\(r.bike) → \(r.status)\(r.photoJPEG != nil ? " (사진 포함)" : "")\(queued > 0 ? " — 서버에 못 보낸 \(queued)건은 폰에 보관 중" : "")")
+    }
+
+    func show(_ text: String) {
+        toast = text
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3.2))
+            if toast == text { toast = nil }
+        }
+    }
+}
+
+struct RescueEntry: Codable, Identifiable, Hashable {
+    var id: String { bike + at.description }
+    let bike: String
+    let verdict: String
+    let day: String
+    let at: Date
+
+    static func load() -> [RescueEntry] {
+        guard let d = UserDefaults.standard.data(forKey: "rescue") else { return [] }
+        return (try? JSONDecoder().decode([RescueEntry].self, from: d)) ?? []
+    }
+    static func save(_ log: [RescueEntry]) {
+        UserDefaults.standard.set(try? JSONEncoder().encode(Array(log.prefix(200))), forKey: "rescue")
+    }
+}
+
+/// CLLocationManager 를 async 한 번 받기로
+final class Locator: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var waiting: [CheckedContinuation<CLLocationCoordinate2D, Error>] = []
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+    }
+
+    @MainActor
+    func once() async throws -> CLLocationCoordinate2D {
+        try await withCheckedThrowingContinuation { k in
+            waiting.append(k)
+            switch manager.authorizationStatus {
+            case .notDetermined: manager.requestWhenInUseAuthorization()
+            case .denied, .restricted: finish(.failure(CLError(.denied)))
+            default: manager.requestLocation()
+            }
+        }
+    }
+
+    private func finish(_ r: Result<CLLocationCoordinate2D, Error>) {
+        let w = waiting
+        waiting = []
+        w.forEach { $0.resume(with: r) }
+    }
+
+    func locationManagerDidChangeAuthorization(_ m: CLLocationManager) {
+        guard !waiting.isEmpty else { return }
+        switch m.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways: m.requestLocation()
+        case .denied, .restricted: finish(.failure(CLError(.denied)))
+        default: break
+        }
+    }
+    func locationManager(_ m: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let c = locations.last?.coordinate { finish(.success(c)) }
+    }
+    func locationManager(_ m: CLLocationManager, didFailWithError error: Error) { finish(.failure(error)) }
+}
+
+enum GuNames {
+    static let english: [String: String] = [
+        "강남구": "gangnam", "강동구": "gangdong", "강북구": "gangbuk", "강서구": "gangseo", "관악구": "gwanak", "광진구": "gwangjin", "구로구": "guro",
+        "금천구": "geumcheon", "노원구": "nowon", "도봉구": "dobong", "동대문구": "dongdaemun", "동작구": "dongjak", "마포구": "mapo", "서대문구": "seodaemun",
+        "서초구": "seocho", "성동구": "seongdong", "성북구": "seongbuk", "송파구": "songpa", "양천구": "yangcheon", "영등포구": "yeongdeungpo", "용산구": "yongsan",
+        "은평구": "eunpyeong", "종로구": "jongno", "중구": "jung", "중랑구": "jungnang",
+    ]
+}
