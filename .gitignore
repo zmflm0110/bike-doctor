@@ -10,3 +10,4 @@ data/*.sqlite
 data/tls/
 docs/demo/*.webm
 docs/report.html
+data/photos/

@@ -73,8 +73,9 @@
     <input id="station-filter" placeholder="대여소 이름으로 찾기 (예: 망원역)" style="width:100%;margin-top:8px">
     <select id="survey-station" style="width:100%;margin-top:8px"></select>
     <form id="survey-form" style="margin-top:8px"><input id="survey-bike" placeholder="SPB-00000" autocomplete="off" autocapitalize="characters"></form>
-    <div class="choices three" id="survey-choices"></div>
     <input id="survey-note" placeholder="메모(선택): 바람 빠짐, 체인 빠짐…" style="width:100%;margin-top:8px">
+    <label class="photo-btn"><input id="survey-photo" type="file" accept="image/*" capture="environment"><span id="survey-photo-label">📷 사진 붙이기 (선택)</span><img id="survey-thumb" alt="" hidden></label>
+    <div class="choices three" id="survey-choices"></div>
     <p class="muted" id="survey-count"></p>
     <a id="survey-csv" href="api/survey.csv" class="muted">조사 기록 CSV 내려받기</a>
   </section>

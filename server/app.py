@@ -5,21 +5,23 @@
 API
   POST /api/rescue   {"bike": "SPB-12345", "verdict": "체인·기어", "day": "2026-06-15"}  → {"ok": true, "count": n}
   GET  /api/rescue   → 자전거별 확인 수·결과 요약 (정비 순위에 '사람이 확인함' 표시용)
-  POST /api/survey   현장 조사: {"station": "02720", "bike": "SPB-12345", "status": "타이어", "note": "", "lat": .., "lon": ..}
-  GET  /api/survey.csv  현장 조사 전체를 CSV 로 (analysis/field_validation.py 가 읽음)
+  POST /api/survey   현장 조사: {"station": "02720", "bike": "SPB-12345", "status": "타이어", "note": "", "lat": .., "lon": ..,
+                     "photo": "data:image/jpeg;base64,..."(선택, 폰에서 줄인 사진 — data/photos/ 에 저장)}
+  GET  /api/survey.csv  현장 조사 전체를 CSV 로 (analysis/field_validation.py 가 읽음, photo 열 = 사진 파일 이름)
+  GET  /api/photo/<이름>  저장한 사진
 """
-import json, os, pathlib, sqlite3, sys
+import base64, json, os, pathlib, re, sqlite3, sys, uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DB = pathlib.Path(os.environ.get("BIKE_DB") or ROOT / "data" / "rescue.sqlite")   # 검사는 BIKE_DB 로 따로
+PHOTO_MAX = 1_500_000   # 줄인 사진 한 장(base64) 상한 — 폰에서 긴 변 1280px JPEG 로 줄여 보낸다
 VERDICTS = {"체인·기어", "타이어", "안장·핸들", "브레이크", "멀쩡함"}
 STATUSES = VERDICTS | {"기타 고장"}
 
 
 def norm_bike(x):
     """'spb 69683', 'SPB69683', 'SPB-69683' → 'SPB-69683'. 번호가 없으면 None."""
-    import re
     m = re.search(r"SPB\s*-?\s*(\d{3,6})", str(x).upper())
     return f"SPB-{int(m.group(1)):05d}" if m else None
 
@@ -30,7 +32,27 @@ def db():
     c.execute("create table if not exists rescue(id integer primary key, bike text, verdict text, day text, at text default current_timestamp)")
     c.execute("create table if not exists survey(id integer primary key, at text default (datetime('now','localtime')), station text, bike text,"
               " status text, note text, lat real, lon real)")
+    if "photo" not in [r[1] for r in c.execute("pragma table_info(survey)")]:   # 예전 DB 에 사진 열 더하기
+        c.execute("alter table survey add column photo text")
     return c
+
+
+def photos():
+    return DB.parent / "photos"   # DB 옆 (검사는 임시 DB 옆)
+
+
+def save_photo(data_url):
+    """'data:image/jpeg;base64,...' → data/photos/<무작위>.jpg, 파일 이름. JPEG·PNG 만, 크기 제한."""
+    m = re.fullmatch(r"data:image/(jpeg|png);base64,([A-Za-z0-9+/=]+)", data_url or "")
+    if not m or len(m.group(2)) > PHOTO_MAX:
+        raise ValueError("photo")
+    raw = base64.b64decode(m.group(2), validate=True)
+    if not (raw[:3] == b"\xff\xd8\xff" or raw[:8] == b"\x89PNG\r\n\x1a\n"):   # 내용도 진짜 그림인지
+        raise ValueError("photo")
+    photos().mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex[:16]}.{'jpg' if m.group(1) == 'jpeg' else 'png'}"
+    (photos() / name).write_bytes(raw)
+    return name
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -45,9 +67,9 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _body(self):
+    def _body(self, limit=4000):
         n = int(self.headers.get("Content-Length", 0))
-        if n > 4000:
+        if n > limit:
             raise ValueError("too big")
         return json.loads(self.rfile.read(n))
 
@@ -70,7 +92,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _survey(self):
         try:
-            x = self._body()
+            x = self._body(limit=PHOTO_MAX + 4000)
             bike, status = norm_bike(x["bike"]), str(x["status"])
             if not bike or status not in STATUSES:
                 return self._json(400, {"ok": False, "error": "bike 는 SPB-, status 는 정해진 값"})
@@ -80,10 +102,11 @@ class Handler(SimpleHTTPRequestHandler):
                 if x.get("at") else _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             row = (at, str(x.get("station", ""))[:10], bike, status, str(x.get("note", ""))[:200],
                    float(x["lat"]) if x.get("lat") is not None else None, float(x["lon"]) if x.get("lon") is not None else None)
+            photo = save_photo(x["photo"]) if x.get("photo") else None   # 검사를 다 통과한 뒤에 저장
         except (ValueError, KeyError, TypeError, json.JSONDecodeError):
             return self._json(400, {"ok": False})
         with db() as c:
-            c.execute("insert into survey(at, station, bike, status, note, lat, lon) values (?,?,?,?,?,?,?)", row)
+            c.execute("insert into survey(at, station, bike, status, note, lat, lon, photo) values (?,?,?,?,?,?,?,?)", row + (photo,))
             n = c.execute("select count(*) from survey").fetchone()[0]
         self._json(200, {"ok": True, "total": n})
 
@@ -91,14 +114,22 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/survey.csv"):
             import csv, io
             with db() as c:
-                rows = c.execute("select at, station, bike, status, note, lat, lon from survey order by id").fetchall()
+                rows = c.execute("select at, station, bike, status, note, lat, lon, photo from survey order by id").fetchall()
             buf = io.StringIO()
             w = csv.writer(buf)
-            w.writerow(["at", "station", "bike", "status", "note", "lat", "lon"])
+            w.writerow(["at", "station", "bike", "status", "note", "lat", "lon", "photo"])
             w.writerows(rows)
             body = buf.getvalue().encode("utf-8-sig")
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            return self.wfile.write(body)
+        m = re.fullmatch(r"/api/photo/([0-9a-f]{16}\.(jpg|png))", self.path)
+        if m and (photos() / m.group(1)).exists():
+            body = (photos() / m.group(1)).read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg" if m.group(2) == "jpg" else "image/png")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return self.wfile.write(body)

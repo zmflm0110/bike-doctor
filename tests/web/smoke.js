@@ -34,7 +34,7 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     check((await page.$$("#map path.leaflet-interactive")).length > 5, "지도에 의심 대여소 표시");
     await shot("1_morning");
     // 아이폰: 입력칸 글자가 16px 보다 작으면 누를 때 화면이 확대된다, 홈 화면 아이콘은 PNG 여야 한다
-    const small = await page.$$eval("input,select", (els) => els.filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id));
+    const small = await page.$$eval("input,select", (els) => els.filter((e) => e.type !== "file" && parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id));
     check(small.length === 0, "입력칸 글자 16px 이상 (아이폰 확대 방지)" + (small.length ? ": " + small : ""));
     const touch = await page.$eval('link[rel="apple-touch-icon"]', (l) => l.href);
     const icon = await fetch(touch);
@@ -82,10 +82,21 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     await page.fill("#station-filter", "망원");
     check((await page.$$eval("#survey-station option", (o) => o.length)) > 0, "이름으로 대여소 찾기");
     await page.fill("#survey-bike", "spb 12345");
+    // 사진: 폰 카메라 대신 큰 그림 파일(3000×2000)을 넣어 줄여 보내는지
+    const big = await page.evaluate(() => { const c = document.createElement("canvas"); c.width = 3000; c.height = 2000;
+      const g = c.getContext("2d"); g.fillStyle = "#0f766e"; g.fillRect(0, 0, 3000, 2000); g.fillStyle = "#fff"; g.fillRect(900, 600, 1200, 800);
+      return c.toDataURL("image/png").split(",")[1]; });
+    await page.setInputFiles("#survey-photo", { name: "bike.png", mimeType: "image/png", buffer: Buffer.from(big, "base64") });
+    await page.waitForFunction(() => !document.querySelector("#survey-thumb").hidden);
     await page.click('#survey-choices button[data-st="체인·기어"]');
     await page.waitForFunction(() => document.querySelector("#survey-count").textContent.includes("1대"));
     const csv = await (await fetch(`http://127.0.0.1:${PORT}/api/survey.csv`)).text();
     check(csv.includes("SPB-12345") && csv.includes("체인·기어"), "조사 기록이 CSV 로");
+    const photo = csv.trim().split("\n").pop().trim().split(",").pop();
+    const pr = await fetch(`http://127.0.0.1:${PORT}/api/photo/${photo}`);
+    const pb = Buffer.from(await pr.arrayBuffer());
+    check(pr.ok && pb[0] === 0xff && pb[1] === 0xd8 && pb.length < 300000, `사진이 줄어 JPEG 로 저장 (${Math.round(pb.length / 1024)}KB)`);
+    check(await page.$eval("#survey-thumb", (i) => i.hidden), "저장 뒤 사진 칸 비움");
     await shot("5_survey");
     check(errors.length === 0, "화면 오류 없음" + (errors.length ? ": " + errors.slice(0, 3).join(" | ") : ""));
   } catch (e) {

@@ -259,12 +259,18 @@ $("#play").addEventListener("click", startReplay);
 const SURVEY_STATUS = ["멀쩡함", "타이어", "체인·기어", "안장·핸들", "브레이크", "기타 고장"];
 let here = null;
 function queue() { try { return JSON.parse(localStorage.getItem("survey_queue") || "[]"); } catch { return []; } }
-function setQueue(q) { try { localStorage.setItem("survey_queue", JSON.stringify(q)); } catch {} }
+function setQueue(q) { try { localStorage.setItem("survey_queue", JSON.stringify(q)); return true; } catch { return false; } }
 async function flushQueue() {
   const q = queue(); const left = [];
   for (const rec of q) {
-    try { const r = await fetch("api/survey", { method: "POST", body: JSON.stringify(rec) }); if (!r.ok && r.status !== 400) left.push(rec); }
-    catch { left.push(rec); }
+    try {
+      let r = await fetch("api/survey", { method: "POST", body: JSON.stringify(rec) });
+      if (r.status === 400 && rec.photo) {   // 사진이 거절돼도 본 기록은 살린다
+        const { photo, ...plain } = rec;
+        r = await fetch("api/survey", { method: "POST", body: JSON.stringify(plain) });
+      }
+      if (!r.ok && r.status !== 400) left.push(rec);   // 400 = 잘못된 기록 → 버림, 그 밖(서버 문제) → 다음에 다시
+    } catch { left.push(rec); }
   }
   setQueue(left);
   return left.length;
@@ -287,6 +293,32 @@ $("#near-btn").addEventListener("click", () => {
   navigator.geolocation.getCurrentPosition((p) => { here = { lat: p.coords.latitude, lon: p.coords.longitude }; stationOptions(here, $("#station-filter").value.trim()); },
     () => toast("위치를 쓸 수 없어요(아이폰은 https 주소에서만). 이름으로 찾아 주세요."), { enableHighAccuracy: true, timeout: 8000 });
 });
+// 사진(선택): 폰에서 긴 변 1280px JPEG 로 줄여서 보낸다 (원본 몇 MB → 약 150KB). 번호판·얼굴이 안 나오게 — 절차 문서.
+let surveyPhoto = null;
+async function shrink(file, max = 1280, q = 0.7) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", q);
+  } finally { URL.revokeObjectURL(url); }
+}
+function setSurveyPhoto(dataUrl) {
+  surveyPhoto = dataUrl;
+  $("#survey-thumb").hidden = !dataUrl;
+  if (dataUrl) $("#survey-thumb").src = dataUrl; else $("#survey-thumb").removeAttribute("src");
+  $("#survey-photo-label").textContent = dataUrl ? `📷 사진 붙음 (${Math.round(dataUrl.length * 0.75 / 1024)}KB) — 다시 누르면 바꿈` : "📷 사진 붙이기 (선택)";
+}
+$("#survey-photo").addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  try { setSurveyPhoto(await shrink(f)); } catch { setSurveyPhoto(null); toast("사진을 읽지 못했어요. 다른 사진으로 해 주세요."); }
+  e.target.value = "";
+});
+
 $("#survey-choices").innerHTML = SURVEY_STATUS.map((st) => `<button class="${st === "멀쩡함" ? "fine" : "bad"}" data-st="${st}">${st}</button>`).join("");
 $("#survey-form").addEventListener("submit", (e) => e.preventDefault());
 $("#survey-choices").addEventListener("click", async (e) => {
@@ -295,11 +327,15 @@ $("#survey-choices").addEventListener("click", async (e) => {
   if (!/SPB\s*-?\s*\d{3,6}/i.test(bike)) return toast("자전거 번호(SPB-00000)를 먼저 넣어 주세요.");
   const rec = { station: $("#survey-station").value, bike, status: st, note: $("#survey-note").value, lat: here && here.lat, lon: here && here.lon,
                 at: new Date().toISOString() };
-  setQueue([...queue(), rec]);
+  if (surveyPhoto) rec.photo = surveyPhoto;
+  let dropped = false;
+  if (!setQueue([...queue(), rec]) && rec.photo) {   // 폰 저장 공간이 차면 사진만 빼고라도 기록은 남긴다
+    delete rec.photo; dropped = true; setQueue([...queue(), rec]);
+  }
   const left = await flushQueue();
   const n = (+(localStorage.getItem("survey_n") || 0)) + 1;
   try { localStorage.setItem("survey_n", n); } catch {}
   $("#survey-count").textContent = `오늘 이 기기로 ${n}대 기록${left ? ` (서버에 못 보낸 ${left}건은 폰에 보관 중)` : ""}`;
-  $("#survey-bike").value = ""; $("#survey-note").value = "";
-  toast(`${bike.toUpperCase()} → ${st}`);
+  $("#survey-bike").value = ""; $("#survey-note").value = ""; setSurveyPhoto(null);
+  toast(`${bike.toUpperCase()} → ${st}${rec.photo ? " (사진 포함)" : ""}${dropped ? " — 폰 저장 공간이 모자라 사진은 빼고 보관했어요" : ""}`);
 });
