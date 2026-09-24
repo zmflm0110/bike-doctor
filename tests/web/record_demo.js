@@ -38,8 +38,13 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const bike = await page.$eval("#bike-list li b", (b) => b.textContent);
   await cap("헛걸음 제로는 어제까지의 공개 대여기록만 봅니다.", "서로 다른 사람이 연달아 3분 안에 반납한 자전거 = 고장 의심. 그중 대부분은 아직 신고도 없어요.");
   await wait(4500);
+  await cap("이 목록은 맞았을까? — 지난 기록이라 채점할 수 있어요.", (await page.textContent("#morning-retro")).replace("이 목록은 맞았을까? (지난 기록이라 채점할 수 있어요) ", ""));
+  await wait(5000);
   await page.evaluate(() => window.scrollTo({ top: 520, behavior: "smooth" }));
   await cap("정비 기사는 '먼저 볼 곳' 부터.", "누적 헛걸음이 많은 대여소 순서 — 경보의 절반이 대여소 16% 에 몰려 있어요.");
+  await wait(4000);
+  await page.evaluate(() => document.querySelector("#route-list").scrollIntoView({ behavior: "smooth", block: "center" }));
+  await cap("도는 순서까지 — 정비 동선.", "위치를 켜면 내 근처 의심 대여소 10곳을 도는 순서와 거리.");
   await wait(4000);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
 
