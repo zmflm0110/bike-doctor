@@ -26,6 +26,16 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
   page.on("dialog", (d) => { errors.push("dialog: " + d.message()); d.dismiss(); });
   const shot = async (name) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, name + ".png") }); } };
   const tab = (t) => page.click(`#tabs button[data-tab="${t}"]`);
+  // 글자 대비 (WCAG AA 4.5:1) — 보이는 탭·머리글·탭 단추에서 기준 못 넘는 글자
+  const lowContrast = () => page.evaluate(() => {
+        const lum = (c) => { const v = c.match(/[\d.]+/g).slice(0, 3).map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+        const bg = (el) => { for (; el; el = el.parentElement) { const c = getComputedStyle(el).backgroundColor; if (c && !/, 0\)$/.test(c) && c !== "transparent") return c; } return "rgb(255,255,255)"; };
+        return [...document.querySelectorAll(".tab.on *, header *, nav *")].filter((el) => el.offsetParent &&
+          [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).map((el) => {
+          const a = lum(getComputedStyle(el).color), b = lum(bg(el));
+          return [(Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05), el.textContent.trim().slice(0, 12)]; }).filter(([r]) => r < 4.5);
+      });
+
   try {
     await page.goto(URL, { waitUntil: "networkidle" });
     console.log("아침 목록");
@@ -114,6 +124,13 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     check(pr.ok && pb[0] === 0xff && pb[1] === 0xd8 && pb.length < 300000, `사진이 줄어 JPEG 로 저장 (${Math.round(pb.length / 1024)}KB)`);
     check(await page.$eval("#survey-thumb", (i) => i.hidden), "저장 뒤 사진 칸 비움");
     await shot("5_survey");
+    console.log("글자 대비 (다섯 탭 × 밝은·어두운 화면)");
+    const low = [];
+    for (const cs of ["light", "dark"]) {
+      await page.emulateMedia({ colorScheme: cs });
+      for (const t of ["morning", "lookup", "rescue", "replay", "survey"]) { await tab(t); (await lowContrast()).forEach((x) => low.push([cs, t, ...x])); }
+    }
+    check(low.length === 0, "4.5:1 이상" + (low.length ? ": " + JSON.stringify(low.slice(0, 4)) : ""));
     check(errors.length === 0, "화면 오류 없음" + (errors.length ? ": " + errors.slice(0, 3).join(" | ") : ""));
   } catch (e) {
     fails.push(e.message);

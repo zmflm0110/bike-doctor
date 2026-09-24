@@ -1,6 +1,6 @@
 :root {
   --bg: #f6f7f6; --card: #ffffff; --fg: #17201f; --muted: #5d6b69; --line: #e1e6e4;
-  --accent: #0f766e; --yellow: #d99a06; --red: #d9480f; --good: #2b8a3e;
+  --accent: #0f766e; --yellow: #d99a06; --red: #c2410c; --good: #237032;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #111615; --card: #1a2120; --fg: #e8eeec; --muted: #9aa8a5; --line: #2b3533;
@@ -65,3 +65,8 @@ footer { color: var(--muted); font-size: 11px; padding: 12px 16px 28px; text-ali
 .retro { border-color: var(--accent); }
 .route li.total { justify-content: flex-start; color: var(--muted); }
 .route-num { background: var(--accent); color: #fff; border-radius: 50%; font: 700 11px/20px sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff; }
+@media (prefers-color-scheme: dark) {   /* 밝은 청록 바탕에 흰 글자는 대비 1.9:1 → 어두운 글자 */
+  button, nav button.on, .route-num, .tag { color: #0b1514; }
+  button.secondary, .choices button { color: var(--fg); }
+}
+.tag.노랑 { color: #1c1400; }   /* 노랑 바탕엔 흰 글자가 안 읽힘 */
