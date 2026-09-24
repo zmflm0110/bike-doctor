@@ -6,6 +6,7 @@
 
 - 보고서 초안: [`docs/report.md`](docs/report.md) ([PDF](docs/report.pdf)) · 핵심 표: [`docs/results.md`](docs/results.md) · 계획·진행 기록: [`PLAN.md`](PLAN.md)
 - 발표: [`docs/slides.html`](docs/slides.html) (브라우저로 열고 ←/→, F 전체 화면, [PDF](docs/slides.pdf)) · 말할 거리·예상 질문: [`docs/slides.md`](docs/slides.md)
+- 서울시설공단 제안서 초안: [`docs/proposal.md`](docs/proposal.md) ([PDF](docs/proposal.pdf)) — 보낼지는 사용자 결정
 - 시연 영상: [`docs/demo/demo.mp4`](docs/demo/demo.mp4) (1분 27초, 자막 포함) · 앱 화면: [`docs/shots/`](docs/shots)
 
 ## 핵심 결과
@@ -61,7 +62,7 @@ GitHub 에 올리면 `.github/workflows/test.yml` 이 위 검사를 전부 돌�
 ```sh
 SHOTS=docs/shots node tests/web/smoke.js     # 앱 화면 사진 (발표에 쓰임)
 node tests/web/record_demo.js                # 시연 영상 → docs/demo/demo.webm·demo.mp4 (mp4 는 ffmpeg 필요, FFMPEG=경로)
-node docs/build_pdf.js                       # docs/report.pdf, docs/slides.pdf
+node docs/build_pdf.js                       # docs/report.pdf, proposal.pdf, slides.pdf
 ```
 인터넷이 되는 곳에서 찍으면 지도 조각이 깔린다(안 되면 대여소 점 바탕).
 
