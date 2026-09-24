@@ -70,3 +70,6 @@ footer { color: var(--muted); font-size: 11px; padding: 12px 16px 28px; text-ali
   button.secondary, .choices button { color: var(--fg); }
 }
 .tag.노랑 { color: #1c1400; }   /* 노랑 바탕엔 흰 글자가 안 읽힘 */
+.filters { display: flex; gap: 8px; margin-bottom: 10px; align-items: stretch; }
+.filters select { flex: 1; min-width: 0; }
+.filters button.secondary { width: auto; margin-top: 0; white-space: nowrap; }

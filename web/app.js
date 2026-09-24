@@ -1,6 +1,6 @@
 // 헛걸음 제로 — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
 const $ = (s) => document.querySelector(s);
-const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {} };
+const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "" };
 let here = null;   // 내 위치 (📍 버튼을 눌렀을 때만)
 // QR·입력에서 온 글자를 화면에 넣을 때는 반드시 거친다 (QR 에 HTML 을 심어 두는 장난 막기)
 const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -26,18 +26,63 @@ async function loadDay(day) {
   state.day = day;
   state.morning = await getJSON(`data/morning/${day}.json`);
   state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
-  const bikes = state.morning.bikes;
+  guOptions();
+  renderMorning();
+  renderRescue();
+  loadChecked();
+}
+
+// 구(區) 고르기 — 정비는 구역 단위로 움직인다. 고른 구의 자전거만 요약·지도·순위·동선·목록에.
+const guOf = (b) => (state.stations[b.station] || {}).gu || "기타";
+const shown = () => (state.morning ? state.morning.bikes.filter((b) => !state.gu || guOf(b) === state.gu) : []);
+function guOptions() {
+  const n = {};
+  state.morning.bikes.forEach((b) => (n[guOf(b)] = (n[guOf(b)] || 0) + 1));
+  if (state.gu && !n[state.gu]) state.gu = "";
+  $("#gu").innerHTML = `<option value="">서울 전체 (${state.morning.bikes.length}대)</option>` +
+    Object.keys(n).sort((a, b) => a.localeCompare(b, "ko")).map((g) => `<option value="${esc(g)}" ${g === state.gu ? "selected" : ""}>${esc(g)} (${n[g]}대)</option>`).join("");
+}
+function renderMorning() {
+  const bikes = shown();
   const red = bikes.filter((b) => b.level === "빨강").length;
   const unrep = bikes.filter((b) => !b.reported).length;
   $("#morning-summary").innerHTML =
     `<b>${bikes.length}</b>대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 ` +
     `(빨강 ${red}대). 이 중 <b>${unrep}</b>대는 아직 아무도 고장 신고를 안 했어요.`;
+  if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
   renderMap(bikes);
   renderRetro(bikes);
   renderLists();
-  renderRescue();
-  loadChecked();
 }
+$("#gu").addEventListener("change", (e) => {
+  state.gu = e.target.value;
+  renderMorning();
+  if (state.map && state.layer) { const b = state.layer.getLayers().map((m) => m.getLatLng()); if (b.length) state.map.fitBounds(L.latLngBounds(b).pad(0.2), { maxZoom: 14 }); }
+});
+
+const GU_EN = { 강남구: "gangnam", 강동구: "gangdong", 강북구: "gangbuk", 강서구: "gangseo", 관악구: "gwanak", 광진구: "gwangjin", 구로구: "guro",
+  금천구: "geumcheon", 노원구: "nowon", 도봉구: "dobong", 동대문구: "dongdaemun", 동작구: "dongjak", 마포구: "mapo", 서대문구: "seodaemun",
+  서초구: "seocho", 성동구: "seongdong", 성북구: "seongbuk", 송파구: "songpa", 양천구: "yangcheon", 영등포구: "yeongdeungpo", 용산구: "yongsan",
+  은평구: "eunpyeong", 종로구: "jongno", 중구: "jung", 중랑구: "jungnang" };
+// 정비 담당에게 보낼 목록 — 엑셀에서 바로 열리게(UTF-8 BOM). 서버 없이 폰·정적 호스팅에서도 된다.
+function morningCSV(bikes) {
+  const q = (x) => `"${String(x ?? "").replace(/"/g, '""')}"`;
+  const head = ["기준일", "구", "대여소번호", "대여소", "자전거번호", "서로 다른 사람 연속 헛대여(명)", "단계", "마지막 헛대여", "고장 신고", "구조대 확인"];
+  const rows = groupByStation(bikes).flatMap(([, arr]) => arr).map((b) => {
+    const c = checkedOf(b.bike);
+    return [state.day, guOf(b), b.station, b.station_name, b.bike, b.chain, b.level, b.last_dud, b.reported ? "있음" : "없음",
+      c.total ? `고장 ${c.broken}/${c.total}` : ""];
+  });
+  return "\ufeff" + [head, ...rows].map((r) => r.map(q).join(",")).join("\r\n") + "\r\n";
+}
+$("#csv-btn").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([morningCSV(shown())], { type: "text/csv;charset=utf-8" }));
+  // 파일 이름은 영문만 — 한글 이름은 일부 브라우저가 'download' 로 바꿔 버린다(구 이름은 표 안에 있다)
+  a.download = `morning_${state.day}${state.gu ? "_" + (Object.keys(GU_EN).includes(state.gu) ? GU_EN[state.gu] : "gu") : ""}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+});
 
 // 뒤돌아 채점 — 지난 기록이라 '이 목록이 나온 뒤 처음 빌린 사람' 이 어땠는지 안다 (운영에서는 다음 날 아침 채점: server/daily_job.py)
 function renderRetro(bikes) {
@@ -52,9 +97,10 @@ function renderRetro(bikes) {
 }
 function renderLists() {
   if (!state.morning) return;
-  renderRank(state.morning.bikes);
-  renderRoute(state.morning.bikes);
-  $("#bike-list").innerHTML = state.morning.bikes.slice(0, 80).map(bikeRow).join("");
+  const bikes = shown();
+  renderRank(bikes);
+  renderRoute(bikes);
+  $("#bike-list").innerHTML = bikes.slice(0, 80).map(bikeRow).join("");
 }
 
 // 정비 동선: 순위 위 10곳을 (내 위치 또는 1위 대여소에서) 도는 순서 — route.js
