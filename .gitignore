@@ -12,3 +12,7 @@ docs/demo/*.webm
 docs/report.html
 data/photos/
 docs/proposal.html
+ios/.build/
+ios/.swiftpm/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
