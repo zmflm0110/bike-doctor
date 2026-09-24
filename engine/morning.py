@@ -5,7 +5,7 @@ import pandas as pd
 
 from .core import Rule, mark
 
-RULE = Rule(max_sec=180, max_m=300, alarm_k=2)
+RULE = Rule(max_sec=180, max_m=300, alarm_k=2, retry_gap_sec=120)   # 생년·성별 없는 기록이면 2분 안 재대여를 같은 사람으로 (docs/no_who.md)
 
 
 def morning_lists(R, F=None, rule=RULE, station_name=None, with_truth=True):

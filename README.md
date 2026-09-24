@@ -12,6 +12,7 @@ python3 -m venv .venv && .venv/bin/pip install pandas numpy openpyxl matplotlib 
 .venv/bin/python analysis/report.py        # 핵심 표 → docs/results.md
 .venv/bin/python analysis/export_web.py    # 앱 데이터 → web/data/
 .venv/bin/python server/app.py             # http://localhost:8765 (웹앱 + 구조대·현장조사 API)
+.venv/bin/python server/rehearse.py       # 매일 아침 작업을 과거 파일로 7일 연속 예행연습 → docs/phase3_rehearsal.md
 .venv/bin/python -m pytest -q tests        # 테스트
 ```
 
@@ -20,7 +21,7 @@ python3 -m venv .venv && .venv/bin/pip install pandas numpy openpyxl matplotlib 
 |---|---|
 | `engine/` | 헛대여·연쇄·경보 규칙(`core.py`), 아침 목록(`morning.py`) |
 | `analysis/` | 검증: Phase 1 기준 선택, Phase 2 실시간 가능성, 현장 검증, 그림 |
-| `server/` | 서울 API(키체인), 매일 아침 목록 작업, 웹 서버(구조대·현장조사 SQLite) |
+| `server/` | 서울 API(키체인), 매일 아침 목록 작업(목록 기록·다음 날 채점 SQLite)·예행연습, 웹 서버(구조대·현장조사 SQLite) |
 | `web/` | 웹앱 — 아침 목록·자전거 조회(QR)·구조대·시연·현장 조사 (홈 화면 추가 가능) |
 | `docs/` | 결과·보고서·현장 조사 절차 |
 

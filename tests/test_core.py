@@ -53,3 +53,15 @@ def test_tables():
     t = next_dud_table(R)
     assert t.loc[t["k"] == 2, "next_dud_%"].item() == 100.0
     assert prevented(R, Rule())["prevented"] == 1
+
+
+def test_gap_proxy_when_no_who():
+    """생년·성별이 없는 기록: 헛대여 반납 뒤 120초 안에 다시 빌리면 같은 사람 재시도로 본다 (docs/no_who.md)."""
+    rule = Rule(retry_gap_sec=120)
+    R = mark(rentals([("A", 0, 30, True, 0, None),
+                      ("A", 1, 30, True, 0, None),        # 반납 30초 뒤 → 재시도
+                      ("A", 10, 30, True, 0, None),       # 8분 뒤 → 다른 사람 → 연쇄 2, 경보
+                      ("A", 40, 900, False, 3000, None)]), rule)
+    assert R["retry"].tolist() == [False, True, False, False]
+    assert R["streak"].tolist() == [0, 0, 1, 2]           # 재시도는 앞 연쇄를 그대로 이어받는다
+    assert R["alarm"].tolist() == [False, False, True, False]

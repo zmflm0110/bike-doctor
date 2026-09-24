@@ -19,7 +19,8 @@ class Rule:
     max_sec: int = 180        # 헛대여: 이만큼 안에 반납 (Phase 1 에서 1월로 확정: 3분)
     max_m: float = 300.0      # 헛대여: 이만큼 덜 움직임 (300m)
     alarm_k: int = 2          # 서로 다른 사람 연속 헛대여 몇 번에 경보
-    same_person: bool = True  # 같은 사람 재시도를 거를지 (who 가 없으면 무시)
+    same_person: bool = True  # 같은 사람 재시도를 거를지
+    retry_gap_sec: float = 0  # who(생년·성별)가 없을 때: 직전 헛대여 반납 뒤 이 초 안에 다시 빌리면 같은 사람으로 봄 (0 = 안 거름)
 
 
 def load_seoul(path, nrows=None):
@@ -70,10 +71,14 @@ def mark(R, rule=Rule()):
     same_bike = np.r_[False, b[1:] == b[:-1]]
     who = R["who"].to_numpy(dtype=object)
     retry = np.zeros(len(R), dtype=bool)
+    d = R["dud"].to_numpy()
     if rule.same_person and pd.notna(who).any():
         prev = np.r_[[None], who[:-1]]
         retry = same_bike & pd.notna(who) & (who == prev)
-    d = R["dud"].to_numpy()
+    elif rule.same_person and rule.retry_gap_sec > 0:
+        t0 = R["t0"].to_numpy(); t1 = R["t1"].to_numpy()
+        gap = np.r_[np.inf, (t0[1:] - t1[:-1]) / np.timedelta64(1, "s")]
+        retry = same_bike & np.r_[False, d[:-1]] & (gap < rule.retry_gap_sec)
     streak = np.zeros(len(R), dtype=np.int32)
     for i in range(1, len(R)):                       # 자전거별 시간순이라 한 번 훑으면 된다
         if same_bike[i] and d[i - 1]:
