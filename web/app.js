@@ -160,9 +160,24 @@ function renderRescue() {
 }
 
 // ── 시연
-let replay = null, timer = null;
+let replay = null, timer = null, rmap = null, rlayer = null;
+const COLORS = { "경보": "#d9480f", "막을 수 있던 헛걸음": "#2b8a3e", "고장 신고": "#0f766e" };
+function flash(e) {
+  if (!rmap) return;
+  const s = state.stations[e.station] || (e.type === "고장 신고" && lastStation[e.bike] && state.stations[lastStation[e.bike]]);
+  if (!s) return;
+  const m = L.circleMarker([s.lat, s.lon], { radius: e.type === "경보" ? 9 : 7, color: COLORS[e.type], weight: 2, fillOpacity: 0.6 }).addTo(rlayer);
+  let life = 30;   // 3초에 걸쳐 흐려짐
+  const fade = setInterval(() => { life -= 1; m.setStyle({ opacity: life / 30, fillOpacity: 0.6 * life / 30 }); if (life <= 0) { clearInterval(fade); m.remove(); } }, 100);
+}
+const lastStation = {};
 async function startReplay() {
   if (!replay) replay = await getJSON("data/replay_2026-06-15.json");
+  if (!rmap && typeof L !== "undefined") {
+    rmap = L.map("replay-map", { zoomControl: false }).setView([37.55, 126.99], 11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(rmap);
+    rlayer = L.layerGroup().addTo(rmap);
+  }
   if (timer) { clearInterval(timer); timer = null; $("#play").textContent = "▶ 재생"; return; }
   let clock = 0, i = 0;
   const c = { 헛대여: 0, 경보: 0, "막을 수 있던 헛걸음": 0, "고장 신고": 0 };
@@ -174,6 +189,8 @@ async function startReplay() {
     while (i < replay.events.length && secs(replay.events[i]) <= clock) {
       const e = replay.events[i++];
       c[e.type] = (c[e.type] || 0) + 1;
+      if (e.station) lastStation[e.bike] = e.station;
+      if (e.type !== "헛대여") flash(e);
       if (e.type !== "헛대여") {
         const s = state.stations[e.station];
         const text = e.type === "고장 신고" ? `${e.t} 고장 신고 들어옴 — ${e.bike} (${e.kind}) · 우리 경보는 이미 울렸음`
