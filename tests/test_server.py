@@ -55,3 +55,40 @@ def test_survey_roundtrip(tmp_path, monkeypatch):
         assert lines[0].startswith("at,station,bike,status") and len(lines) == 3 and "SPB-69683" in lines[1]
     finally:
         httpd.shutdown()
+
+
+def test_survey_photo(tmp_path, monkeypatch):
+    import base64
+    monkeypatch.setattr(app, "DB", tmp_path / "p.sqlite")
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), app.Handler)
+    port = httpd.server_address[1]
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    jpg = b"\xff\xd8\xff\xe0" + b"0" * 100
+    ok = "data:image/jpeg;base64," + base64.b64encode(jpg).decode()
+
+    def post(obj):
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/survey", data=json.dumps(obj).encode(), method="POST")
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+    try:
+        assert post({"station": "1", "bike": "SPB-00001", "status": "타이어", "photo": ok}) == 200
+        assert post({"station": "1", "bike": "SPB-00002", "status": "타이어", "photo": "data:image/jpeg;base64," + base64.b64encode(b"<html>").decode()}) == 400
+        assert post({"station": "1", "bike": "SPB-00003", "status": "타이어", "photo": "data:text/html;base64,PGh0bWw+"}) == 400
+        assert post({"station": "1", "bike": "SPB-00004", "status": "타이어", "photo": "data:image/jpeg;base64," + "A" * (app.PHOTO_MAX + 4)}) == 400
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/survey.csv") as r:
+            lines = r.read().decode("utf-8-sig").strip().splitlines()
+        assert len(lines) == 2 and lines[0].endswith(",photo")
+        name = lines[1].split(",")[-1]
+        assert (tmp_path / "photos" / name).read_bytes() == jpg
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/photo/{name}") as r:
+            assert r.headers["Content-Type"] == "image/jpeg" and r.read() == jpg
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/api/photo/..%2Fp.sqlite")
+            assert False
+        except urllib.error.HTTPError as e:
+            assert e.code == 404
+    finally:
+        httpd.shutdown()
