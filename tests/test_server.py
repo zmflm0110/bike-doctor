@@ -53,6 +53,8 @@ def test_survey_roundtrip(tmp_path, monkeypatch):
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/survey.csv") as r:
             lines = r.read().decode("utf-8-sig").strip().splitlines()
         assert lines[0].startswith("at,station,bike,status") and len(lines) == 3 and "SPB-69683" in lines[1]
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/rescue") as r:   # 현장 조사도 '사람 확인' 으로
+            assert json.loads(r.read()) == {"SPB-69683": {"타이어": 1}, "SPB-11111": {"멀쩡함": 1}}
     finally:
         httpd.shutdown()
 
