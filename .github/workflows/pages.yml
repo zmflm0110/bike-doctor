@@ -1,9 +1,10 @@
-# 작품 소개 웹사이트(site/)를 GitHub Pages 로 — https://zmflm0110.github.io/bike-doctor/
+# 작품 소개 웹사이트(site/) + 시연용 웹앱(web/ → app/) + 진행 기록(CHANGELOG.md → releases.html) 을 GitHub Pages 로
+#   https://zmflm0110.github.io/bike-doctor/  ·  /app/  ·  /releases.html
 name: pages
 on:
   push:
     branches: [master]
-    paths: ["site/**", ".github/workflows/pages.yml"]
+    paths: ["site/**", "web/**", "CHANGELOG.md", "tools/build_site.py", "docs/shots/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,9 +21,13 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python tools/build_site.py --out _site    # 표준 라이브러리만
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
       - id: deploy
         uses: actions/deploy-pages@v4

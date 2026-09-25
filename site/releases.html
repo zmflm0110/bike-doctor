@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>진행 기록 — 헛걸음 제로</title>
+<meta name="description" content="서로 다른 두 사람이 연달아 빌리자마자 반납한 따릉이는 다음 사람도 3명 중 1명이 포기합니다. 공개 대여기록만으로, 아무도 신고하지 않은 고장 자전거를 실시간으로 찾습니다.">
+<meta property="og:title" content="헛걸음 제로 — 따릉이 고장 예보">
+<meta property="og:url" content="https://zmflm0110.github.io/bike-doctor/">
+<meta property="og:description" content="앞사람들의 '빌리자마자 반납' 기록으로, 신고되지 않은 고장 자전거를 실시간으로 찾습니다.">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f766e'/%3E%3Ccircle cx='20' cy='40' r='10' fill='none' stroke='white' stroke-width='5'/%3E%3Ccircle cx='44' cy='40' r='10' fill='none' stroke='white' stroke-width='5'/%3E%3Cpath d='M20 40l9-15h11l4 15M29 25l-3-6' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="logo" href="./" aria-label="헛걸음 제로 처음으로">헛걸음 제로<i>.</i></a>
+    <nav class="links" aria-label="주요 메뉴">
+      <a href="./#results" class="hide-sm">검증 결과</a>
+      <a href="releases.html">진행 기록</a>
+      <a href="./#start">써 보는 방법</a>
+      <a class="icon-btn" href="https://github.com/zmflm0110/bike-doctor" aria-label="GitHub 저장소">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+      </a>
+      <button class="icon-btn" id="theme" type="button" aria-label="밝은·어두운 화면 바꾸기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+<main class="doc">
+<h1>진행 기록</h1>
+<p class="lede">헛걸음 제로가 달라진 점을 모았습니다. 자세한 측정과 실패 기록은 <a href="https://github.com/zmflm0110/bike-doctor/blob/master/PLAN.md">PLAN.md</a> 의 진행 기록에 있습니다.</p>
+<h2>0.6.0<small>2026-09-25</small></h2>
+<ul>
+<li><b>실시간 경보를 켰습니다.</b> 서울 대여이력 API 가 자전거별 기록을 반납하자마자 준다는 걸 확인하고(지연 약 0분), 1분마다 경보를 내는 서버를 돌립니다.</li>
+<li>같은 날(6월 15일)을 API 와 월별 공개 파일로 받아 맞춰 봤습니다. 대여 150,830건과 150,827건이 모두 짝을 이루고, 헛대여·다음 날 아침 목록 79대가 같았습니다.</li>
+<li>경보마다 "다음에 빌린 다른 사람도 바로 반납했나" 를 스스로 채점합니다.</li>
+<li>정확도의 두 정의를 모든 문서에 나눠 적었습니다: 경보 한 건마다 다음 사람 기준 32~34%, 경보가 켜진 동안 빌린 모든 사람 기준 52~60%.</li>
+<li>웹앱과 아이폰 앱에 '지금 (실시간)' 목록을 넣었습니다. 운영 목록은 신고 자료가 없어 신고 여부를 '모름' 으로 보여 줍니다.</li>
+<li>전기차 충전기 상태를 5분마다 모으기 시작했습니다.</li>
+<li>작품 소개 웹사이트와 시연용 웹앱을 공개했습니다.</li>
+</ul>
+<h2>0.5.0<small>2026-09-25</small></h2>
+<ul>
+<li>아이폰 앱(SwiftUI) 다섯 탭을 만들고, 맥 CI 에서 Xcode 빌드와 시뮬레이터 실행을 확인했습니다. 엔진은 웹앱과 같은 답을 내는지 검사합니다.</li>
+<li>정비 동선(내 근처 10곳을 도는 순서), 구 고르기, 엑셀용 CSV 를 넣었습니다.</li>
+<li>접근성: 탭 역할, 입력칸 이름표, 화면 읽기 알림, 글자 대비 4.5:1 검사.</li>
+<li>시연 영상을 자동으로 녹화하고, 발표·보고서·서울시설공단 제안서 PDF 를 만들었습니다.</li>
+<li>맥에서 매일 아침 목록·웹 서버가 저절로 돌게 했습니다(launchd).</li>
+</ul>
+<h2>0.4.0<small>2026-09-24</small></h2>
+<ul>
+<li>오프라인 시연을 고쳤습니다. 지도 라이브러리를 앱 안에 넣고, 본 적 있는 지도 조각만 저장하고, 조각이 없어도 대여소 점으로 서울 모양이 보입니다.</li>
+<li>집 와이파이 안에서만 쓰는 https 를 준비했습니다(아이폰 위치·QR).</li>
+<li>현장 조사 탭과 검증 스크립트(95% 신뢰구간)를 만들었습니다.</li>
+<li>과장을 하나 고쳤습니다: 헛대여 모양으로 고장 종류를 한 대씩 맞히면 10~14% 만 맞아, 종류는 사람이 확인합니다.</li>
+</ul>
+<h2>0.3.0<small>2026-09-24</small></h2>
+<ul>
+<li>매일 아침 목록을 운영과 같은 코드로 7일 연속 예행연습했습니다. 목록 자전거를 그날 처음 빌린 사람의 42.3% 가 또 헛걸음했습니다.</li>
+<li>생년·성별이 없는 자료에서도 되게 했습니다: "반납 2분 안에 다시 빌리면 같은 사람" 으로 대신해도 정밀도 차이 0.2%p.</li>
+<li>웹앱 첫 판: 아침 목록, 자전거 조회(QR), 구조대, 하루 재생 시연.</li>
+</ul>
+<h2>0.2.0<small>2026-09-24</small></h2>
+<ul>
+<li>공개 실시간 대여소 대수로 경보를 낼 수 있는지 시험했습니다. 정밀도 0.2~1.7% 라 쓸 수 없어 하루 늦은 아침 목록으로 물러섰습니다. (0.6.0 에서 자전거별 대여이력 API 를 찾아 뒤집었습니다.)</li>
+</ul>
+<h2>0.1.0<small>2026-09-24</small></h2>
+<ul>
+<li>엔진과 검증: 규칙(3분·300m·서로 다른 사람 2연속)을 2026년 1월 기록으로만 정하고 3·6월과 대전 타슈에 그대로 적용했습니다. 5개월, 약 1천만 건.</li>
+<li>서로 다른 두 사람이 포기한 자전거는 다음 사람도 35~44% 가 포기합니다(평소 2.5~2.9%).</li>
+</ul>
+</main>
+<footer>
+  <div class="wrap">
+    <a class="logo" href="#top">헛걸음 제로<i>.</i></a>
+    <p>자료: 서울 열린데이터광장·공공데이터포털 (공공누리 제1유형) · 코드: <a href="https://github.com/zmflm0110/bike-doctor">GitHub</a></p>
+  </div>
+</footer>
+<script>
+(() => { const r = document.documentElement;
+  try { const t = localStorage.getItem("hz-theme"); if (t) r.dataset.theme = t; } catch {}
+  document.getElementById("theme").addEventListener("click", () => {
+    const dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    r.dataset.theme = dark ? "light" : "dark"; try { localStorage.setItem("hz-theme", r.dataset.theme); } catch {} });
+  addEventListener("scroll", () => document.getElementById("top").classList.toggle("scrolled", scrollY > 8), { passive: true });
+})();
+</script>
+</body>
+</html>
