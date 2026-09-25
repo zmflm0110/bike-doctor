@@ -1,6 +1,6 @@
 // 헛걸음 제로 — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
 const $ = (s) => document.querySelector(s);
-const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {} };
+const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {}, ops: new Set() };
 let here = null;   // 내 위치 (📍 버튼을 눌렀을 때만)
 // QR·입력에서 온 글자를 화면에 넣을 때는 반드시 거친다 (QR 에 HTML 을 심어 두는 장난 막기)
 const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -26,7 +26,7 @@ let liveTimer = null;
 async function loadDay(day) {
   state.day = day;
   clearInterval(liveTimer);
-  state.morning = await getJSON(day === "live" ? `data/live.json?t=${Date.now()}` : `data/morning/${day}.json`);
+  state.morning = await getJSON(day === "live" ? `data/live.json?t=${Date.now()}` : `data/${state.ops.has(day) ? "ops" : "morning"}/${day}.json`);
   if (day === "live") liveTimer = setInterval(() => state.day === "live" && refreshLive(), 60e3);
   state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
   guOptions();
@@ -56,7 +56,8 @@ function guOptions() {
 function renderMorning() {
   const bikes = shown();
   const red = bikes.filter((b) => b.level === "빨강").length;
-  const unrep = bikes.filter((b) => !b.reported).length;
+  const known = bikes.filter((b) => typeof b.reported === "boolean");   // 운영 목록은 신고 자료가 없어 모름(null)
+  const unrep = known.filter((b) => !b.reported).length;
   if (state.day === "live") {
     const sc = state.morning.score || {};
     $("#morning-summary").innerHTML =
@@ -69,7 +70,7 @@ function renderMorning() {
   }
   $("#morning-summary").innerHTML =
     `<b>${bikes.length}</b>대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 ` +
-    `(빨강 ${red}대). 이 중 <b>${unrep}</b>대는 아직 아무도 고장 신고를 안 했어요.`;
+    `(빨강 ${red}대).` + (known.length ? ` 이 중 <b>${unrep}</b>대는 아직 아무도 고장 신고를 안 했어요.` : "");
   if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
   renderMap(bikes);
   renderRetro(bikes);
@@ -386,8 +387,11 @@ function defaultDay(days) {
 (async () => {
   const list = await getJSON("data/stations.json");
   list.forEach((s) => { s.name = s.name.trim(); state.stations[s.id] = s; });   // 원본 이름 앞에 빈칸이 붙은 곳이 많다
-  const days = await getJSON("data/morning/index.json");
-  try { state.scores = await getJSON("data/morning/scores.json"); } catch {}   // 운영 중에만 있음
+  // 시연 목록(data/morning, 월별 파일) + 운영 목록(data/ops, 매일 06:10 — 서버에만 있음)
+  const ops = await getJSON("data/ops/index.json").catch(() => []);
+  state.ops = new Set(ops);
+  const days = [...new Set([...(await getJSON("data/morning/index.json")), ...ops])].sort();
+  try { state.scores = await getJSON("data/ops/scores.json"); } catch {}   // 운영 중에만 있음
   let live = null;
   try { live = await getJSON(`data/live.json?t=${Date.now()}`); if (minsAgo(live.at) > 20) live = null; } catch {}
   const pick = live && !new URLSearchParams(location.search).get("day") ? "live" : defaultDay(days);

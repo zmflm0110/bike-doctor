@@ -37,7 +37,7 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
       });
 
   try {
-    await page.goto(URL, { waitUntil: "networkidle" });
+    await page.goto(URL + "?day=2026-06-15", { waitUntil: "networkidle" });   // 시연 날짜로 고정 (실시간 서버가 도는 맥에선 기본이 '지금' 이 됨)
     console.log("아침 목록");
     await page.waitForSelector("#bike-list li");
     check(/\d+<\/b>대가/.test(await page.innerHTML("#morning-summary")), "요약 문장");

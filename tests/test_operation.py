@@ -31,7 +31,7 @@ def test_two_mornings(tmp_path, monkeypatch):
     srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     out = tmp_path / "morning"
-    monkeypatch.setattr(job, "OUT", out)
+    monkeypatch.setattr(job, "OPS", out)
     monkeypatch.setattr(job, "DB", tmp_path / "daily.sqlite")
     monkeypatch.setenv("DATAGOKR_KEY", "K")
     monkeypatch.delenv("SEOUL_OPENAPI_KEY", raising=False)

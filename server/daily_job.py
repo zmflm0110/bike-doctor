@@ -15,7 +15,8 @@ from engine.core import load_seoul, load_faults, mark
 from engine.morning import RULE, morning_lists
 from server import seoul_api
 
-OUT = ROOT / "web" / "data" / "morning"
+OUT = ROOT / "web" / "data" / "morning"   # 시연용(월별 파일) — git 에 들어감
+OPS = ROOT / "web" / "data" / "ops"       # 운영(API·실시간) 매일 목록·채점·대여소 현황 — git 에서 뺌(매일 바뀜), 앱이 둘을 합쳐 보여 줌
 DB = ROOT / "data" / "daily.sqlite"
 LOOKBACK_DAYS = 7   # 연쇄는 며칠씩 이어지기도 한다 — 일주일 치를 보고 오늘 아침 목록을 만든다 (server/rehearse.py 로 확인)
 
@@ -109,22 +110,23 @@ def fetch_rentals_api(start, end, url=None, key=None, per_page=1000, date_params
 
 
 def write_scores(c, out=None):
-    """다음 날 아침 채점 결과를 앱이 읽게 → web/data/morning/scores.json {목록 날짜: {listed, rode, first_dud}}"""
-    out = out or OUT / "scores.json"
+    """다음 날 아침 채점 결과를 앱이 읽게 → web/data/ops/scores.json {목록 날짜: {listed, rode, first_dud}}"""
+    out = out or OPS / "scores.json"
     rows = c.execute("select day, listed, rode, first_dud from scores order by day").fetchall()
     json.dump({d: {"listed": n, "rode": r, "first_dud": k} for d, n, r, k in rows}, open(out, "w"))
     return len(rows)
 
 
-def write(days, station_name, only_latest):
-    OUT.mkdir(parents=True, exist_ok=True)
+def write(days, station_name, only_latest, out=None):
+    out = out or OUT
+    out.mkdir(parents=True, exist_ok=True)
     keys = [max(days)] if only_latest else sorted(days)
     for day in keys:
         json.dump({"date": day, "generated": dt.datetime.now().isoformat(timespec="seconds"),
                    "rule": "서로 다른 사람이 3분·300m 안 반납을 2번 이상 이어서 한 뒤 아직 정상 이용이 없는 자전거",
-                   "bikes": days[day]}, open(OUT / f"{day}.json", "w"), ensure_ascii=False)
-    idx = sorted({p.stem for p in OUT.glob("2*.json")})
-    json.dump(idx, open(OUT / "index.json", "w"))
+                   "bikes": days[day]}, open(out / f"{day}.json", "w"), ensure_ascii=False)
+    idx = sorted({p.stem for p in out.glob("2*.json")})
+    json.dump(idx, open(out / "index.json", "w"))
     return keys
 
 
@@ -155,15 +157,15 @@ def main(argv=None):
         print(f"받은 대여 {len(R):,}건 ({R['t0'].min()} ~ {R['t0'].max()})" if len(R) else "받은 대여 0건 — 날짜 인자·주소를 확인하세요")
         c = db()
         items, scored = run_morning(c, today.isoformat(), R, stn)
-        OUT.mkdir(parents=True, exist_ok=True)
+        OPS.mkdir(parents=True, exist_ok=True)
         write_scores(c)
         days = {today.isoformat(): items}
-        written = write(days, stn, only_latest=True)
+        written = write(days, stn, only_latest=True, out=OPS)
         if scored:
             print(f"어제({scored[0]}) 목록 {scored[1]}대 중 어제 빌린 {scored[2]}대, 첫 이용자 헛걸음 {scored[3]}대")
-    if seoul_api.key():
+    if seoul_api.key() and a.source != "file":
         json.dump({"at": dt.datetime.now().isoformat(timespec="seconds"), "stations": seoul_api.station_status()},
-                  open(ROOT / "web" / "data" / "status.json", "w"), ensure_ascii=False)
+                  open(OPS / "status.json", "w"), ensure_ascii=False)
     print(f"아침 목록 {len(written)}일 작성 (마지막 {written[-1]}, {len(days[written[-1]])}대)")
 
 

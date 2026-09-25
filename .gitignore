@@ -20,3 +20,4 @@ data/*.log
 web/data/live.json
 web/data/live.tmp
 data/logs/
+web/data/ops/

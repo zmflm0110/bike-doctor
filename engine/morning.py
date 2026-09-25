@@ -23,7 +23,8 @@ def morning_lists(R, F=None, rule=RULE, station_name=None, with_truth=True):
     for r in flagged.itertuples():
         nd = r.day + pd.Timedelta(days=1)
         ft = fault_t.get(r.bike)
-        reported = bool(ft is not None and np.any((ft >= np.datetime64(r.t1) - np.timedelta64(7, "D")) & (ft < np.datetime64(nd))))
+        # 고장신고 자료가 없으면(운영: API·실시간) 신고 여부를 모른다 → None ('미신고' 로 보이면 틀린 말)
+        reported = None if F is None else bool(ft is not None and np.any((ft >= np.datetime64(r.t1) - np.timedelta64(7, "D")) & (ft < np.datetime64(nd))))
         item = {"bike": r.bike, "station": r.st1, "station_name": station_name.get(r.st1, r.st1), "chain": int(r.chain_after),
                 "level": "빨강" if r.chain_after >= 3 else "노랑", "last_dud": r.t1.strftime("%m-%d %H:%M"), "reported": reported}
         if with_truth:
