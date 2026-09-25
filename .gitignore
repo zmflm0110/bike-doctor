@@ -16,3 +16,6 @@ ios/Core/.build/
 ios/Core/.swiftpm/
 ios/*.xcodeproj/xcuserdata/
 ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+data/*.log
+web/data/live.json
+web/data/live.tmp

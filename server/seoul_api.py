@@ -71,6 +71,15 @@ def stations(k=None):
              "lat": float(r["STA_LAT"]), "lon": float(r["STA_LONG"])} for r in fetch("tbCycleStationInfo", "stationInfo", k=k)]
 
 
+def rentals(day, hours=range(24), k=None):
+    """따릉이 대여이력(tbCycleRentData, 자전거별) — 대여 시각 기준 한 시간씩 받는다. day 'YYYY-MM-DD'.
+    2026-09-25 실측: 반납하자마자 올라옴(지연 약 0분), 어제·오늘 모두 있음, 생년·성별 포함 → 월별 파일과 같은 열(engine.core.from_rows)."""
+    rows = []
+    for h in hours:
+        rows += fetch("tbCycleRentData", "rentData", f"{day}/{h:02d}", k=k)
+    return rows
+
+
 if __name__ == "__main__":
     print("키:", "있음" if key() else "없음 → sample 키(5건)")
     print(station_status()[:2])

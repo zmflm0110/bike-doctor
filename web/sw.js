@@ -1,6 +1,6 @@
 // 오프라인에서도 시연·목록이 뜨게. 먼저 새로 받고(개발 중 옛 파일이 남지 않게), 안 되면 캐시.
 // 지도 라이브러리(Leaflet·jsQR)는 web/vendor 에 두어 같이 캐시한다 — CDN 은 브라우저 HTTP 캐시가 비면 오프라인에서 사라졌다.
-const CACHE = "hz-v7";
+const CACHE = "hz-v8";
 const TILES = "hz-tiles";   // 실제로 본 지도 조각만 (미리 대량으로 받지 않음 — OSM 지도 조각 이용 정책)
 const MAX_TILES = 500;
 const SHELL = ["./", "index.html", "style.css", "route.js", "app.js", "icon.svg", "icon-180.png", "icon-192.png", "manifest.webmanifest",
@@ -25,6 +25,12 @@ self.addEventListener("fetch", (e) => {
     return;
   }
   if (url.origin !== location.origin) return;
+  if (url.pathname.endsWith("/data/live.json")) {   // 실시간: 매분 ?t= 가 바뀌므로 주소 하나로만 저장 (안 그러면 캐시가 끝없이 쌓임)
+    const k = new Request(url.origin + url.pathname);
+    e.respondWith(fetch(e.request).then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(k, copy)); return r; })
+      .catch(() => caches.match(k)));
+    return;
+  }
   e.respondWith(fetch(e.request).then((r) => {
     const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return r;
   }).catch(() => caches.match(e.request)));

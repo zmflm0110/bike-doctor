@@ -22,15 +22,26 @@ document.querySelectorAll("#tabs button").forEach((b) =>
 );
 
 // ── 아침 목록
+let liveTimer = null;
 async function loadDay(day) {
   state.day = day;
-  state.morning = await getJSON(`data/morning/${day}.json`);
+  clearInterval(liveTimer);
+  state.morning = await getJSON(day === "live" ? `data/live.json?t=${Date.now()}` : `data/morning/${day}.json`);
+  if (day === "live") liveTimer = setInterval(() => state.day === "live" && refreshLive(), 60e3);
   state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
   guOptions();
   renderMorning();
   renderRescue();
   loadChecked();
 }
+
+// 실시간: server/live.py 가 1분마다 쓰는 data/live.json (반납하자마자 올라오는 서울 대여이력 API)
+async function refreshLive() {
+  try { state.morning = await getJSON(`data/live.json?t=${Date.now()}`); } catch { return; }
+  state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
+  guOptions(); renderMorning();
+}
+const minsAgo = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso + "+09:00").getTime()) / 60e3));
 
 // 구(區) 고르기 — 정비는 구역 단위로 움직인다. 고른 구의 자전거만 요약·지도·순위·동선·목록에.
 const guOf = (b) => (state.stations[b.station] || {}).gu || "기타";
@@ -46,6 +57,16 @@ function renderMorning() {
   const bikes = shown();
   const red = bikes.filter((b) => b.level === "빨강").length;
   const unrep = bikes.filter((b) => !b.reported).length;
+  if (state.day === "live") {
+    const sc = state.morning.score || {};
+    $("#morning-summary").innerHTML =
+      `<b>지금</b> <b>${bikes.length}</b>대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 ${red}대). ` +
+      `<span class="muted">${minsAgo(state.morning.at)}분 전 갱신 · 오늘 켜진 경보 ${state.morning.today_alarms}번</span>` +
+      (sc.scored ? `<br>실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 ${sc.scored}명 중 <b class="confirmed">${sc.next_rider_dud}명(${sc["precision_%"]}%)</b>이 또 바로 반납 (평소 약 2.5%)` : "");
+    if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
+    renderMap(bikes); renderRetro(bikes); renderLists();
+    return;
+  }
   $("#morning-summary").innerHTML =
     `<b>${bikes.length}</b>대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 ` +
     `(빨강 ${red}대). 이 중 <b>${unrep}</b>대는 아직 아무도 고장 신고를 안 했어요.`;
@@ -70,7 +91,7 @@ function morningCSV(bikes) {
   const head = ["기준일", "구", "대여소번호", "대여소", "자전거번호", "서로 다른 사람 연속 헛대여(명)", "단계", "마지막 헛대여", "고장 신고", "사람 확인(구조대·현장 조사)"];
   const rows = groupByStation(bikes).flatMap(([, arr]) => arr).map((b) => {
     const c = checkedOf(b.bike);
-    return [state.day, guOf(b), b.station, b.station_name, b.bike, b.chain, b.level, b.last_dud, b.reported ? "있음" : "없음",
+    return [state.day, guOf(b), b.station, b.station_name, b.bike, b.chain, b.level, b.last_dud, b.reported === true ? "있음" : b.reported === false ? "없음" : "모름",
       c.total ? `고장 ${c.broken}/${c.total}` : ""];
   });
   return "\ufeff" + [head, ...rows].map((r) => r.map(q).join(",")).join("\r\n") + "\r\n";
@@ -160,7 +181,8 @@ function checkedBadge(bike) {
 
 function bikeRow(b) {
   return `<li><div><b>${b.bike}</b> <span class="muted">${b.station_name}</span><br>` +
-    `<span class="muted">서로 다른 ${b.chain}명 연속 · 마지막 ${b.last_dud}${b.reported ? " · 신고됨" : " · <b>미신고</b>"}${checkedBadge(b.bike)}` +
+    `<span class="muted">서로 다른 ${b.chain}명 연속 · 마지막 ${b.last_dud}${typeof b.minutes_ago === "number" ? ` (${b.minutes_ago < 60 ? b.minutes_ago + "분" : Math.floor(b.minutes_ago / 60) + "시간"} 전)` : ""}` +
+    `${b.reported === true ? " · 신고됨" : b.reported === false ? " · <b>미신고</b>" : ""}${checkedBadge(b.bike)}` +
     `${b.truth_first_rider_dud === true ? " · 다음 사람도 반납" : b.truth_first_rider_dud === false ? " · 다음 사람은 탐" : ""}</span></div>` +
     `<span class="tag ${b.level}">${b.level}</span></li>`;
 }
@@ -218,12 +240,12 @@ function lookup(raw) {
   const out = $("#lookup-result");
   if (hit) {
     out.innerHTML = `<div class="result warn"><h3>⚠︎ ${id} 는 피하세요</h3>` +
-      `어제까지 <b>서로 다른 ${hit.chain}명</b>이 이 자전거를 빌리자마자 반납했어요 (마지막 ${hit.last_dud}, ${hit.station_name}).<br>` +
+      `${state.day === "live" ? "최근" : "어제까지"} <b>서로 다른 ${hit.chain}명</b>이 이 자전거를 빌리자마자 반납했어요 (마지막 ${hit.last_dud}, ${hit.station_name}).<br>` +
       `이런 자전거는 다음 사람도 ${hit.level === "빨강" ? "약 70%" : "약 35~55%"}가 바로 반납했어요. 옆 자전거를 고르세요.` +
       `<div class="choices"><button onclick="rescueSave('${id}','체인·기어')">체인·기어 문제</button><button onclick="rescueSave('${id}','타이어')">타이어</button>` +
       `<button onclick="rescueSave('${id}','안장·핸들')">안장·핸들</button><button class="fine" onclick="rescueSave('${id}','멀쩡함')">멀쩡해 보여요</button></div></div>`;
   } else {
-    out.innerHTML = m ? `<div class="result ok"><h3>✓ ${esc(id)}</h3>어제까지 기록에 헛걸음 연쇄가 없어요.</div>`
+    out.innerHTML = m ? `<div class="result ok"><h3>✓ ${esc(id)}</h3>${state.day === "live" ? "최근" : "어제까지"} 기록에 헛걸음 연쇄가 없어요.</div>`
       : `<div class="result">따릉이 번호(SPB-00000)를 못 찾았어요: <code>${esc(String(raw).slice(0, 60))}</code></div>`;
   }
 }
@@ -366,7 +388,11 @@ function defaultDay(days) {
   list.forEach((s) => { s.name = s.name.trim(); state.stations[s.id] = s; });   // 원본 이름 앞에 빈칸이 붙은 곳이 많다
   const days = await getJSON("data/morning/index.json");
   try { state.scores = await getJSON("data/morning/scores.json"); } catch {}   // 운영 중에만 있음
-  $("#day").innerHTML = days.map((d) => `<option ${d === defaultDay(days) ? "selected" : ""}>${d}</option>`).join("");
+  let live = null;
+  try { live = await getJSON(`data/live.json?t=${Date.now()}`); if (minsAgo(live.at) > 20) live = null; } catch {}
+  const pick = live && !new URLSearchParams(location.search).get("day") ? "live" : defaultDay(days);
+  $("#day").innerHTML = (live ? `<option value="live" ${pick === "live" ? "selected" : ""}>지금 (실시간)</option>` : "") +
+    days.map((d) => `<option ${d === pick ? "selected" : ""}>${d}</option>`).join("");
   $("#day").addEventListener("change", (e) => loadDay(e.target.value));
   await loadDay($("#day").value);
   stationOptions(null);

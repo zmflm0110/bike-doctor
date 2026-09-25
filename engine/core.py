@@ -48,9 +48,9 @@ def load_tashu(path, nrows=None):
 FIELDS = {
     "bike": ["자전거번호", "BIKE_NO", "bikeNo", "bike_no", "BIKE_ID", "bikeId"],
     "t0": ["대여일시", "RENT_DT", "rentDt", "rent_dt", "RENT_DATE", "rentDate"],
-    "st0": ["대여 대여소번호", "대여대여소번호", "대여_대여소ID", "RENT_STATION_NO", "RENT_NO", "rentStationNo", "rent_station_no", "RENT_STATION_ID", "rentStationId"],
+    "st0": ["대여 대여소번호", "대여대여소번호", "대여_대여소ID", "RENT_ID", "RENT_STATION_NO", "RENT_NO", "rentStationNo", "rent_station_no", "RENT_STATION_ID", "rentStationId"],
     "t1": ["반납일시", "RTN_DT", "RETURN_DT", "returnDt", "rtnDt", "return_dt", "RETURN_DATE", "returnDate"],
-    "st1": ["반납대여소번호", "반납 대여소번호", "반납_대여소ID", "RTN_STATION_NO", "RETURN_STATION_NO", "RTN_NO", "returnStationNo", "rtnStationNo",
+    "st1": ["반납대여소번호", "반납 대여소번호", "반납_대여소ID", "RTN_ID", "RTN_STATION_NO", "RETURN_STATION_NO", "RTN_NO", "returnStationNo", "rtnStationNo",
             "return_station_no", "RETURN_STATION_ID", "returnStationId"],
     "dist_m": ["이용거리(M)", "이용거리", "USE_DST", "USE_DISTANCE", "useDistance", "use_distance", "useDst"],
     "born": ["생년", "BIRTH_YEAR", "BIRTH_YR", "birthYear", "birth_year"],
@@ -80,6 +80,7 @@ def from_rows(rows):
     if "born" in R:
         born = R.pop("born").replace({"": None, "\\N": None})
         sex = R.pop("sex") if "sex" in R else pd.Series("?", index=R.index)
+        sex = sex.replace({"": None}).str.upper()   # 서울 API 는 빈 성별이 '' · 소문자 m/f 도 섞임 → 파일처럼 '?' · 대문자 (docs/api_parity.md)
         R["who"] = np.where(born.notna(), born.astype(str) + sex.fillna("?").astype(str), None)
     else:
         R.pop("sex") if "sex" in R else None
