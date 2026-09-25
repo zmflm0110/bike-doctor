@@ -27,7 +27,16 @@ const PORT = 9090 + Math.floor(Math.random() * 100);
       const nearStops = planRoute(here, near);
       const known = bikes.filter((x) => typeof x.truth_first_rider_dud === "boolean");
       const gu = {}; bikes.forEach((x) => (gu[guOf(x)] = (gu[guOf(x)] || 0) + 1));
-      return { rank, route: [top[0].id, ...stops.map((s) => s.id)], routeMeters: pathLength(top[0], stops),
+      // 막는 동선: 9시 출발, 서울 전체·송파구 × 1시간·1시간 반·3시간 (renderRoute 와 같은 규칙)
+      const valueRoutes = {};
+      for (const gu of ["", "송파구"]) for (const minutes of [60, 90, 180]) {
+        const bs = gu ? bikes.filter((x) => guOf(x) === gu) : bikes;
+        const cands = groupByStation(bs).map(([id, arr]) => ({ id, arr, n: arr.length, ...state.stations[id] })).filter((s) => s.lat)
+          .sort((a, c) => stationValue(c, 540) - stationValue(a, 540)).slice(0, 40);
+        const p = planValue(cands[0], cands, stationValue, minutes, 540);
+        valueRoutes[`${gu || "전체"}/${minutes}`] = { stops: p.map((s) => s.id), value: simulate(cands[0], p, stationValue, 540).value };
+      }
+      return { rank, valueRoutes, route: [top[0].id, ...stops.map((s) => s.id)], routeMeters: pathLength(top[0], stops),
         nearRoute: nearStops.map((s) => s.id), nearMeters: pathLength(here, nearStops),
         retro: { known: known.length, hit: known.filter((x) => x.truth_first_rider_dud).length }, gu };
     });

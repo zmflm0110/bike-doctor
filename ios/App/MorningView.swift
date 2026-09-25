@@ -8,10 +8,11 @@ struct MorningView: View {
     @State private var camera: MapCameraPosition = .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 37.55, longitude: 126.99),
                                                                               span: MKCoordinateSpan(latitudeDelta: 0.28, longitudeDelta: 0.36)))
     @State private var picked: StationGroup?
+    @State private var shift = 90.0   // 정비 동선 근무 시간(분)
 
     var body: some View {
         let groups = model.groups
-        let route = model.store.map { Morning.route(groups, stations: $0.stations, from: model.here) }
+        let route = valueRoute(groups)
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -19,7 +20,7 @@ struct MorningView: View {
                     filters
                     summary
                     retro
-                    StationMap(groups: groups, route: route?.stops ?? [], here: model.here, camera: $camera, picked: $picked)
+                    StationMap(groups: groups, route: route?.stops.map(\.station) ?? [], here: model.here, camera: $camera, picked: $picked)
                         .frame(height: 300)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .accessibilityLabel("의심 자전거가 있는 대여소 지도 (아래 목록과 같은 내용)")
@@ -29,11 +30,15 @@ struct MorningView: View {
 
                     HStack {
                         Text("정비 동선").font(.headline)
-                        Text("(10곳을 도는 순서, 직선거리)").font(.caption).foregroundStyle(.secondary)
+                        Text("(근무 시간 안에 헛걸음을 가장 많이 막는 순서)").font(.caption).foregroundStyle(.secondary)
                     }
-                    Button { Task { await model.locate() } } label: {
-                        Label("내 근처 10곳으로", systemImage: "location").frame(maxWidth: .infinity)
-                    }.buttonStyle(.bordered)
+                    HStack {
+                        Picker("근무 시간", selection: $shift) {
+                            Text("1시간").tag(60.0); Text("1시간 30분").tag(90.0); Text("3시간").tag(180.0)
+                        }.pickerStyle(.segmented)
+                        Button { Task { await model.locate() } } label: { Label("내 위치", systemImage: "location") }
+                            .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                    }
                     if let route { routeList(route) }
 
                     Text("의심 자전거").font(.headline)
@@ -163,25 +168,38 @@ struct MorningView: View {
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private func routeList(_ route: (stops: [Station], meters: Double)) -> some View {
-        var cum = 0.0
-        var prev = model.here ?? route.stops.first?.point
-        let rows: [(Int, Station, Double)] = route.stops.enumerated().map { i, s in
-            if let p = prev { cum += Geo.meters(p, s.point) }
-            prev = s.point
-            return (i + 1, s, cum)
-        }
-        return VStack(alignment: .leading, spacing: 6) {
-            ForEach(rows, id: \.1.id) { n, s, m in
-                let g = model.groups.first { $0.id == s.id }
-                HStack {
-                    Text("\(n). \(s.name)").bold()
+    typealias PlannedRoute = ValueRoute.Planned
+
+    /// 막는 동선 (웹앱 renderRoute 와 같은 규칙): 오늘·실시간이면 지금부터, 지난 날(시연)이면 9시부터
+    private func valueRoute(_ groups: [StationGroup]) -> PlannedRoute? {
+        guard let store = model.store else { return nil }
+        let f = DateFormatter(); f.timeZone = TimeZone(identifier: "Asia/Seoul"); f.dateFormat = "yyyy-MM-dd"
+        let live = model.day == AppModel.liveDay || model.day == f.string(from: Date())
+        let now = Calendar.current.dateComponents(in: TimeZone(identifier: "Asia/Seoul")!, from: Date())
+        let t0 = live ? Double((now.hour ?? 9) * 60 + (now.minute ?? 0)) : 540
+        return ValueRoute.planGroups(groups, stations: store.stations, busy: store.busy, table: store.routeValue,
+                                     here: model.here, minutes: shift, t0: t0)
+    }
+
+    private func routeList(_ route: PlannedRoute) -> some View {
+        func hhmm(_ m: Double) -> String { String(format: "%02d:%02d", Int(m / 60) % 24, Int(m.truncatingRemainder(dividingBy: 60))) }
+        return VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(route.stops.enumerated()), id: \.element.group.id) { i, s in
+                HStack(spacing: 12) {
+                    Text("\(i + 1)").font(.subheadline.weight(.heavy)).foregroundStyle(.white)
+                        .frame(width: 30, height: 30).background(Palette.accent, in: Circle())
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(s.station.name).bold()
+                        Text("도착 약 \(hhmm(route.arrivals[i])) · 의심 \(s.group.bikes.count)대 · 막을 헛걸음 예상 \(String(format: "%.1f", route.values[i]))명")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     Spacer()
-                    Text(String(format: "%.1fkm", m / 1000)).font(.caption).foregroundStyle(.secondary)
-                    LevelTag(text: "\(g?.bikes.count ?? 0)", red: g?.hasRed ?? false)
+                    LevelTag(text: "\(s.group.bikes.count)", red: s.group.hasRed)
                 }
             }
-            Text("\(model.here == nil ? "" : "내 위치에서 ")모두 돌면 직선 **\(String(format: "%.1f", route.meters / 1000))km**")
+            (Text("\(model.here == nil ? "" : "내 위치에서 ")\(route.stops.count)곳 · 약 \(Int(route.used.rounded()))분 · 막을 헛걸음 예상 ")
+             + Text("\(String(format: "%.1f", route.total))명").bold()
+             + Text(route.total > route.rankTotal + 0.05 ? " (순위대로 돌 때보다 \(String(format: "%.1f", route.total - route.rankTotal))명 더)" : ""))
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

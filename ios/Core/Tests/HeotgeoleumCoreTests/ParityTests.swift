@@ -38,6 +38,24 @@ final class ParityTests: XCTestCase {
         }
     }
 
+    func testValueRouteMatchesWebApp() throws {
+        let store = Self.store
+        XCTAssertNotNil(store.routeValue, "route_value.json")
+        for day in ["2026-06-15", "2026-06-20"] {
+            let want = (Self.fixture[day] as! [String: Any])["valueRoutes"] as! [String: [String: Any]]
+            let bikes = try store.morning(day).bikes
+            for (key, w) in want {
+                let parts = key.split(separator: "/"), gu = String(parts[0]), minutes = Double(parts[1])!
+                let bs = gu == "전체" ? bikes : bikes.filter { store.gu(of: $0) == gu }
+                let p = ValueRoute.planGroups(Morning.groupByStation(bs), stations: store.stations, busy: store.busy, table: store.routeValue,
+                                              here: nil, minutes: minutes, t0: 540)!
+                XCTAssertEqual(p.stops.map(\.group.id), w["stops"] as! [String], "\(day) \(key) 막는 동선")
+                XCTAssertEqual(p.total, w["value"] as! Double, accuracy: 1e-9, "\(day) \(key) 막을 헛걸음")
+                XCTAssertLessThanOrEqual(p.used, minutes)
+            }
+        }
+    }
+
     func testRetroNumbersInReport() throws {
         let r = Morning.retro(try Self.store.morning("2026-06-15").bikes)   // 보고서·발표의 "77명 중 29명"
         XCTAssertEqual([r.known, r.hit], [77, 29])

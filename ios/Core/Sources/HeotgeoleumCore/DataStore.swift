@@ -6,6 +6,9 @@ public struct DataStore: Sendable {
     public let stations: [String: Station]
     public let days: [String]
     public let scores: [String: DayScore]
+    /// 정비 동선용 — 대여소 시간대별 대여(busy.json)와 값 표(route_value.json). 없으면 비어 있음(값은 자전거 수로 대신)
+    public let busy: Busy
+    public let routeValue: RouteValue?
 
     public init(root: URL) throws {
         self.root = root
@@ -15,6 +18,8 @@ public struct DataStore: Sendable {
         stations = st
         days = try JSONDecoder().decode([String].self, from: Data(contentsOf: root.appendingPathComponent("morning/index.json")))
         scores = (try? JSONDecoder().decode([String: DayScore].self, from: Data(contentsOf: root.appendingPathComponent("morning/scores.json")))) ?? [:]
+        busy = (try? JSONDecoder().decode(Busy.self, from: Data(contentsOf: root.appendingPathComponent("busy.json")))) ?? [:]
+        routeValue = try? JSONDecoder().decode(RouteValue.self, from: Data(contentsOf: root.appendingPathComponent("route_value.json")))
     }
 
     public func morning(_ day: String) throws -> MorningList {

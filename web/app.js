@@ -1,6 +1,6 @@
 // 헛걸음 제로 — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
 const $ = (s) => document.querySelector(s);
-const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {}, ops: new Set(), busy: {}, routeValue: null };
+const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {}, ops: new Set(), busyDemo: {}, busyOps: null, routeValue: null };
 let here = null;   // 내 위치 (📍 버튼을 눌렀을 때만)
 // QR·입력에서 온 글자를 화면에 넣을 때는 반드시 거친다 (QR 에 HTML 을 심어 두는 장난 막기)
 const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -140,7 +140,8 @@ function renderLists() {
 function stationValue(s, minute) {
   const rv = state.routeValue;
   if (!rv) return s.arr.length * Math.max(0, (1440 - minute) / 1440);
-  const b = state.busy[s.id];
+  const busy = (state.day === "live" || state.ops.has(state.day)) && state.busyOps ? state.busyOps : state.busyDemo;
+  const b = busy[s.id];
   const avg = b ? b[0] : 0, h = b ? b.slice(1).map((x) => x + 0.5) : Array(24).fill(1);
   const lvl = avg < rv.cuts[0] ? 0 : avg < rv.cuts[1] ? 1 : 2;
   return s.arr.reduce((t, bike) => t + rv.value[String(Math.min(Math.max(bike.chain, 2), 4))][lvl], 0) * shareAfter(h, minute);
@@ -458,7 +459,9 @@ function defaultDay(days) {
   const days = [...new Set([...(await getJSON("data/morning/index.json")), ...ops])].sort();
   try { state.scores = await getJSON("data/ops/scores.json"); } catch {}   // 운영 중에만 있음
   state.routeValue = await getJSON("data/route_value.json").catch(() => null);   // 정비 동선 값 표
-  state.busy = await getJSON("data/ops/busy.json").catch(() => getJSON("data/busy.json")).catch(() => ({}));   // 대여소 시간대별 대여
+  // 대여소 시간대별 대여 — 시연 날짜는 그때 자료(busy.json, 6/15 앞 7일), 운영(실시간·매일 목록)은 서버가 지난 7일로 쓴 ops/busy.json
+  state.busyDemo = await getJSON("data/busy.json").catch(() => ({}));
+  state.busyOps = await getJSON("data/ops/busy.json").catch(() => null);
   let live = null;
   try { live = await getJSON(`data/live.json?t=${Date.now()}`); if (minsAgo(live.at) > 20) live = null; } catch {}
   const pick = live && !new URLSearchParams(location.search).get("day") ? "live" : defaultDay(days);
