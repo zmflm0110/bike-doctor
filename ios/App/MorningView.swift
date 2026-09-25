@@ -42,7 +42,10 @@ struct MorningView: View {
                 .padding(16)
             }
             .navigationTitle("헛걸음 제로")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsButton() } }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { dayPicker }
+                ToolbarItem(placement: .topBarTrailing) { SettingsButton() }
+            }
             .refreshable { await model.refreshChecked() }
             .sheet(item: $picked) { g in StationSheet(group: g).presentationDetents([.medium]) }
             .onChange(of: model.gu) { fit(groups: model.groups) }
@@ -76,10 +79,6 @@ struct MorningView: View {
     private var filters: some View {
         @Bindable var model = model
         return HStack {
-            Picker("기준일", selection: Binding(get: { model.day }, set: { model.select(day: $0) })) {
-                if model.live != nil { Text("지금 (실시간)").tag(AppModel.liveDay) }
-                ForEach(model.store?.days ?? [], id: \.self) { Text($0).tag($0) }
-            }
             Picker("구", selection: $model.gu) {
                 Text("서울 전체 (\(model.morning?.bikes.count ?? 0)대)").tag("")
                 ForEach(model.guCounts, id: \.0) { g, n in Text("\(g) (\(n)대)").tag(g) }
@@ -89,6 +88,17 @@ struct MorningView: View {
                 .accessibilityLabel("이 목록을 엑셀용 CSV 로 보내기")
         }
         .pickerStyle(.menu)
+        .lineLimit(1)
+    }
+
+    private var dayPicker: some View {
+        Picker("기준일", selection: Binding(get: { model.day }, set: { model.select(day: $0) })) {
+            if model.live != nil { Text("지금 (실시간)").tag(AppModel.liveDay) }
+            ForEach(model.store?.days ?? [], id: \.self) { Text($0).tag($0) }
+        }
+        .pickerStyle(.menu)
+        .lineLimit(1)
+        .fixedSize()
     }
 
     private var summary: some View {
@@ -96,35 +106,40 @@ struct MorningView: View {
         let red = bikes.filter(\.isRed).count, unrep = bikes.filter { $0.reported == false }.count, known = bikes.contains { $0.reported != nil }
         if model.day == AppModel.liveDay, let m = model.morning {
             let sc = m.score
-            let scored = (sc?.scored ?? 0) > 0 ? "\n실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 \(sc?.scored ?? 0)명 중 **\(sc?.nextRiderDud ?? 0)명(\(Int((sc?.precision ?? 0).rounded()))%)**이 또 바로 반납 (평소 약 2.5%)" : ""
-            return Text(.init("\(model.gu.isEmpty ? "" : model.gu + " — ")**지금 \(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 \(red)대). \(AppModel.minutesAgo(m.at ?? ""))분 전 갱신 · 오늘 켜진 경보 \(m.todayAlarms ?? 0)번\(scored)"))
+            let scored = (sc?.scored ?? 0) > 0 ? "\n실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 \(sc?.scored ?? 0)명 중 **\(sc?.nextRiderDud ?? 0)명**(\(Int((sc?.precision ?? 0).rounded()))%)이 또 바로 반납 (평소 약 2.5%)" : ""
+            return md("\(model.gu.isEmpty ? "" : model.gu + " — ")**지금 \(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 \(red)대). \(AppModel.minutesAgo(m.at ?? ""))분 전 갱신 · 오늘 켜진 경보 \(m.todayAlarms ?? 0)번\(scored)")
                 .font(.subheadline)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 18))
         }
-        return Text("\(model.gu.isEmpty ? "" : model.gu + " — ")**\(bikes.count)**대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 (빨강 \(red)대).\(known ? " 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요." : "")")
+        return md("\(model.gu.isEmpty ? "" : model.gu + " — ")**\(bikes.count)**대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 (빨강 \(red)대).\(known ? " 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요." : "")")
             .font(.subheadline)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 18))
     }
 
     @ViewBuilder private var retro: some View {
         let r = Morning.retro(model.shown)
         if r.known > 0 {
-            card("**이 목록은 맞았을까?** (지난 기록이라 채점할 수 있어요) 목록이 나온 뒤 처음 빌린 사람 **\(r.known)**명 중 **\(r.hit)명(\(Int((100 * Double(r.hit) / Double(r.known)).rounded()))%)**이 또 바로 반납했어요. 평소엔 약 2.5% 예요.")
+            card("**이 목록은 맞았을까?** (지난 기록이라 채점할 수 있어요) 목록이 나온 뒤 처음 빌린 사람 **\(r.known)**명 중 **\(r.hit)명**(\(Int((100 * Double(r.hit) / Double(r.known)).rounded()))%)이 또 바로 반납했어요. 평소엔 약 2.5% 예요.")
         } else if model.gu.isEmpty, let sc = model.store?.scores[model.day] {
             card("**이 목록은 맞았을까?** 다음 날 아침 채점: 목록 \(sc.listed)대 중 그날 누가 빌린 \(sc.rode)대, 첫 이용자 **\(sc.firstDud)명**이 또 바로 반납했어요. 평소엔 약 2.5% 예요.")
         }
     }
 
-    private func card(_ md: LocalizedStringKey) -> some View {
-        Text(md)
+    private func card(_ text: String) -> some View {
+        md(text)
             .font(.subheadline)
-            .padding(12)
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.accent))
+            .background(Palette.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    /// 문자열 속 **굵게** 를 바로 해석 (숫자를 끼워 넣어도 되게)
+    private func md(_ s: String) -> Text {
+        Text((try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s))
     }
 
     private func rankRow(_ g: StationGroup) -> some View {

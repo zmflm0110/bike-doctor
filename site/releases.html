@@ -9,7 +9,7 @@
 <meta property="og:url" content="https://zmflm0110.github.io/bike-doctor/">
 <meta property="og:description" content="앞사람들의 '빌리자마자 반납' 기록으로, 신고되지 않은 고장 자전거를 실시간으로 찾습니다.">
 <meta name="theme-color" content="#ffffff">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f766e'/%3E%3Ccircle cx='20' cy='40' r='10' fill='none' stroke='white' stroke-width='5'/%3E%3Ccircle cx='44' cy='40' r='10' fill='none' stroke='white' stroke-width='5'/%3E%3Cpath d='M20 40l9-15h11l4 15M29 25l-3-6' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="app/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -34,6 +34,13 @@
 <main class="doc">
 <h1>진행 기록</h1>
 <p class="lede">헛걸음 제로가 달라진 점을 모았습니다. 자세한 측정과 실패 기록은 <a href="https://github.com/zmflm0110/bike-doctor/blob/master/PLAN.md">PLAN.md</a> 의 진행 기록에 있습니다.</p>
+<h2>0.7.0<small>2026-09-25</small></h2>
+<ul>
+<li><b>디자인을 부드럽고 친근하게 바꿨습니다.</b> 의심 자전거 하나가 게시물 하나(큰 숫자 카드, '3초 확인'·'자세히' 단추), 구는 동그란 고리로 고르고, 아래 탭은 아이콘(홈·조회·확인·재생·조사), 재생은 어두운 화면 위 큰 시계. 색은 우리 청록.</li>
+<li>웹앱과 아이폰 앱이 같은 모양입니다. 아이폰 앱은 맥의 Xcode 27 로 직접 빌드하고 시뮬레이터에서 확인했습니다.</li>
+<li>소개 웹사이트도 둥근 단추·고리 모양 바로가기로 부드럽게 했습니다.</li>
+<li>고친 것: 아이폰 앱에서 숫자를 끼워 넣은 굵은 글씨가 <code>**</code> 로 그대로 보이던 것, 화면 검사가 검정 바탕을 투명으로 잘못 보던 것.</li>
+</ul>
 <h2>0.6.0<small>2026-09-25</small></h2>
 <ul>
 <li><b>실시간 경보를 켰습니다.</b> 서울 대여이력 API 가 자전거별 기록을 반납하자마자 준다는 걸 확인하고(지연 약 0분), 1분마다 경보를 내는 서버를 돌립니다.</li>

@@ -9,7 +9,7 @@
 <meta property="og:url" content="https://zmflm0110.github.io/bike-doctor/">
 <meta property="og:description" content="앞사람들의 '빌리자마자 반납' 기록으로, 신고되지 않은 고장 자전거를 실시간으로 찾습니다.">
 <meta name="theme-color" content="#ffffff">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f766e'/%3E%3Ccircle cx='20' cy='40' r='10' fill='none' stroke='white' stroke-width='5'/%3E%3Ccircle cx='44' cy='40' r='10' fill='none' stroke='white' stroke-width='5'/%3E%3Cpath d='M20 40l9-15h11l4 15M29 25l-3-6' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="app/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -45,6 +45,14 @@
         <a class="btn soft" href="#try">번호로 확인해 보기</a>
       </div>
       <p class="cap">서울 따릉이·대전 타슈 대여기록 약 1천만 건으로 검증 · 공개 데이터만 사용</p>
+      <nav class="story-nav" aria-label="구역 바로가기">
+        <a href="#why"><span class="ring"><span>💡</span></span>왜 만들었나</a>
+        <a href="#how"><span class="ring"><span>⚙️</span></span>작동 방식</a>
+        <a href="#results"><span class="ring"><span>📊</span></span>검증 결과</a>
+        <a href="#live"><span class="ring"><span>⏱️</span></span>실시간</a>
+        <a href="#helps"><span class="ring"><span>🙌</span></span>도움 되는 곳</a>
+        <a href="#start"><span class="ring"><span>📱</span></span>써 보기</a>
+      </nav>
 
       <div class="stage reveal" aria-label="2026년 6월 15일 서울 따릉이 하루를 빠르게 재생하는 지도">
         <canvas id="map" width="1600" height="900" role="img" aria-label="서울 대여소 2,789곳을 점으로 그린 지도. 재생 중 경보·막을 수 있던 헛걸음·뒤늦은 고장 신고가 색 원으로 켜집니다."></canvas>
