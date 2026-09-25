@@ -9,7 +9,9 @@
 - **돌고 있는 것**(맥 로그인하면 저절로 다시 켜짐, launchd): 실시간 경보 `kr.bikedoctor.live`(1분), 웹 서버 `web`(8765), 충전기 수집 `ev`(5분), 아침 목록 `morning`(매일 06:10).
   확인: `.venv/bin/python server/schedule.py status` · 실시간 채점: `.venv/bin/python server/live.py --report`
 - **지금 숫자**: 의심 84대·오늘 경보 58번(12:02), 실시간 채점 1/1, 지난 7일 되짚기 30.9%(파일 경보 한 건 기준 32\~34% 와 맞음).
-- **공개**: 코드 https://github.com/zmflm0110/bike-doctor · 웹사이트 https://zmflm0110.github.io/bike-doctor/
+- **공개 상태**: 2026-09-25 사용자 요청으로 저장소를 **비공개**로 돌림 → 웹사이트(GitHub Pages)도 내려감(무료 계정), 사이트 배포 작업(pages.yml) 꺼 둠.
+  다시 공개하려면: `gh repo edit zmflm0110/bike-doctor --visibility public --accept-visibility-change-consequences` → `gh workflow enable pages.yml`
+  → `gh api -X POST repos/zmflm0110/bike-doctor/pages -f build_type=workflow` → `gh workflow run pages.yml`. 비공개 동안 Actions 는 월 2,000분(맥 러너는 10배로 셈).
 - **다음에 할 일**
   1. 사용자: macOS 업데이트 → Xcode 설치(여유 52GB) → 아이폰 개발자 모드 → `ios/README.md` 대로 설치, 앱 설정에 `http://munkeuui-MacBookAir.local:8765`
   2. 실시간 채점 100건 모이면(하루\~이틀) Phase 3 합격 판정 → 보고서 6장·발표 7번·웹사이트에 실측 숫자
