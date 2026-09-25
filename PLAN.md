@@ -5,6 +5,17 @@
 근거(초안 단계, `~/ideas/drafts/04-bike-doctor`): 서로 다른 두 사람이 연달아 빌리자마자 반납한 자전거는 다음 사람도 34% 가 헛걸음(평소 2.5%, 약 14배).
 서울 1·3·6월 + 대전 타슈 5·10월 재현, 경보가 고장 신고보다 중앙값 20시간 먼저, 그 사이 평균 4.4명 헛걸음, 서울 하루 84~223명 예방 가능.
 
+## 다시 시작할 때 (2026-09-25 12시 기준 — 맥 업데이트 전 정리)
+- **돌고 있는 것**(맥 로그인하면 저절로 다시 켜짐, launchd): 실시간 경보 `kr.bikedoctor.live`(1분), 웹 서버 `web`(8765), 충전기 수집 `ev`(5분), 아침 목록 `morning`(매일 06:10).
+  확인: `.venv/bin/python server/schedule.py status` · 실시간 채점: `.venv/bin/python server/live.py --report`
+- **지금 숫자**: 의심 84대·오늘 경보 58번(12:02), 실시간 채점 1/1, 지난 7일 되짚기 30.9%(파일 경보 한 건 기준 32~34% 와 맞음).
+- **공개**: 코드 https://github.com/zmflm0110/bike-doctor · 웹사이트 https://zmflm0110.github.io/bike-doctor/
+- **다음에 할 일**
+  1. 사용자: macOS 업데이트 → Xcode 설치(여유 52GB) → 아이폰 개발자 모드 → `ios/README.md` 대로 설치, 앱 설정에 `http://munkeuui-MacBookAir.local:8765`
+  2. 실시간 채점 100건 모이면(하루~이틀) Phase 3 합격 판정 → 보고서 6장·발표 7번·웹사이트에 실측 숫자
+  3. 충전기 1~2주 모은 뒤 헛충전 연쇄 검증(`server/ev_collect.py --report`) → Phase 6
+  4. 사용자: 현장 조사 2주(앱 '현장 조사' → `analysis/field_validation.py data/survey.csv live`), 목표 대회·마감, 이름·학교
+
 ## 사용자에게 필요한 것 (먼저)
 
 | # | 필요한 것 | 왜 | 언제까지 | 상태 |
