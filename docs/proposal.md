@@ -35,4 +35,4 @@
 ## 6. 자료·코드
 - 모든 표는 `python data/download.py` → `python analysis/report.py` 로 다시 만들 수 있습니다(인증키 불필요).
 - 웹앱 시연: 아침 목록·자전거 조회·구조대·하루 재생 (영상 `docs/demo/demo.mp4`).
-- 연락처: (작성자 이름·학교·이메일)
+- 코드·자료·문의: https://github.com/zmflm0110/bike-doctor · 웹사이트 https://zmflm0110.github.io/bike-doctor/
