@@ -43,28 +43,39 @@ def simulate(start, route, value_at, sh=Shift(), t0=0.0):
     return t, total, arr
 
 
-def plan(start, stations, value_at, sh=Shift(), t0=0.0):
-    """근무 시간 안에 막을 헛걸음 기대값이 가장 큰 경로 (욕심 삽입 + 2-opt)."""
-    route, left = [], list(stations)
-    _, best_v, _ = simulate(start, route, value_at, sh, t0)
+def greedy_fill(start, seed, pool, value_at, sh=Shift(), t0=0.0, mode="ratio"):
+    """욕심 삽입: mode 'ratio' = 더 얻는 값 ÷ 더 드는 시간, 'value' = 더 얻는 값. seed 에서 시작해 못 넣을 때까지."""
+    route = list(seed)
+    left = [s for s in pool if s not in route]
     while left:
-        best = None
         base_t, base_v, _ = simulate(start, route, value_at, sh, t0)
+        best = None
         for s in left:
             for pos in range(len(route) + 1):
                 cand = route[:pos] + [s] + route[pos:]
                 t, v, _ = simulate(start, cand, value_at, sh, t0)
                 if t > sh.minutes or v <= base_v + 1e-9:
                     continue
-                score = (v - base_v) / max(t - base_t, 1e-6)
+                score = (v - base_v) / max(t - base_t, 1e-6) if mode == "ratio" else v - base_v
                 if best is None or score > best[0]:
                     best = (score, cand, s)
         if best is None:
             break
-        route = best[1]
+        route = two_opt(start, best[1], value_at, sh, t0)
         left.remove(best[2])
-        route = two_opt(start, route, value_at, sh, t0)
     return route
+
+
+def plan(start, stations, value_at, sh=Shift(), t0=0.0, mode="multi"):
+    """근무 시간 안에 막을 헛걸음 기대값이 가장 큰 경로 — 여러 방법으로 만들어 가장 많이 막는 것
+    (값÷시간 욕심, 값 욕심, 값 큰 순서대로 돈 뒤 채우기). 값÷시간 욕심만으로는 먼 곳의 큰 값을 놓치는 경우가 있다."""
+    if mode == "ratio":   # 값÷시간 욕심 하나만 (처음 만든 방법)
+        return greedy_fill(start, [], stations, value_at, sh, t0, "ratio")
+    by_value = sorted(stations, key=lambda s: -value_at(s, t0))
+    seeded = two_opt(start, within(start, by_value, sh, t0), value_at, sh, t0)
+    cands = [greedy_fill(start, [], stations, value_at, sh, t0, "ratio"), greedy_fill(start, [], stations, value_at, sh, t0, "value"),
+             greedy_fill(start, seeded, stations, value_at, sh, t0, "ratio")]
+    return max(cands, key=lambda r: simulate(start, r, value_at, sh, t0)[1])
 
 
 def two_opt(start, route, value_at, sh=Shift(), t0=0.0):

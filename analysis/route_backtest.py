@@ -98,7 +98,7 @@ def fit_value(months):
     return table, cuts, T
 
 
-def evaluate(lists, duds, cnt, table, cuts, sh=SH, area="gu"):
+def evaluate(lists, duds, cnt, table, cuts, sh=SH, area="gu", mode="multi"):
     res = defaultdict(list)
     for d, items in sorted(lists.items()):
         day = pd.Timestamp(d)
@@ -130,7 +130,7 @@ def evaluate(lists, duds, cnt, table, cuts, sh=SH, area="gu"):
             plans = {
                 "순위 10곳": RT.within(start, RT.shortest_order(start, rank, sh), sh, START_MIN),
                 "가까운 순": RT.within(start, RT.shortest_order(start, stations, sh), sh, START_MIN),
-                "막는 동선": RT.plan(start, stations, predicted, sh, START_MIN),
+                "막는 동선": RT.plan(start, stations, predicted, sh, START_MIN, mode),
                 "(상한)": RT.plan(start, stations, actual, sh, START_MIN),
             }
             total_possible = sum(actual(s, START_MIN) for s in stations)
@@ -139,6 +139,20 @@ def evaluate(lists, duds, cnt, table, cuts, sh=SH, area="gu"):
                 res[name].append({"day": d, "gu": gu, "prevented": prevented, "stops": len(r), "bikes": sum(s["n"] for s in r),
                                   "minutes": used, "possible": total_possible, "cands": len(stations)})
     return {k: pd.DataFrame(v) for k, v in res.items()}
+
+
+SCENARIOS = (("gu", 180, "구마다 한 명, 3시간"), ("gu", 60, "구마다 한 명, 1시간"),
+             ("region", 180, "권역(3~8개 구)마다 한 명, 3시간"), ("region", 90, "권역마다 한 명, 1시간 30분"))
+
+
+def choose_mode(jan, mar):
+    """방법 고르기는 시험(6월)을 보지 않고: 1월로 값 표를 맞추고 3월에서 두 방법을 비교 → 네 상황 합이 큰 쪽."""
+    table, cuts, _ = fit_value([jan])
+    lists, duds, cnt = mar
+    score = {}
+    for mode in ("ratio", "multi"):
+        score[mode] = sum(evaluate(lists, duds, cnt, table, cuts, RT.Shift(minutes=m), a, mode)["막는 동선"]["prevented"].sum() for a, m, _ in SCENARIOS)
+    return max(score, key=score.get), score
 
 
 def summarize(res):
@@ -152,8 +166,13 @@ def summarize(res):
 
 def main():
     train = [month(RAW / "rent_2601.csv"), month(RAW / "rent_2603.csv")]
+    mode, sel = choose_mode(*train)
+    print("3월로 고른 방법:", mode, sel, flush=True)
     table, cuts, T = fit_value(train)
     print("값 표(1·3월):", {k: round(v, 2) for k, v in sorted(table.items())}, "붐빔 경계", [round(c, 1) for c in cuts], flush=True)
+    json.dump({"cuts": [round(c, 1) for c in cuts], "value": {str(k): [round(table.get((k, l), 0.0), 3) for l in range(3)] for k in (2, 3, 4)},
+               "note": "목록 자전거 한 대가 그날 낼 헛걸음 평균 — 연쇄 2·3·4명+ × 대여소 붐빔(하루 평균 대여 cuts 기준 3단계), 2026년 1·3월로 맞춤"},
+              open(ROOT / "web" / "data" / "route_value.json", "w"), ensure_ascii=False)
     lists, duds, cnt = month(RAW / "rent_2606.csv")
     md = ["# 정비 동선 되짚기 — 2026년 6월 (자동 생성: `python analysis/route_backtest.py`)", "",
           __doc__.split("\n", 1)[1].strip(), "",
@@ -161,10 +180,12 @@ def main():
           "| 연쇄 | 한산 | 보통 | 붐빔 |", "|---|---|---|---|"] + \
          [f"| {k}{'명+' if k == 4 else '명'} | " + " | ".join(f"{table.get((k, l), 0):.2f}" for l in range(3)) + " |" for k in (2, 3, 4)] + \
          ["", f"붐빔 단계: 대여소 하루 평균 대여 {cuts[0]:.0f}건 미만 / {cuts[1]:.0f}건 미만 / 그 이상", ""]
-    for area, minutes, label in (("gu", 180, "구마다 한 명, 3시간"), ("gu", 60, "구마다 한 명, 1시간"),
-                                 ("region", 180, "권역(3~8개 구)마다 한 명, 3시간"), ("region", 90, "권역마다 한 명, 1시간 30분")):
+    md += ["## 방법 고르기 (6월을 보기 전에)", "",
+           f"1월로 값 표를 맞추고 3월에서 두 방법을 비교(네 상황 합, 막은 헛걸음): 값÷시간 욕심 {sel['ratio']}명, 여러 방법 중 최고 {sel['multi']}명 → **{'값÷시간 욕심' if mode == 'ratio' else '여러 방법 중 최고'}**.",
+           "(여러 방법 중 최고는 '예상 값' 을 더 세게 쥐어짜는데, 예상 값이 틀릴 때 오히려 덜 막을 수 있다.)", ""]
+    for area, minutes, label in SCENARIOS:
         sh = RT.Shift(minutes=minutes)
-        Tb, win, lose, n, possible, per_area = summarize(evaluate(lists, duds, cnt, table, cuts, sh, area))
+        Tb, win, lose, n, possible, per_area = summarize(evaluate(lists, duds, cnt, table, cuts, sh, area, mode))
         print(label, Tb.to_dict("records"), f"이김 {win:.0%} 짐 {lose:.0%}", flush=True)
         md += [f"## {label} (9시 출발)", "", Tb.to_markdown(index=False), "",
                f"- 한 번(구역·날)에 목록 대여소 평균 {per_area:.1f}곳 · 9시 뒤 실제로 난 헛걸음 전체 {possible:,}명",
