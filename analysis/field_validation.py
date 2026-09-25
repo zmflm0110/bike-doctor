@@ -1,6 +1,8 @@
 """현장 조사 검증 — 사람이 본 자전거 상태(survey.csv)와, 그 시각까지의 대여기록으로 엔진이 낸 판단을 맞춘다.
 
-그달 대여이력 파일이 공개되면(보통 다음 달 중순) 돌린다:
+실시간 서버(server/live.py)가 돌고 있으면 조사한 그날 바로 (최근 7일 창 = data/live.sqlite):
+    python analysis/field_validation.py data/survey.csv live
+그달 대여이력 파일로(보통 다음 달 중순 공개):
     python analysis/field_validation.py data/survey.csv data/raw/rent_2610.csv
 
 엔진 판단 = 본 시각 직전까지 그 자전거의 '서로 다른 사람 헛대여' 연쇄 (2 이상 노랑, 3 이상 빨강)
@@ -74,7 +76,12 @@ def to_markdown(S, m):
 
 if __name__ == "__main__":
     survey = pd.read_csv(sys.argv[1], encoding="utf-8-sig")
-    R = load_seoul(sys.argv[2])
+    if sys.argv[2] == "live":
+        import datetime as dt
+        from server import live
+        R = live.window(live.db(), dt.datetime.now())
+    else:
+        R = load_seoul(sys.argv[2])
     S, m = validate(survey, R)
     print(m)
     S.to_csv(ROOT / "docs" / "field_validation_rows.csv", index=False, encoding="utf-8-sig")

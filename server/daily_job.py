@@ -130,7 +130,8 @@ def write(days, station_name, only_latest):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source", choices=["file", "api"], default="file")
+    ap.add_argument("--source", choices=["file", "api", "live"], default="file",
+                    help="live = server/live.py 가 모아 둔 서울 대여이력(data/live.sqlite, 반납 즉시) — 키 1 하나로")
     ap.add_argument("--month", default="2606")
     ap.add_argument("--api-url", help="대여이력 API 요청주소 (또는 환경변수 RENT_API_URL)")
     ap.add_argument("--date-param", help="날짜 인자 이름 (기본 searchDate, 또는 RENT_API_DATE_PARAM)")
@@ -144,7 +145,13 @@ def main(argv=None):
         written = write(days, stn, only_latest=False)
     else:
         today = dt.date.fromisoformat(a.today) if a.today else dt.date.today()
-        R = fetch_rentals_api(today - dt.timedelta(days=LOOKBACK_DAYS), today - dt.timedelta(days=1), url=a.api_url, date_params=a.date_param)
+        if a.source == "live":   # 오늘 0시 전까지의 최근 7일 (실시간 서버가 이미 받아 둠 → 추가 호출 없음)
+            from server import live
+            midnight = dt.datetime.combine(today, dt.time())
+            R = live.window(live.db(), midnight)
+            R = R[R["t0"] < midnight].reset_index(drop=True)
+        else:
+            R = fetch_rentals_api(today - dt.timedelta(days=LOOKBACK_DAYS), today - dt.timedelta(days=1), url=a.api_url, date_params=a.date_param)
         print(f"받은 대여 {len(R):,}건 ({R['t0'].min()} ~ {R['t0'].max()})" if len(R) else "받은 대여 0건 — 날짜 인자·주소를 확인하세요")
         c = db()
         items, scored = run_morning(c, today.isoformat(), R, stn)
