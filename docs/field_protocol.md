@@ -2,7 +2,7 @@
 
 ## 목적
 엔진이 "고장 의심" 이라고 할 자전거가 **실제로 고장인지**, 사람이 눈으로 본 것과 맞춰 본다. (지금까지는 "다음 사람도 바로 반납" 을 대리 정답으로 썼다.)
-인증키가 없어도 된다: 오늘 본 것을 기록해 두면, **그달 대여이력이 공개되는 다음 달 중순**에 `analysis/field_validation.py` 로 맞춘다.
+실시간 서버(`server/live.py`)가 돌고 있으면 **조사한 그날 바로** 맞출 수 있다(최근 7일 기록). 서버가 없어도, 그달 대여이력이 공개되는 다음 달 중순에 파일로 맞춘다.
 
 ## 준비
 - 맥에서 `python server/app.py` (같은 와이파이). 아이폰 사파리에서 `http://<맥 IP>:8765` → **현장 조사** 탭.
@@ -24,6 +24,7 @@
 
 ## 끝나면
 - 앱의 "조사 기록 CSV 내려받기" → `data/survey.csv`
+- 그날 바로(실시간 서버가 도는 맥에서): `curl -o data/survey.csv http://localhost:8765/api/survey.csv` → `python analysis/field_validation.py data/survey.csv live`
 - 그달 대여이력 공개 후: `python data/download.py`(seq 갱신) → `python analysis/field_validation.py data/survey.csv data/raw/rent_<YYMM>.csv`
 - 나오는 숫자: 경보 적중률·고장 포착률·헛경보율과 각각의 95% 신뢰구간, 상태별 표 → `docs/field_validation.md` (보고서 9장 "한계" 에 그대로).
 - 사진은 서버의 `data/photos/` (CSV 의 photo 열이 파일 이름). 발표 9장에 2~3장.
