@@ -131,24 +131,24 @@
 </section>
 
 <section class="slide">
-  <div class="kicker">솔직함</div>
-  <h2>공개 실시간 자료로는 안 된다 — 직접 재서 확인</h2>
+  <div class="kicker">실시간 — 두 번 뒤집힌 결론</div>
+  <h2>대여소 대수로는 안 됐다. 자전거별 기록은 반납 즉시 온다</h2>
   <div class="row">
     <div style="flex:1">
-      <p>실시간 API 는 대여소별 <b>대수</b>만 준다. 30초마다 찍어도 "−1 뒤 +1" 깜빡임의 87% 는 남의 평범한 대여·반납.</p>
-      <p>대여소 경보 정밀도 <b class="red">0.2~1.7%</b> → 쓸 수 없다.</p>
+      <p>① 실시간 대여정보는 대여소별 <b>대수</b>만 → "−1 뒤 +1" 깜빡임의 87% 는 남의 평범한 대여·반납, 경보 정밀도 <b class="red">0.2~1.7%</b>. 한때 포기.</p>
+      <p>② 서울 <b>대여이력 API</b>(tbCycleRentData)는 자전거 번호·대여/반납 시각·대여소를 <b class="acc">반납하자마자</b> 준다 (10:59:44 조회에 10:59:45 반납이 이미 있음).</p>
     </div>
     <div class="card" style="flex:1">
-      <p style="margin:0"><b class="acc">대신: 매일 아침 목록</b> (하루 늦은 자전거별 기록)</p>
+      <p style="margin:0"><b class="acc">같은 자료인가?</b> 6/15 하루를 둘 다로</p>
       <table style="margin-top:10px;width:100%">
-        <tr><th>달</th><th>목록</th><th>첫 이용자 헛걸음</th><th>미신고</th></tr>
-        <tr><td>1월</td><td>45대</td><td>42.1%</td><td>81.6%</td></tr>
-        <tr><td>3월</td><td>59대</td><td>35.6%</td><td>76.1%</td></tr>
-        <tr><td>6월</td><td>78대</td><td>33.6%</td><td>65.8%</td></tr>
+        <tr><th></th><th>월별 파일</th><th>API</th></tr>
+        <tr><td>대여</td><td>150,827</td><td>150,830</td></tr>
+        <tr><td>헛대여</td><td>4,085</td><td>4,087</td></tr>
+        <tr><td>다음 날 목록</td><td>79대</td><td>79대 (같음)</td></tr>
       </table>
     </div>
   </div>
-  <p style="margin-top:28px">→ "공단이 자전거별 실시간 자료를 <b>켜기만 하면</b> 실시간 경고" — 알고리즘은 준비됨</p>
+  <p style="margin-top:28px">→ 파일로 잰 정밀도가 실시간에도 선다. <b>서로 다른 두 번째 사람이 반납하는 순간 경보</b> — 지금 1분마다 돌고 있음</p>
   <div class="num">7</div>
 </section>
 
