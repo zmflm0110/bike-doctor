@@ -22,13 +22,14 @@ public struct SuspectBike: Codable, Hashable, Identifiable, Sendable {
     public let chain: Int
     public let level: String            // "노랑" | "빨강"
     public let lastDud: String
-    public let reported: Bool
+    public let reported: Bool?          // 고장신고 자료가 있을 때만 (시연). 운영·실시간 목록은 모름(nil)
+    public let minutesAgo: Int?         // 실시간 목록에만 — 마지막 헛대여가 몇 분 전
     public let truthFirstRiderDud: Bool? // 지난 기록(시연)에만 — 목록이 나온 뒤 처음 빌린 사람도 바로 반납했나
     public var isRed: Bool { level == "빨강" }
 
     enum CodingKeys: String, CodingKey {
         case bike, station, chain, level, reported
-        case stationName = "station_name", lastDud = "last_dud", truthFirstRiderDud = "truth_first_rider_dud"
+        case stationName = "station_name", lastDud = "last_dud", truthFirstRiderDud = "truth_first_rider_dud", minutesAgo = "minutes_ago"
     }
 }
 
@@ -36,6 +37,20 @@ public struct MorningList: Codable, Sendable {
     public let date: String
     public let rule: String?
     public var bikes: [SuspectBike]
+    // 실시간 목록(맥 서버의 data/live.json)에만
+    public let at: String?
+    public let todayAlarms: Int?
+    public let score: LiveScore?
+    enum CodingKeys: String, CodingKey { case date, rule, bikes, at, score, todayAlarms = "today_alarms" }
+}
+
+/// 실시간 경보 채점 — 경보 뒤 처음 빌린 다른 사람도 바로 반납했나 (server/live.py)
+public struct LiveScore: Codable, Hashable, Sendable {
+    public let alarms: Int?
+    public let scored: Int?
+    public let nextRiderDud: Int?
+    public let precision: Double?
+    enum CodingKeys: String, CodingKey { case alarms, scored, nextRiderDud = "next_rider_dud", precision = "precision_%" }
 }
 
 /// 운영 중 다음 날 아침 채점 (web/data/morning/scores.json)

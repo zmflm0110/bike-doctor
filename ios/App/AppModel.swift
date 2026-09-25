@@ -11,6 +11,9 @@ final class AppModel {
     var loadError: String?
     private(set) var day: String = ""
     var morning: MorningList?
+    /// 실시간 목록 (맥 서버의 data/live.json, 1분마다). 서버 주소가 없거나 20분 넘게 안 바뀌었으면 nil.
+    var live: MorningList?
+    static let liveDay = "지금"
     var gu: String = ""
     var checked: Checked = [:]
     var here: GeoPoint?
@@ -38,18 +41,46 @@ final class AppModel {
             guard let root = Bundle.main.url(forResource: "data", withExtension: nil) else { throw CocoaError(.fileNoSuchFile) }
             let s = try DataStore(root: root)
             store = s
-            select(day: s.defaultDay() ?? "")
+            select(day: UserDefaults.standard.string(forKey: "day") ?? s.defaultDay() ?? "")   // 실행 인자 -day 2026-06-15 로 고정 가능
         } catch {
             loadError = "앱 안의 자료(data 폴더)를 읽지 못했어요: \(error.localizedDescription)"
         }
         queued = await queue.flush(with: client)
         await refreshChecked()
+        await refreshLive()
+        if live != nil, UserDefaults.standard.string(forKey: "day") == nil { select(day: Self.liveDay) }   // 실시간이 있으면 먼저 (-day 인자로 고정 가능)
+    }
+
+    /// 실시간 목록 다시 받기 — 화면이 1분마다 부른다
+    func refreshLive() async {
+        guard let client, let m = try? await client.live(), let at = m.at, Self.minutesAgo(at) <= 20 else {
+            if live != nil { live = nil; if day == Self.liveDay { select(day: store?.defaultDay() ?? "") } }
+            return
+        }
+        live = m
+        if day == Self.liveDay { morning = m }
+    }
+
+    /// 'YYYY-MM-DDTHH:MM:SS'(서울 시각) → 지금부터 몇 분 전
+    static func minutesAgo(_ iso: String) -> Int {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(identifier: "Asia/Seoul")
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        guard let d = f.date(from: iso) else { return .max }
+        return max(0, Int(Date().timeIntervalSince(d) / 60))
+    }
+
+    /// 기록에 남길 날짜 — 실시간이면 오늘
+    var recordDay: String {
+        guard day == Self.liveDay else { return day }
+        let f = DateFormatter(); f.timeZone = TimeZone(identifier: "Asia/Seoul"); f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
     }
 
     func select(day d: String) {
         day = d
         guard let store, !day.isEmpty else { return }
-        morning = try? store.morning(day)
+        morning = day == Self.liveDay ? live : (try? store.morning(day))
         if !gu.isEmpty, !(morning?.bikes.contains { store.gu(of: $0) == gu } ?? false) { gu = "" }
     }
 
@@ -70,8 +101,8 @@ final class AppModel {
 
     /// 정비 담당용 CSV (엑셀용, 이름은 영문 — 웹앱과 같음)
     var csv: CSVFile {
-        CSVFile(name: "morning_\(day)\(gu.isEmpty ? "" : "_" + (GuNames.english[gu] ?? "gu")).csv",
-                text: store.map { Morning.csv(day: day, bikes: shown, stations: $0.stations, checked: checked) } ?? "")
+        CSVFile(name: "morning_\(day == Self.liveDay ? "live" : day)\(gu.isEmpty ? "" : "_" + (GuNames.english[gu] ?? "gu")).csv",
+                text: store.map { Morning.csv(day: recordDay, bikes: shown, stations: $0.stations, checked: checked) } ?? "")
     }
 
     // MARK: 위치
@@ -96,10 +127,10 @@ final class AppModel {
     }
 
     func rescue(_ bike: String, _ verdict: String) async {
-        rescueLog.insert(RescueEntry(bike: bike, verdict: verdict, day: day, at: Date()), at: 0)
+        rescueLog.insert(RescueEntry(bike: bike, verdict: verdict, day: recordDay, at: Date()), at: 0)
         RescueEntry.save(rescueLog)
         var sent = ""
-        if let client, let n = try? await client.rescue(bike: bike, verdict: verdict, day: day) {
+        if let client, let n = try? await client.rescue(bike: bike, verdict: verdict, day: recordDay) {
             sent = " 지금까지 \(n)명이 이 자전거를 확인했어요."
             await refreshChecked()
         }

@@ -9,7 +9,13 @@ struct HeotgeoleumApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
-                .task { await model.start() }
+                .task {
+                    await model.start()
+                    while !Task.isCancelled {   // 실시간 목록 1분마다 (서버 주소가 있을 때만 받음)
+                        try? await Task.sleep(for: .seconds(60))
+                        await model.refreshLive()
+                    }
+                }
         }
     }
 }

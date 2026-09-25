@@ -79,7 +79,7 @@ public enum Morning {
         let rows = groupByStation(bikes, checked: checked).flatMap(\.bikes).map { b -> [String] in
             let c = checkSummary(checked, bike: b.bike)
             return [day, stations[b.station]?.gu ?? "기타", b.station, b.stationName, b.bike, String(b.chain), b.level, b.lastDud,
-                    b.reported ? "있음" : "없음", c.total > 0 ? "고장 \(c.broken)/\(c.total)" : ""]
+                    b.reported.map { $0 ? "있음" : "없음" } ?? "모름", c.total > 0 ? "고장 \(c.broken)/\(c.total)" : ""]
         }
         return "\u{FEFF}" + ([head] + rows).map { $0.map(q).joined(separator: ",") }.joined(separator: "\r\n") + "\r\n"
     }

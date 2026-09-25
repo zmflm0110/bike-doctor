@@ -54,7 +54,7 @@ struct RescueView: View {
 
     /// 오늘 아직 안 본 자전거 — 위치를 알면 가까운 순 (웹앱과 같은 규칙)
     private func order() -> [SuspectBike] {
-        let done = Set(model.rescueLog.filter { $0.day == model.day }.map(\.bike))
+        let done = Set(model.rescueLog.filter { $0.day == model.recordDay }.map(\.bike))
         let todo = (model.morning?.bikes ?? []).filter { !done.contains($0.bike) }
         guard model.here != nil else { return todo }
         return todo.enumerated().sorted { a, b in

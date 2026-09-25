@@ -52,6 +52,7 @@ struct MorningView: View {
         @Bindable var model = model
         return HStack {
             Picker("기준일", selection: Binding(get: { model.day }, set: { model.select(day: $0) })) {
+                if model.live != nil { Text("지금 (실시간)").tag(AppModel.liveDay) }
                 ForEach(model.store?.days ?? [], id: \.self) { Text($0).tag($0) }
             }
             Picker("구", selection: $model.gu) {
@@ -67,8 +68,17 @@ struct MorningView: View {
 
     private var summary: some View {
         let bikes = model.shown
-        let red = bikes.filter(\.isRed).count, unrep = bikes.filter { !$0.reported }.count
-        return Text("\(model.gu.isEmpty ? "" : model.gu + " — ")**\(bikes.count)**대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 (빨강 \(red)대). 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요.")
+        let red = bikes.filter(\.isRed).count, unrep = bikes.filter { $0.reported == false }.count, known = bikes.contains { $0.reported != nil }
+        if model.day == AppModel.liveDay, let m = model.morning {
+            let sc = m.score
+            let scored = (sc?.scored ?? 0) > 0 ? "\n실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 \(sc?.scored ?? 0)명 중 **\(sc?.nextRiderDud ?? 0)명(\(Int((sc?.precision ?? 0).rounded()))%)**이 또 바로 반납 (평소 약 2.5%)" : ""
+            return Text(.init("\(model.gu.isEmpty ? "" : model.gu + " — ")**지금 \(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 \(red)대). \(AppModel.minutesAgo(m.at ?? ""))분 전 갱신 · 오늘 켜진 경보 \(m.todayAlarms ?? 0)번\(scored)"))
+                .font(.subheadline)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+        }
+        return Text("\(model.gu.isEmpty ? "" : model.gu + " — ")**\(bikes.count)**대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 (빨강 \(red)대).\(known ? " 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요." : "")")
             .font(.subheadline)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -208,7 +218,8 @@ struct BikeRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack { Text(bike.bike).bold(); Text(bike.stationName).font(.caption).foregroundStyle(.secondary) }
                 Group {
-                    Text("서로 다른 \(bike.chain)명 연속 · 마지막 \(bike.lastDud) · ") + Text(bike.reported ? "신고됨" : "미신고").bold()
+                    Text("서로 다른 \(bike.chain)명 연속 · 마지막 \(bike.lastDud)") + Text(bike.minutesAgo.map { $0 < 60 ? " (\($0)분 전)" : " (\($0 / 60)시간 전)" } ?? "")
+                        + Text(bike.reported.map { $0 ? " · 신고됨" : " · 미신고" } ?? "").bold()
                         + Text(c.total == 0 ? "" : c.broken > 0 ? " · 사람 확인: 고장 \(c.broken)/\(c.total)" : " · 사람 확인: 멀쩡함 \(c.total)")
                         + Text(bike.truthFirstRiderDud == true ? " · 다음 사람도 반납" : bike.truthFirstRiderDud == false ? " · 다음 사람은 탐" : "")
                 }

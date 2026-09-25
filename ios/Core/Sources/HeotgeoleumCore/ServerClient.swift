@@ -37,6 +37,11 @@ public struct ServerClient: Sendable {
         return (try JSONSerialization.jsonObject(with: d) as? [String: Any])?["count"] as? Int ?? 0
     }
 
+    /// 실시간 목록 — 맥 서버의 server/live.py 가 1분마다 쓰는 data/live.json
+    public func live() async throws -> MorningList {
+        try JSONDecoder().decode(MorningList.self, from: try await send("data/live.json"))
+    }
+
     public func checked() async throws -> Checked {
         try JSONDecoder().decode(Checked.self, from: try await send("api/rescue"))
     }
