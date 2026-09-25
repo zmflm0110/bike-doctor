@@ -3,8 +3,8 @@
  "short_name": "헛걸음 제로",
  "start_url": "./",
  "display": "standalone",
- "background_color": "#f6f7f6",
- "theme_color": "#0f766e",
+ "background_color": "#ffffff",
+ "theme_color": "#ffffff",
  "lang": "ko",
  "icons": [
   {

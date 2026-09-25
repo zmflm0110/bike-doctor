@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="헛걸음 제로">
 <title>헛걸음 제로</title>
@@ -20,15 +21,16 @@
 </header>
 
 <nav id="tabs" role="tablist" aria-label="화면">
-  <button data-tab="morning" role="tab" aria-controls="morning" aria-selected="true" class="on">아침 목록</button>
-  <button data-tab="lookup" role="tab" aria-controls="lookup" aria-selected="false">자전거 조회</button>
-  <button data-tab="rescue" role="tab" aria-controls="rescue" aria-selected="false">구조대</button>
-  <button data-tab="replay" role="tab" aria-controls="replay" aria-selected="false">시연</button>
-  <button data-tab="survey" role="tab" aria-controls="survey" aria-selected="false">현장 조사</button>
+  <button data-tab="morning" role="tab" aria-controls="morning" aria-selected="true" aria-label="아침 목록" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9.5Z"/></svg><span>홈</span></button>
+  <button data-tab="lookup" role="tab" aria-controls="lookup" aria-selected="false" aria-label="자전거 조회"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>조회</span></button>
+  <button data-tab="rescue" role="tab" aria-controls="rescue" aria-selected="false" aria-label="구조대"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.4-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.8-7.5 10.2-7.5 10.2Z"/></svg><span>확인</span></button>
+  <button data-tab="replay" role="tab" aria-controls="replay" aria-selected="false" aria-label="시연"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M3 8h18M8 3l3 5M14 3l3 5"/><path d="m10.5 11.5 4 2.5-4 2.5v-5Z"/></svg><span>재생</span></button>
+  <button data-tab="survey" role="tab" aria-controls="survey" aria-selected="false" aria-label="현장 조사"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/></svg><span>조사</span></button>
 </nav>
 
 <main>
   <section id="morning" class="tab on" role="tabpanel">
+    <div class="stories" id="stories" aria-label="구 고르기"></div>
     <div class="filters"><select id="gu" aria-label="구 고르기"></select><button id="csv-btn" class="secondary">⬇︎ 이 목록 CSV</button></div>
     <div class="summary" id="morning-summary"></div>
     <div class="summary retro" id="morning-retro" hidden></div>
@@ -36,10 +38,10 @@
     <h2>정비 먼저 볼 곳</h2>
     <ol id="station-rank" class="rank"></ol>
     <h2>정비 동선 <span class="muted">(10곳을 도는 순서, 직선거리)</span></h2>
-    <button id="route-here" class="secondary">📍 내 근처 10곳으로</button>
+    <button id="route-here" class="secondary">📍 내 근처 10곳으로 바꾸기</button>
     <ol id="route-list" class="rank route"></ol>
     <h2>의심 자전거</h2>
-    <ul id="bike-list" class="bikes"></ul>
+    <ul id="bike-list" class="posts"></ul>
   </section>
 
   <section id="lookup" class="tab" role="tabpanel">
@@ -62,8 +64,8 @@
   <section id="replay" class="tab" role="tabpanel">
     <p class="hint">2026년 6월 15일 서울 따릉이 실제 기록을 빠르게 다시 돌립니다.</p>
     <div class="controls"><button id="play">▶ 재생</button><label>속도 <select id="speed"><option value="600">10분/초</option><option value="1800" selected>30분/초</option><option value="3600">1시간/초</option></select></label></div>
-    <div class="clock" id="clock" aria-live="off">00:00</div>
-    <div id="replay-map" role="img" aria-label="하루 재생 지도 (아래 숫자·기록과 같은 내용)"></div>
+    <div class="reel"><div class="clock" id="clock" aria-live="off">00:00</div>
+    <div id="replay-map" role="img" aria-label="하루 재생 지도 (아래 숫자·기록과 같은 내용)"></div></div>
     <div class="legend"><span class="dot r"></span>경보 <span class="dot g"></span>막을 수 있던 헛걸음 <span class="dot b"></span>뒤늦은 고장 신고</div>
     <div class="counters">
       <div><b id="c-dud">0</b><span>헛대여</span></div>

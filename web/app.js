@@ -18,6 +18,7 @@ document.querySelectorAll("#tabs button").forEach((b) =>
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.id === b.dataset.tab));
     if (b.dataset.tab === "morning" && state.map) setTimeout(() => state.map.invalidateSize(), 50);
     if (b.dataset.tab === "rescue") renderRescue();
+    window.scrollTo(0, 0);
   })
 );
 
@@ -65,7 +66,7 @@ function renderMorning() {
       `<span class="muted">${minsAgo(state.morning.at)}분 전 갱신 · 오늘 켜진 경보 ${state.morning.today_alarms}번</span>` +
       (sc.scored ? `<br>실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 ${sc.scored}명 중 <b class="confirmed">${sc.next_rider_dud}명(${sc["precision_%"]}%)</b>이 또 바로 반납 (평소 약 2.5%)` : "");
     if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
-    renderMap(bikes); renderRetro(bikes); renderLists();
+    renderMap(bikes); renderRetro(bikes); renderLists(); renderStories();
     return;
   }
   $("#morning-summary").innerHTML =
@@ -75,6 +76,7 @@ function renderMorning() {
   renderMap(bikes);
   renderRetro(bikes);
   renderLists();
+  renderStories();
 }
 $("#gu").addEventListener("change", (e) => {
   state.gu = e.target.value;
@@ -145,13 +147,13 @@ function renderRoute(bikes) {
   let cum = 0, prev = start;
   $("#route-list").innerHTML = all.map((s, i) => {
     cum += meters(prev, s); prev = s;
-    return `<li><div><b>${i + 1}. ${s.name}</b><br><span class="muted">의심 ${s.arr.length}대 · 여기까지 ${(cum / 1000).toFixed(1)}km</span></div>` +
+    return `<li><div><b>${s.name}</b><br><span class="muted">의심 ${s.arr.length}대 · 여기까지 ${(cum / 1000).toFixed(1)}km</span></div>` +
       `<span class="tag ${s.arr.some((b) => b.level === "빨강") ? "빨강" : "노랑"}">${s.arr.length}</span></li>`;
   }).join("") + `<li class="total"><span>${here ? "내 위치에서 " : ""}모두 돌면 직선 <b>${(cum / 1000).toFixed(1)}km</b></span></li>`;
   if (typeof L === "undefined" || !state.map) return;
   if (state.routeLayer) state.routeLayer.remove();
   state.routeLayer = L.layerGroup().addTo(state.map);
-  L.polyline([start, ...stops].map((p) => [p.lat, p.lon]), { color: "#0f766e", weight: 3, opacity: 0.8, dashArray: "6 6" }).addTo(state.routeLayer);
+  L.polyline([start, ...stops].map((p) => [p.lat, p.lon]), { color: "#962fbf", weight: 3, opacity: 0.8, dashArray: "6 6" }).addTo(state.routeLayer);
   all.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "route-num", html: String(i + 1), iconSize: [20, 20] }) }).addTo(state.routeLayer));
 }
 
@@ -180,13 +182,51 @@ function checkedBadge(bike) {
   return c.broken ? ` · <b class="confirmed">사람 확인: 고장 ${c.broken}/${c.total}</b>` : ` · 사람 확인: 멀쩡함 ${c.total}`;
 }
 
+// 의심 자전거 하나 = 인스타 게시물 하나: 머리(자전거 번호·대여소·언제), 큰 숫자 카드, 단추(3초 확인·자세히), 설명
+const ago = (b) => typeof b.minutes_ago === "number" ? (b.minutes_ago < 60 ? `${b.minutes_ago}분 전` : b.minutes_ago < 1440 ? `${Math.floor(b.minutes_ago / 60)}시간 전` : `${Math.floor(b.minutes_ago / 1440)}일 전`) : `마지막 ${b.last_dud}`;
 function bikeRow(b) {
-  return `<li><div><b>${b.bike}</b> <span class="muted">${b.station_name}</span><br>` +
-    `<span class="muted">서로 다른 ${b.chain}명 연속 · 마지막 ${b.last_dud}${typeof b.minutes_ago === "number" ? ` (${b.minutes_ago < 60 ? b.minutes_ago + "분" : Math.floor(b.minutes_ago / 60) + "시간"} 전)` : ""}` +
-    `${b.reported === true ? " · 신고됨" : b.reported === false ? " · <b>미신고</b>" : ""}${checkedBadge(b.bike)}` +
-    `${b.truth_first_rider_dud === true ? " · 다음 사람도 반납" : b.truth_first_rider_dud === false ? " · 다음 사람은 탐" : ""}</span></div>` +
-    `<span class="tag ${b.level}">${b.level}</span></li>`;
+  const gu = (state.stations[b.station] || {}).gu;
+  const tail = [
+    b.reported === true ? "신고됨" : b.reported === false ? "<b>아직 아무도 신고 안 함</b>" : "",
+    b.truth_first_rider_dud === true ? "다음 사람도 반납" : b.truth_first_rider_dud === false ? "다음 사람은 탐" : "",
+  ].filter(Boolean).join(" · ");
+  return `<li class="post">` +
+    `<div class="post-head"><span class="ava" aria-hidden="true"><span>🚲</span></span>` +
+    `<div class="who"><b>${esc(b.bike)}</b><span>${esc(b.station_name)}${gu ? " · " + esc(gu) : ""} · ${ago(b)}</span></div>` +
+    `<span class="tag ${b.level}">${b.level}</span></div>` +
+    `<div class="post-card ${b.level}"><strong>${b.chain}</strong><span>명이 연달아<br>빌리자마자 반납했어요</span></div>` +
+    `<div class="post-actions"><button class="go" data-act="check" data-bike="${esc(b.bike)}">🙋 3초 확인</button>` +
+    `<button data-act="look" data-bike="${esc(b.bike)}">🔎 자세히</button></div>` +
+    `<div class="post-caption"><span class="muted">서로 다른 ${b.chain}명 연속 · 마지막 ${esc(b.last_dud)}${tail ? " · " : ""}</span>${tail}${checkedBadge(b.bike)}</div></li>`;
 }
+function showTab(t) {
+  const btn = document.querySelector(`#tabs button[data-tab="${t}"]`);
+  if (btn) btn.click();
+}
+$("#bike-list").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const bike = btn.dataset.bike;
+  if (btn.dataset.act === "check") { state.focusBike = bike; showTab("rescue"); }
+  else { showTab("lookup"); $("#bike-input").value = bike; lookup(bike); }
+});
+
+// 스토리 = 구 고르기: 의심 자전거가 많은 구부터, 고른 구는 테두리로
+function renderStories() {
+  if (!state.morning) return;
+  const n = {};
+  state.morning.bikes.forEach((b) => (n[guOf(b)] = (n[guOf(b)] || 0) + 1));
+  const items = [["", "전체", state.morning.bikes.length], ...Object.entries(n).sort((a, b) => b[1] - a[1]).map(([g, c]) => [g, g, c])];
+  $("#stories").innerHTML = items.map(([v, name, c]) =>
+    `<button class="story${v === state.gu ? " on" : ""}" data-gu="${esc(v)}" aria-pressed="${v === state.gu}" aria-label="${esc(name)} ${c}대">` +
+    `<span class="ring"><span${v ? "" : ' class="all"'}>${v ? c : "🚲"}</span></span><em>${esc(name.replace(/구$/, "") || name)}</em></button>`).join("");
+}
+$("#stories").addEventListener("click", (e) => {
+  const st = e.target.closest(".story");
+  if (!st) return;
+  $("#gu").value = st.dataset.gu;
+  $("#gu").dispatchEvent(new Event("change"));
+});
 
 function groupByStation(bikes) {
   const g = {};
@@ -227,7 +267,7 @@ function renderMap(bikes) {
     const s = state.stations[id];
     if (!s) return;
     const red = arr.some((b) => b.level === "빨강");
-    L.circleMarker([s.lat, s.lon], { radius: 5 + 2 * arr.length, color: red ? "#d9480f" : "#d99a06", weight: 1, fillOpacity: 0.55 })
+    L.circleMarker([s.lat, s.lon], { radius: 5 + 2 * arr.length, color: red ? "#e0283e" : "#f5b50a", weight: 1.5, fillOpacity: 0.5 })
       .bindPopup(`<b>${s.name}</b><br>${arr.map((b) => `${b.bike} · ${b.chain}명 연속`).join("<br>")}`)
       .addTo(state.layer);
   });
@@ -309,8 +349,14 @@ function renderRescue() {
   if (!state.morning) return;
   const done = new Set(rescueLog().filter((x) => x.day === state.day).map((x) => x.bike));
   let todo = state.morning.bikes.filter((b) => !done.has(b.bike));
+  const focused = !!state.focusBike;
+  if (state.focusBike) {   // 게시물의 '3초 확인' 으로 온 자전거를 맨 앞에
+    const f = todo.find((b) => b.bike === state.focusBike);
+    if (f) todo = [f, ...todo.filter((b) => b !== f)];
+    state.focusBike = null;
+  }
   const far = (b) => (here && state.stations[b.station] ? meters(here, state.stations[b.station]) : null);
-  if (here) todo = todo.slice().sort((a, b) => (far(a) ?? 1e12) - (far(b) ?? 1e12));   // 위치를 알면 가까운 순
+  if (here && !focused) todo = todo.slice().sort((a, b) => (far(a) ?? 1e12) - (far(b) ?? 1e12));   // 위치를 알면 가까운 순
   const next = todo[0];
   const away = (b) => (far(b) == null ? "" : far(b) < 1000 ? ` · ${Math.round(far(b))}m` : ` · ${(far(b) / 1000).toFixed(1)}km`);
   $("#rescue-card").innerHTML = next
@@ -326,7 +372,7 @@ function renderRescue() {
 
 // ── 시연
 let replay = null, timer = null, rmap = null, rlayer = null;
-const COLORS = { "경보": "#d9480f", "막을 수 있던 헛걸음": "#2b8a3e", "고장 신고": "#0f766e" };
+const COLORS = { "경보": "#e0283e", "막을 수 있던 헛걸음": "#1f9d4f", "고장 신고": "#4f5bd5" };
 function flash(e) {
   if (!rmap) return;
   const s = state.stations[e.station] || (e.type === "고장 신고" && lastStation[e.bike] && state.stations[lastStation[e.bike]]);

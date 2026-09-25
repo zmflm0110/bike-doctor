@@ -29,7 +29,7 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
   // 글자 대비 (WCAG AA 4.5:1) — 보이는 탭·머리글·탭 단추에서 기준 못 넘는 글자
   const lowContrast = () => page.evaluate(() => {
         const lum = (c) => { const v = c.match(/[\d.]+/g).slice(0, 3).map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
-        const bg = (el) => { for (; el; el = el.parentElement) { const c = getComputedStyle(el).backgroundColor; if (c && !/, 0\)$/.test(c) && c !== "transparent") return c; } return "rgb(255,255,255)"; };
+        const bg = (el) => { for (; el; el = el.parentElement) { const c = getComputedStyle(el).backgroundColor; if (c && !/^rgba\(.*,\s*0\)$/.test(c) && c !== "transparent") return c; /* 투명(rgba ..., 0)만 건너뜀 — 예전 식은 검정 rgb(0, 0, 0) 도 투명으로 봤음 */ } return "rgb(255,255,255)"; };
         return [...document.querySelectorAll(".tab.on *, header *, nav *")].filter((el) => el.offsetParent &&
           [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).map((el) => {
           const a = lum(getComputedStyle(el).color), b = lum(bg(el));
