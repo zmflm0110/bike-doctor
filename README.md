@@ -7,7 +7,7 @@
 - 보고서 초안: [`docs/report.md`](docs/report.md) ([PDF](docs/report.pdf)) · 핵심 표: [`docs/results.md`](docs/results.md) · 계획·진행 기록: [`PLAN.md`](PLAN.md)
 - 발표: [`docs/slides.html`](docs/slides.html) (브라우저로 열고 ←/→, F 전체 화면, [PDF](docs/slides.pdf)) · 말할 거리·예상 질문: [`docs/slides.md`](docs/slides.md)
 - 서울시설공단 제안서 초안: [`docs/proposal.md`](docs/proposal.md) ([PDF](docs/proposal.pdf)) — 보낼지는 사용자 결정
-- **작품 소개 웹사이트: [`site/index.html`](site/index.html)** (하루 재생 지도·번호 조회·작동 예시·검증 결과·실시간·한계·자주 묻는 질문, 밝은·어두운 화면, 자료는 `python tools/build_site.py`)
+- **작품 소개 웹사이트: https://zmflm0110.github.io/bike-doctor/** ([`site/`](site/index.html), `site/` 가 바뀌면 자동으로 다시 올라감) (하루 재생 지도·번호 조회·작동 예시·검증 결과·실시간·한계·자주 묻는 질문, 밝은·어두운 화면, 자료는 `python tools/build_site.py`)
 - 시연 영상: [`docs/demo/demo.mp4`](docs/demo/demo.mp4) (1분 27초, 자막 포함) · 앱 화면: [`docs/shots/`](docs/shots)
 
 ## 핵심 결과
