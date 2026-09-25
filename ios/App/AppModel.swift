@@ -19,6 +19,11 @@ final class AppModel {
     var here: GeoPoint?
     var toast: String?
     var queued = 0
+    /// 지금 탭 — 실행 인자 `-tab replay` 도 받는다(화면 사진·시연용). 게시물 단추가 다른 탭으로 보낼 때 바꾼다
+    var tab: String = UserDefaults.standard.string(forKey: "tab") ?? "morning"
+    /// 게시물의 '3초 확인' 으로 고른 자전거 → 확인 탭 맨 앞 / '자세히' → 조회 탭에 넣을 번호
+    var focusBike: String?
+    var lookupQuery: String?
     var rescueLog: [RescueEntry] = RescueEntry.load()
 
     /// 맥 서버 주소 (예: http://내맥.local:8765). 비우면 기기에만 남긴다.
@@ -127,6 +132,7 @@ final class AppModel {
     }
 
     func rescue(_ bike: String, _ verdict: String) async {
+        if focusBike == bike { focusBike = nil }
         rescueLog.insert(RescueEntry(bike: bike, verdict: verdict, day: recordDay, at: Date()), at: 0)
         RescueEntry.save(rescueLog)
         var sent = ""

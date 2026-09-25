@@ -17,12 +17,12 @@ struct RescueView: View {
 
                     if let next = todo.first {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("\(next.stationName)의 \(next.bike)\(away(next))").font(.title3.bold())
+                            Text("\(next.stationName)의 \(next.bike)\(away(next))").font(.title3.bold()).foregroundStyle(Palette.red)
                             Text("서로 다른 \(next.chain)명이 바로 반납했어요. 가까이 있다면 3초만 봐 주세요.")
                             VerdictButtons(bike: next.bike)
                         }
-                        .padding(14)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.red))
+                        .padding(18)
+                        .background(Palette.redSoft, in: RoundedRectangle(cornerRadius: 20))
                         if todo.count > 1 {
                             Text("그다음: " + todo.dropFirst().prefix(3).map { "\($0.stationName) \($0.bike)\(away($0))" }.joined(separator: " · "))
                                 .font(.caption).foregroundStyle(.secondary)
@@ -41,8 +41,7 @@ struct RescueView: View {
                             Spacer()
                             LevelTag(text: x.verdict, red: x.verdict != "멀쩡함")
                         }
-                        .padding(10)
-                        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+                        .padding(.vertical, 8)
                     }
                 }
                 .padding(16)
@@ -55,7 +54,11 @@ struct RescueView: View {
     /// 오늘 아직 안 본 자전거 — 위치를 알면 가까운 순 (웹앱과 같은 규칙)
     private func order() -> [SuspectBike] {
         let done = Set(model.rescueLog.filter { $0.day == model.recordDay }.map(\.bike))
-        let todo = (model.morning?.bikes ?? []).filter { !done.contains($0.bike) }
+        var todo = (model.morning?.bikes ?? []).filter { !done.contains($0.bike) }
+        if let f = model.focusBike, let i = todo.firstIndex(where: { $0.bike == f }) {   // 게시물에서 고른 자전거를 맨 앞에
+            let b = todo.remove(at: i)
+            return [b] + todo
+        }
         guard model.here != nil else { return todo }
         return todo.enumerated().sorted { a, b in
             let (da, db) = (distance(a.element) ?? .infinity, distance(b.element) ?? .infinity)

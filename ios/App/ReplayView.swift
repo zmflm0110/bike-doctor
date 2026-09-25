@@ -34,7 +34,6 @@ struct ReplayView: View {
                             Text("10분/초").tag(600.0); Text("30분/초").tag(1800.0); Text("1시간/초").tag(3600.0); Text("4시간/초").tag(14400.0)
                         }.pickerStyle(.menu)
                     }
-                    Text(player?.clockText ?? "00:00").font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
                     Map(position: $camera) {
                         ForEach(flashes) { f in
                             Annotation("", coordinate: f.coordinate, anchor: .center) {
@@ -44,9 +43,14 @@ struct ReplayView: View {
                             }
                         }
                     }
-                    .mapStyle(.standard(pointsOfInterest: .excludingAll))
-                    .frame(height: 300)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll))
+                    .environment(\.colorScheme, .dark)
+                    .frame(height: 380)
+                    .overlay(alignment: .topLeading) {
+                        Text(player?.clockText ?? "00:00").font(.system(size: 40, weight: .heavy, design: .rounded)).monospacedDigit()
+                            .foregroundStyle(.white).shadow(color: .black.opacity(0.55), radius: 8).padding(16)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 22))
                     .accessibilityLabel("하루 재생 지도 (아래 숫자·기록과 같은 내용)")
                     HStack(spacing: 12) {
                         legend(Palette.red, "경보"); legend(Palette.good, "막을 수 있던 헛걸음"); legend(Palette.accent, "뒤늦은 고장 신고")

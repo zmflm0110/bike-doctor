@@ -15,6 +15,7 @@ struct MorningView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    stories
                     filters
                     summary
                     retro
@@ -36,7 +37,7 @@ struct MorningView: View {
                     if let route { routeList(route) }
 
                     Text("의심 자전거").font(.headline)
-                    ForEach(Array(model.shown.prefix(80))) { b in BikeRow(bike: b) }
+                    ForEach(Array(model.shown.prefix(80))) { b in PostView(bike: b) }
                 }
                 .padding(16)
             }
@@ -45,6 +46,30 @@ struct MorningView: View {
             .refreshable { await model.refreshChecked() }
             .sheet(item: $picked) { g in StationSheet(group: g).presentationDetents([.medium]) }
             .onChange(of: model.gu) { fit(groups: model.groups) }
+        }
+    }
+
+    /// 스토리 — 구 고르기. 의심 자전거가 많은 구부터, 고른 구는 테두리
+    private var stories: some View {
+        let total = model.morning?.bikes.count ?? 0
+        let items = [("", "전체", total)] + model.guCounts.sorted { $0.1 > $1.1 }.map { ($0.0, $0.0, $0.1) }
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(items, id: \.0) { value, name, count in
+                    Button { withAnimation { model.gu = value } } label: {
+                        VStack(spacing: 6) {
+                            StoryRing(size: 64, selected: model.gu == value) {
+                                if value.isEmpty { Text("🚲").font(.title2) } else { Text("\(count)").font(.title3.weight(.heavy)) }
+                            }
+                            Text(value.isEmpty ? name : String(name.dropLast(name.hasSuffix("구") ? 1 : 0))).font(.caption).lineLimit(1)
+                        }
+                        .frame(width: 70)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(name) \(count)대")
+                }
+            }
+            .padding(.vertical, 4)
         }
     }
 
@@ -247,5 +272,54 @@ struct CSVFile: Transferable {
             try f.text.write(to: url, atomically: true, encoding: .utf8)
             return SentTransferredFile(url)
         }
+    }
+}
+
+
+/// 의심 자전거 하나 = 게시물 하나 (웹앱 bikeRow 와 같은 구성)
+struct PostView: View {
+    @Environment(AppModel.self) private var model
+    let bike: SuspectBike
+    var body: some View {
+        let c = checkSummary(model.checked, bike: bike.bike)
+        let gu = model.station(bike.station)?.gu
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                StoryRing(size: 40) { Text("🚲").font(.body) }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(bike.bike).font(.subheadline.bold())
+                    Text([bike.stationName, gu, when].compactMap { $0 }.joined(separator: " · "))
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer()
+                LevelTag(text: bike.level, red: bike.isRed)
+            }
+            HStack(spacing: 16) {
+                Text("\(bike.chain)").font(.system(size: 46, weight: .heavy, design: .rounded)).monospacedDigit()
+                    .foregroundStyle(bike.isRed ? Palette.red : Color.primary)
+                Text("명이 연달아\n빌리자마자 반납했어요").font(.headline)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 20).padding(.vertical, 18)
+            .background(Palette.levelSoft(bike.isRed), in: RoundedRectangle(cornerRadius: 20))
+            HStack(spacing: 8) {
+                Button { model.focusBike = bike.bike; model.tab = "rescue" } label: { Text("🙋 3초 확인").bold() }
+                    .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).tint(Palette.accent)
+                Button { model.lookupQuery = bike.bike; model.tab = "lookup" } label: { Text("🔎 자세히").bold() }
+                    .buttonStyle(.bordered).buttonBorderShape(.capsule).tint(.primary)
+            }
+            (Text("서로 다른 \(bike.chain)명 연속 · 마지막 \(bike.lastDud)").foregroundStyle(.secondary)
+             + Text(bike.reported.map { $0 ? " · 신고됨" : " · 아직 아무도 신고 안 함" } ?? "").bold()
+             + Text(c.total == 0 ? "" : c.broken > 0 ? " · 사람 확인: 고장 \(c.broken)/\(c.total)" : " · 사람 확인: 멀쩡함 \(c.total)")
+             + Text(bike.truthFirstRiderDud == true ? " · 다음 사람도 반납" : bike.truthFirstRiderDud == false ? " · 다음 사람은 탐" : ""))
+                .font(.footnote)
+        }
+        .padding(.vertical, 12)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    private var when: String? {
+        guard let m = bike.minutesAgo else { return nil }
+        return m < 60 ? "\(m)분 전" : m < 1440 ? "\(m / 60)시간 전" : "\(m / 1440)일 전"
     }
 }

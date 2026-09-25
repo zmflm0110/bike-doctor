@@ -21,7 +21,8 @@ struct LookupView: View {
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
                             .font(.title3.monospaced())
-                            .textFieldStyle(.roundedBorder)
+                            .padding(.horizontal, 14).padding(.vertical, 10)
+                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
                             .onSubmit { lookup(input) }
                             .accessibilityLabel("자전거 번호")
                         Button("조회") { lookup(input) }.buttonStyle(.borderedProminent)
@@ -38,7 +39,9 @@ struct LookupView: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsButton() } }
             .onAppear {   // 실행 인자 `-lookup SPB-69683` (화면 사진·시연용)
                 if result == nil, let q = UserDefaults.standard.string(forKey: "lookup") { input = q; lookup(q) }
+                takeQuery()
             }
+            .onChange(of: model.lookupQuery) { takeQuery() }
             .fullScreenCover(isPresented: $scanning) {
                 QRScanner { code in
                     scanning = false
@@ -48,6 +51,13 @@ struct LookupView: View {
                 .ignoresSafeArea()
             }
         }
+    }
+
+    private func takeQuery() {   // 게시물의 '자세히'
+        guard let q = model.lookupQuery else { return }
+        model.lookupQuery = nil
+        input = q
+        lookup(q)
     }
 
     func lookup(_ raw: String) {
@@ -64,12 +74,13 @@ struct LookupView: View {
                 Text("이런 자전거는 다음 사람도 \(b.isRed ? "약 70%" : "약 35~55%")가 바로 반납했어요. 옆 자전거를 고르세요.")
                 VerdictButtons(bike: b.bike)
             }
-            .padding(14)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.red))
+            .padding(18)
+            .background(Palette.redSoft, in: RoundedRectangle(cornerRadius: 20))
         case .clean(let id):
             Label("\(id) — 어제까지 기록에 헛걸음 연쇄가 없어요.", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(Palette.good).padding(14)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.good))
+                .foregroundStyle(Palette.good).padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Palette.goodSoft, in: RoundedRectangle(cornerRadius: 20))
         case .notABike(let raw):
             // QR 속 글자는 Text 로만 보여 준다(해석하지 않음)
             Text("따릉이 번호(SPB-00000)를 못 찾았어요: ") + Text(verbatim: raw).font(.body.monospaced())
@@ -92,6 +103,7 @@ struct VerdictButtons: View {
                     Text(label).frame(maxWidth: .infinity, minHeight: 36)
                 }
                 .buttonStyle(.bordered)
+                .buttonBorderShape(.roundedRectangle(radius: 14))
                 .tint(fine ? Palette.good : Palette.red)
             }
         }
