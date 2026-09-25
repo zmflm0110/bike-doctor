@@ -8,7 +8,7 @@
 
     python analysis/phase2_realtime.py 2603
 """
-import math, pathlib, sys
+import re, math, pathlib, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import numpy as np, pandas as pd
@@ -86,4 +86,5 @@ if __name__ == "__main__":
     for t in by_traffic(R, 60):
         print(t, flush=True)
         lines.append(f"| {t['tier']} | {t['stations']} | {t['dud_recall_%']}% | {t['flip_precision_%']}% | {t['alarm_recall_%']}% | {t['alarm_precision_%']}% |")
-    (ROOT / "docs" / "phase2.md").write_text("\n".join(lines) + "\n")
+    md = re.sub(r"(?<!\\)~", r"\\~", "\n".join(lines))   # GitHub 은 한 줄의 ~ 두 개 사이를 취소선으로 그린다
+    (ROOT / "docs" / "phase2.md").write_text(md + "\n")

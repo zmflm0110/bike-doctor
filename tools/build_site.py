@@ -26,7 +26,7 @@ for p in sorted((S / "data").iterdir()) + sorted((S / "img").iterdir()):
 
 
 def md_inline(t):
-    t = html.escape(t, quote=False)
+    t = html.escape(t.replace("\\~", "~"), quote=False)   # 마크다운 취소선을 막으려 쓴 \~ 는 그냥 ~
     t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
     t = re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
     return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", lambda m: f'<a href="{m.group(2) if m.group(2).startswith("http") else "https://github.com/zmflm0110/bike-doctor/blob/master/" + m.group(2)}">{m.group(1)}</a>', t)

@@ -24,7 +24,7 @@ const CSS = `
   const browser = await launch();
   const page = await browser.newPage();
   for (const [name, title] of [["report", "헛걸음 제로 — 보고서"], ["proposal", "헛걸음 제로 — 서울시설공단 제안서"]]) {
-    const md = fs.readFileSync(path.join(DOCS, name + ".md"), "utf8").replace(/\s*\(초안\)/, "").replace(/~/g, "\\~");   // 12~23% 가 취소선으로 바뀌지 않게
+    const md = fs.readFileSync(path.join(DOCS, name + ".md"), "utf8").replace(/\s*\(초안\)/, "").replace(/(?<!\\)~/g, "\\~");   // 12~23% 가 취소선으로 바뀌지 않게
     const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title><style>${CSS}</style></head><body>` +
       marked.parse(md) + `<p class="foot">코드·자료 재현: README.md · 만든 날 ${new Date().toISOString().slice(0, 10)}</p></body></html>`;
     fs.writeFileSync(path.join(DOCS, name + ".html"), html);
