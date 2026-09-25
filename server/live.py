@@ -140,8 +140,12 @@ def tick(c, now, station_name, refresh_older=False):
     out = {"date": "live", "at": now.isoformat(timespec="seconds"), "rule": "서로 다른 사람이 3분·300m 안 반납을 2번 이상 이어서 했고, "
            f"그 뒤 정상 이용이 없는 자전거 (마지막 헛대여 {FRESH_HOURS}시간 안)", "bikes": bikes,
            "today_alarms": len(today), "rentals_in_window": len(R), "score": _last_score}
-    if refresh_older:   # 10분마다 오래된 기록 정리
+    if refresh_older:   # 10분마다 오래된 기록 정리 + 정비 동선용 대여소 붐빔(지난 7일 시간대별)
         prune(c, now)
+        from engine.busy import station_busy
+        ops = ROOT / "web" / "data" / "ops"
+        ops.mkdir(parents=True, exist_ok=True)
+        json.dump(station_busy(R, days=LOOKBACK_DAYS, end=pd.Timestamp(now)), open(ops / "busy.json", "w"), separators=(",", ":"))
     if refresh_older or not _last_score:   # 채점은 10분마다
         _last_score.clear(); _last_score.update(score(c, pd.Timestamp(now)))
     tmp = OUT.with_suffix(".tmp")

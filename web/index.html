@@ -37,8 +37,9 @@
     <div id="map" role="img" aria-label="의심 자전거가 있는 대여소 지도 (아래 목록과 같은 내용)"></div>
     <h2>정비 먼저 볼 곳</h2>
     <ol id="station-rank" class="rank"></ol>
-    <h2>정비 동선 <span class="muted">(10곳을 도는 순서, 직선거리)</span></h2>
-    <button id="route-here" class="secondary">📍 내 근처 10곳으로 바꾸기</button>
+    <h2>정비 동선 <span class="muted">(근무 시간 안에 헛걸음을 가장 많이 막는 순서)</span></h2>
+    <div class="filters"><select id="shift" aria-label="근무 시간"><option value="60">1시간</option><option value="90" selected>1시간 30분</option><option value="180">3시간</option></select>
+      <button id="route-here" class="secondary">📍 내 위치에서 출발</button></div>
     <ol id="route-list" class="rank route"></ol>
     <h2>의심 자전거</h2>
     <ul id="bike-list" class="posts"></ul>

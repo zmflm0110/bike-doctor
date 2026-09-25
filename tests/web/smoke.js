@@ -46,14 +46,18 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     const retro = await page.textContent("#morning-retro");
     check(/처음 빌린 사람 \d+명 중 \d+명\(\d+%\)/.test(retro), "뒤돌아 채점: " + retro.match(/\d+명 중 \d+명\(\d+%\)/)?.[0]);
     const route = await page.$$eval("#route-list li", (li) => li.map((x) => x.textContent));
-    check(route.length === 11 && /모두 돌면 직선 [\d.]+km/.test(route[10]), "정비 동선 10곳 + 합계 " + (route[10] || "").trim());
-    check((await page.$$("#map .route-num")).length === 10, "지도에 동선 번호");
+    const total = route[route.length - 1] || "";
+    const m90 = total.match(/(\d+)곳 · 약 (\d+)분 · 막을 헛걸음 예상 ([\d.]+)명/);
+    check(m90 && +m90[1] === route.length - 1 && +m90[2] <= 90, "막는 동선 1시간 30분: " + (m90 ? m90[0] : total.trim()));
+    check((await page.$$("#map .route-num")).length === route.length - 1, "지도에 동선 번호");
+    await page.selectOption("#shift", "180");
+    const m180 = (await page.textContent("#route-list li.total")).match(/막을 헛걸음 예상 ([\d.]+)명/);
+    check(m180 && m90 && +m180[1] >= +m90[3], `근무 3시간이면 더 막음 (${m90 && m90[3]} → ${m180 && m180[1]}명)`);
+    await page.selectOption("#shift", "90");
     await shot("1_morning");
     await page.click("#route-here");
     await page.waitForFunction(() => document.querySelector("#route-list").textContent.includes("내 위치에서"));
-    const nearRoute = await page.$$eval("#route-list li", (li) => li.map((x) => x.textContent));
-    const km = +nearRoute[10].match(/([\d.]+)km/)[1], cityKm = +route[10].match(/([\d.]+)km/)[1];
-    check(km < cityKm, `내 근처 10곳 동선 ${km}km (순위 10곳 ${cityKm}km 보다 짧음)`);
+    check(true, "내 위치에서 출발");
     await page.evaluate(() => window.scrollTo(0, 0));
     // 구 고르기 + 정비 담당용 CSV
     const opt = await page.$$eval("#gu option", (o) => o.map((x) => [x.value, x.textContent]));

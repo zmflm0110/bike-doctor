@@ -1,6 +1,6 @@
 // 헛걸음 제로 — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
 const $ = (s) => document.querySelector(s);
-const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {}, ops: new Set() };
+const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {}, ops: new Set(), busy: {}, routeValue: null };
 let here = null;   // 내 위치 (📍 버튼을 눌렀을 때만)
 // QR·입력에서 온 글자를 화면에 넣을 때는 반드시 거친다 (QR 에 HTML 을 심어 두는 장난 막기)
 const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -135,26 +135,45 @@ function renderLists() {
 }
 
 // 정비 동선: 순위 위 10곳을 (내 위치 또는 1위 대여소에서) 도는 순서 — route.js
+// 정비 동선 — 근무 시간 안에 '막을 헛걸음' 이 가장 많은 대여소와 순서 (route.js planValue, 되짚기: docs/route_backtest.md)
+// 대여소 값 = 목록 자전거마다 그날 낼 헛걸음 평균(연쇄 길이 × 대여소 붐빔, route_value.json) × 도착 뒤 남은 대여 비율(busy.json 시간대별)
+function stationValue(s, minute) {
+  const rv = state.routeValue;
+  if (!rv) return s.arr.length * Math.max(0, (1440 - minute) / 1440);
+  const b = state.busy[s.id];
+  const avg = b ? b[0] : 0, h = b ? b.slice(1).map((x) => x + 0.5) : Array(24).fill(1);
+  const lvl = avg < rv.cuts[0] ? 0 : avg < rv.cuts[1] ? 1 : 2;
+  return s.arr.reduce((t, bike) => t + rv.value[String(Math.min(Math.max(bike.chain, 2), 4))][lvl], 0) * shareAfter(h, minute);
+}
+function routeStart() {   // 운영(오늘·실시간)이면 지금부터, 지난 날(시연)이면 그날 9시부터
+  const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  if (state.day === "live" || state.day === today) { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); }
+  return 9 * 60;
+}
+const hhmm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}`;
 function renderRoute(bikes) {
-  // 위치를 모르면 순위 위 10곳, 알면 내 근처 의심 대여소 10곳 (서울 전체 10곳을 한 사람이 도는 건 비현실적 — 기사는 구역 단위로 움직인다)
-  let groups = groupByStation(bikes).map(([id, arr]) => ({ id, arr, ...state.stations[id] })).filter((s) => s.lat);
-  if (here) groups.sort((a, b) => meters(here, a) - meters(here, b));
-  const top = groups.slice(0, 10);
-  if (!top.length) { $("#route-list").innerHTML = ""; if (state.routeLayer) state.routeLayer.remove(); return; }
-  const start = here ? { lat: here.lat, lon: here.lon, name: "내 위치" } : top[0];
-  const stops = planRoute(start, here ? top : top.slice(1));
-  const all = here ? stops : [top[0], ...stops];
-  let cum = 0, prev = start;
-  $("#route-list").innerHTML = all.map((s, i) => {
-    cum += meters(prev, s); prev = s;
-    return `<li><div><b>${s.name}</b><br><span class="muted">의심 ${s.arr.length}대 · 여기까지 ${(cum / 1000).toFixed(1)}km</span></div>` +
-      `<span class="tag ${s.arr.some((b) => b.level === "빨강") ? "빨강" : "노랑"}">${s.arr.length}</span></li>`;
-  }).join("") + `<li class="total"><span>${here ? "내 위치에서 " : ""}모두 돌면 직선 <b>${(cum / 1000).toFixed(1)}km</b></span></li>`;
+  const minutes = +$("#shift").value, t0 = routeStart();
+  let groups = groupByStation(bikes).map(([id, arr]) => ({ id, arr, n: arr.length, ...state.stations[id] })).filter((s) => s.lat);
+  if (!groups.length) { $("#route-list").innerHTML = ""; if (state.routeLayer) state.routeLayer.remove(); return; }
+  // 후보는 값이 큰 40곳까지 (서울 전체를 한 사람이 도는 건 비현실적 — 기사는 구역 단위로 움직인다: 구를 고르면 그 구 안에서)
+  groups = groups.sort((a, b) => stationValue(b, t0) - stationValue(a, t0)).slice(0, 40);
+  const start = here ? { lat: here.lat, lon: here.lon, name: "내 위치" } : groups[0];
+  const stops = planValue(start, groups, stationValue, minutes, t0);
+  const sim = simulate(start, stops, stationValue, t0);
+  // 비교: 지금까지의 방식(누적 헛걸음 순위대로 가장 짧게) 을 같은 시간만큼 돌았다면
+  const rank = groupByStation(bikes).map(([id, arr]) => ({ id, arr, n: arr.length, ...state.stations[id] })).filter((s) => s.lat).slice(0, 10);
+  const rankStops = withinShift(start, planRoute(start, rank), minutes);
+  const rankValue = simulate(start, rankStops, stationValue, t0).value;
+  $("#route-list").innerHTML = stops.map((s, i) =>
+    `<li><div><b>${esc(s.name)}</b><br><span class="muted">도착 약 ${hhmm(sim.arr[i])} · 의심 ${s.arr.length}대 · 막을 헛걸음 예상 ${stationValue(s, sim.arr[i]).toFixed(1)}명</span></div>` +
+    `<span class="tag ${s.arr.some((b) => b.level === "빨강") ? "빨강" : "노랑"}">${s.arr.length}</span></li>`).join("") +
+    `<li class="total"><span>${here ? "내 위치에서 " : ""}${stops.length}곳 · 약 ${Math.round(sim.used)}분 · 막을 헛걸음 예상 <b>${sim.value.toFixed(1)}명</b>` +
+    `${sim.value > rankValue + 0.05 ? ` <span class="muted">(순위대로 돌 때보다 ${(sim.value - rankValue).toFixed(1)}명 더)</span>` : ""}</span></li>`;
   if (typeof L === "undefined" || !state.map) return;
   if (state.routeLayer) state.routeLayer.remove();
   state.routeLayer = L.layerGroup().addTo(state.map);
   L.polyline([start, ...stops].map((p) => [p.lat, p.lon]), { color: "#0f766e", weight: 3, opacity: 0.8, dashArray: "6 6" }).addTo(state.routeLayer);
-  all.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "route-num", html: String(i + 1), iconSize: [20, 20] }) }).addTo(state.routeLayer));
+  stops.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "route-num", html: String(i + 1), iconSize: [20, 20] }) }).addTo(state.routeLayer));
 }
 
 // 위치 한 번 받기 (아이폰은 https 에서만) — 구조대·동선·현장 조사가 같이 쓴다
@@ -438,6 +457,8 @@ function defaultDay(days) {
   state.ops = new Set(ops);
   const days = [...new Set([...(await getJSON("data/morning/index.json")), ...ops])].sort();
   try { state.scores = await getJSON("data/ops/scores.json"); } catch {}   // 운영 중에만 있음
+  state.routeValue = await getJSON("data/route_value.json").catch(() => null);   // 정비 동선 값 표
+  state.busy = await getJSON("data/ops/busy.json").catch(() => getJSON("data/busy.json")).catch(() => ({}));   // 대여소 시간대별 대여
   let live = null;
   try { live = await getJSON(`data/live.json?t=${Date.now()}`); if (minsAgo(live.at) > 20) live = null; } catch {}
   const pick = live && !new URLSearchParams(location.search).get("day") ? "live" : defaultDay(days);
@@ -482,6 +503,7 @@ $("#near-btn").addEventListener("click", () =>
   locate().then(() => stationOptions(here, $("#station-filter").value.trim()), () => toast("위치를 쓸 수 없어요(아이폰은 https 주소에서만). 이름으로 찾아 주세요.")));
 $("#rescue-near").addEventListener("click", () => locate().then(renderRescue, noLocation));
 $("#route-here").addEventListener("click", () => locate().then(renderLists, noLocation));
+$("#shift").addEventListener("change", () => renderLists());
 // 사진(선택): 폰에서 긴 변 1280px JPEG 로 줄여서 보낸다 (원본 몇 MB → 약 150KB). 번호판·얼굴이 안 나오게 — 절차 문서.
 let surveyPhoto = null;
 async function shrink(file, max = 1280, q = 0.7) {
