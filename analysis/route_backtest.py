@@ -137,7 +137,7 @@ def evaluate(lists, duds, cnt, table, cuts, sh=SH, area="gu"):
             for name, r in plans.items():
                 used, prevented, _ = RT.simulate(start, r, actual, sh, START_MIN)
                 res[name].append({"day": d, "gu": gu, "prevented": prevented, "stops": len(r), "bikes": sum(s["n"] for s in r),
-                                  "minutes": used, "possible": total_possible})
+                                  "minutes": used, "possible": total_possible, "cands": len(stations)})
     return {k: pd.DataFrame(v) for k, v in res.items()}
 
 
@@ -147,7 +147,7 @@ def summarize(res):
              "들른 대여소(평균)": round(D["stops"].mean(), 1), "쓴 시간(평균 분)": round(D["minutes"].mean())} for name, D in res.items()]
     m = res["막는 동선"].merge(res["순위 10곳"], on=["day", "gu"], suffixes=("_v", "_r"))
     return pd.DataFrame(rows), (m["prevented_v"] > m["prevented_r"]).mean(), (m["prevented_v"] < m["prevented_r"]).mean(), len(m), \
-        int(res["순위 10곳"]["possible"].sum()), res["순위 10곳"].groupby("gu").size().mean()
+        int(res["순위 10곳"]["possible"].sum()), res["순위 10곳"]["cands"].mean()
 
 
 def main():
