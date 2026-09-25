@@ -19,3 +19,4 @@ ios/*.xcodeproj/project.xcworkspace/xcuserdata/
 data/*.log
 web/data/live.json
 web/data/live.tmp
+data/logs/
