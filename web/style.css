@@ -1,15 +1,16 @@
-/* 헛걸음 제로 — 인스타그램처럼 친근하고 깔끔하게: 흰 바탕·검은 글자·회색 선, 스토리 고리의 그라데이션, 게시물 카드, 아래 탭 */
+/* 헛걸음 제로 — 부드럽고 친근하게: 둥근 카드·고리 테두리·아래 탭 (색은 우리 청록) */
 :root {
-  --bg: #ffffff; --card: #ffffff; --soft: #f2f3f5; --fg: #0c0c0d; --muted: #6e6e73; --line: #e3e3e6;
-  --blue: #0561d9; --on-blue: #ffffff; --red: #c8102e; --red-soft: #ffe8ea; --yellow: #f5b50a; --yellow-soft: #fff5d6; --good: #1f7a3a; --good-soft: #e5f5e9;
-  --ring: linear-gradient(45deg, #feda75 0%, #fa7e1e 25%, #d62976 50%, #962fbf 75%, #4f5bd5 100%);
-  --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 6px 20px rgba(0, 0, 0, .06);
+  --bg: #ffffff; --card: #ffffff; --soft: #f1f4f3; --fg: #15201e; --muted: #5e6b69; --line: #e2e8e6;
+  --blue: #0f766e; --on-blue: #ffffff; --red: #c2410c; --red-soft: #fdeee6; --yellow: #e0a100; --yellow-soft: #fff6db; --good: #237032; --good-soft: #e6f4e8;
+  --ring: linear-gradient(135deg, #7ee0cf 0%, #2bb3a1 45%, #0f766e 100%);
+  --shadow: 0 1px 2px rgba(20, 40, 36, .04), 0 6px 20px rgba(20, 40, 36, .06);
   --tabbar: 62px; --glass: rgba(255, 255, 255, 0.94); --on-red: #ffffff; --on-good: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #000000; --card: #121214; --soft: #1e1e21; --fg: #f5f5f7; --muted: #a8a8ad; --line: #2c2c30;
-          --blue: #5aa9ff; --on-blue: #00152e; --red: #ff6b7a; --red-soft: #3a1318; --yellow: #ffd15c; --yellow-soft: #3a300c; --good: #6fdc8c; --good-soft: #10301a;
-          --shadow: none; --glass: rgba(0, 0, 0, 0.92); --on-red: #2a0006; --on-good: #06200f; }
+  :root { --bg: #0d1014; --card: #161a20; --soft: #1b2027; --fg: #e8ecf1; --muted: #a3adba; --line: #2a3139;
+          --blue: #2cc5b1; --on-blue: #06201d; --red: #fb8b5d; --red-soft: #3a1f15; --yellow: #f2c14e; --yellow-soft: #3a300c; --good: #6fd08c; --good-soft: #15301d;
+          --ring: linear-gradient(135deg, #5eead4 0%, #2cc5b1 50%, #14746a 100%);
+          --shadow: none; --glass: rgba(13, 16, 20, 0.92); --on-red: #2a0e04; --on-good: #06200f; }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { -webkit-text-size-adjust: 100%; }
@@ -149,7 +150,7 @@ video { width: calc(100% - 32px); margin: 10px 16px 0; border-radius: 18px; }
   color: #fff; text-shadow: 0 2px 12px rgba(0, 0, 0, .55); pointer-events: none; }
 .legend { font-size: 12.5px; color: var(--muted); margin: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-.dot.r { background: #e0283e; } .dot.g { background: #1f9d4f; } .dot.b { background: #4f5bd5; }
+.dot.r { background: #d9480f; } .dot.g { background: #2b8a3e; } .dot.b { background: #0f766e; }
 .counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 16px; }
 .counters div { background: var(--soft); border-radius: 16px; padding: 10px 6px; text-align: center; }
 .counters b { display: block; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }

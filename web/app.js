@@ -153,7 +153,7 @@ function renderRoute(bikes) {
   if (typeof L === "undefined" || !state.map) return;
   if (state.routeLayer) state.routeLayer.remove();
   state.routeLayer = L.layerGroup().addTo(state.map);
-  L.polyline([start, ...stops].map((p) => [p.lat, p.lon]), { color: "#962fbf", weight: 3, opacity: 0.8, dashArray: "6 6" }).addTo(state.routeLayer);
+  L.polyline([start, ...stops].map((p) => [p.lat, p.lon]), { color: "#0f766e", weight: 3, opacity: 0.8, dashArray: "6 6" }).addTo(state.routeLayer);
   all.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "route-num", html: String(i + 1), iconSize: [20, 20] }) }).addTo(state.routeLayer));
 }
 
@@ -267,7 +267,7 @@ function renderMap(bikes) {
     const s = state.stations[id];
     if (!s) return;
     const red = arr.some((b) => b.level === "빨강");
-    L.circleMarker([s.lat, s.lon], { radius: 5 + 2 * arr.length, color: red ? "#e0283e" : "#f5b50a", weight: 1.5, fillOpacity: 0.5 })
+    L.circleMarker([s.lat, s.lon], { radius: 5 + 2 * arr.length, color: red ? "#d9480f" : "#e0a100", weight: 1.5, fillOpacity: 0.5 })
       .bindPopup(`<b>${s.name}</b><br>${arr.map((b) => `${b.bike} · ${b.chain}명 연속`).join("<br>")}`)
       .addTo(state.layer);
   });
@@ -372,7 +372,7 @@ function renderRescue() {
 
 // ── 시연
 let replay = null, timer = null, rmap = null, rlayer = null;
-const COLORS = { "경보": "#e0283e", "막을 수 있던 헛걸음": "#1f9d4f", "고장 신고": "#4f5bd5" };
+const COLORS = { "경보": "#d9480f", "막을 수 있던 헛걸음": "#2b8a3e", "고장 신고": "#0f766e" };
 function flash(e) {
   if (!rmap) return;
   const s = state.stations[e.station] || (e.type === "고장 신고" && lastStation[e.bike] && state.stations[lastStation[e.bike]]);
