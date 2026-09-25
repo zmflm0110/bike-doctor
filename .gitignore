@@ -8,3 +8,11 @@ node_modules/
 data/rescue.sqlite
 data/*.sqlite
 data/tls/
+docs/demo/*.webm
+docs/report.html
+data/photos/
+docs/proposal.html
+ios/Core/.build/
+ios/Core/.swiftpm/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/

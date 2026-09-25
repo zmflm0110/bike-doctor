@@ -1,0 +1,78 @@
+# 아이폰 앱: 맥(Xcode)에서 엔진 검사 + 앱 빌드 + 시뮬레이터에서 켜서 화면 사진 (서명 없이)
+name: ios
+on:
+  push:
+    paths: ["ios/**", "web/data/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write     # 화면 사진을 같은 가지의 ios/shots 에 커밋
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+          xcodebuild -version
+      - name: 엔진 검사 (swift test)
+        working-directory: ios/Core
+        run: swift test
+      - name: 프로젝트가 project.yml 과 같은지
+        working-directory: ios
+        run: |
+          brew install xcodegen >/dev/null
+          cp HeotgeoleumZero.xcodeproj/project.pbxproj /tmp/before.pbxproj
+          xcodegen generate
+          diff -q /tmp/before.pbxproj HeotgeoleumZero.xcodeproj/project.pbxproj || echo "::warning::xcodeproj 가 project.yml 과 다름 — xcodegen generate 후 커밋"
+      - name: 앱 빌드 (시뮬레이터)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project HeotgeoleumZero.xcodeproj -scheme HeotgeoleumZero -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build.log | grep -E "error:|warning: .*App/|BUILD" || true
+          grep -q "BUILD SUCCEEDED" build.log
+      - name: 시뮬레이터에서 켜고 화면 사진
+        working-directory: ios
+        run: |
+          DEV=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          xcrun simctl boot "$DEV"; xcrun simctl bootstatus "$DEV" -b
+          APP=$(find build/Build/Products -name "HeotgeoleumZero.app" -maxdepth 3 | head -1)
+          xcrun simctl install "$DEV" "$APP"
+          xcrun simctl privacy "$DEV" grant location kr.bikedoctor.heotgeoleumzero || true
+          xcrun simctl location "$DEV" set 37.5556,126.9106 || true
+          ID=kr.bikedoctor.heotgeoleumzero
+          mkdir -p shots
+          shot() {   # 이름, 기다릴 초, 실행 인자…
+            name=$1; wait=$2; shift 2
+            xcrun simctl terminate "$DEV" $ID 2>/dev/null || true
+            xcrun simctl launch "$DEV" $ID "$@"
+            sleep "$wait"
+            xcrun simctl io "$DEV" screenshot "shots/$name.png"
+            xcrun simctl spawn "$DEV" launchctl list | grep -q heotgeoleumzero || { echo "::error::$name 에서 앱이 죽음"; exit 1; }
+          }
+          shot 1_morning 15 -tab morning
+          shot 2_lookup 6 -tab lookup -lookup SPB-69683
+          shot 3_rescue 6 -tab rescue
+          shot 4_replay 12 -tab replay -autoplay YES
+          shot 5_survey 6 -tab survey
+          xcrun simctl spawn "$DEV" log show --last 3m --predicate 'process == "HeotgeoleumZero" AND messageType == error' --style compact | grep -v -E "Metal|CoreFSCache" | tail -20 || true
+      - name: 화면 사진을 ios/shots 에 커밋 (작게, [skip ci])
+        if: github.event_name != 'pull_request'
+        working-directory: ios
+        run: |
+          for f in shots/*.png; do sips -Z 900 "$f" --out "$f" >/dev/null; done
+          git config user.name "ios-ci"; git config user.email "ios-ci@users.noreply.github.com"
+          git add shots/*.png
+          git diff --cached --quiet && exit 0
+          git commit -m "아이폰 앱 화면 사진 (시뮬레이터, $(date -u +%F)) [skip ci]"
+          for i in 1 2 3; do git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && exit 0; sleep 5; done
+          exit 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-shots
+          path: |
+            ios/shots/
+            ios/build.log

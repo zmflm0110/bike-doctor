@@ -3,7 +3,7 @@ import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import pandas as pd
 from engine.core import _finish
-from analysis.field_validation import validate
+from analysis.field_validation import validate, wilson, to_markdown
 
 
 def test_validate():
@@ -20,3 +20,13 @@ def test_validate():
     S, m = validate(survey, R)
     assert S["chain"].tolist() == [3, 0]
     assert m["고장 포착률 %"] == 100.0 and m["헛경보율 %"] == 0.0 and m["경보 적중률 %"] == 100.0
+    assert m["경보 적중률 95%"] == wilson(1, 1)
+    md = to_markdown(S.assign(station="S"), m)
+    assert "| 경보 적중률 | 100.0% (" in md and "| 체인·기어 | 1 | 1 |" in md
+
+
+def test_wilson():
+    assert wilson(0, 0) is None
+    lo, hi = wilson(10, 20)
+    assert lo < 50 < hi and (lo, hi) == (29.9, 70.1)
+    assert wilson(0, 10)[0] == 0.0 and wilson(0, 10)[1] > 20   # 0/10 이어도 '0%' 로 단정 못 함

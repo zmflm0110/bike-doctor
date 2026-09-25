@@ -4,7 +4,10 @@
 서로 다른 두 사람이 연달아 3분 안에 같은 대여소에 반납한 자전거는 다음 사람도 35~44% 가 포기한다(평소 2.5%, 약 14배).
 서울 3개월·대전 2개월, 약 1천만 건으로 검증.
 
-- 보고서 초안: [`docs/report.md`](docs/report.md) · 핵심 표: [`docs/results.md`](docs/results.md) · 계획·진행 기록: [`PLAN.md`](PLAN.md) · 발표 구성: [`docs/slides.md`](docs/slides.md)
+- 보고서 초안: [`docs/report.md`](docs/report.md) ([PDF](docs/report.pdf)) · 핵심 표: [`docs/results.md`](docs/results.md) · 계획·진행 기록: [`PLAN.md`](PLAN.md)
+- 발표: [`docs/slides.html`](docs/slides.html) (브라우저로 열고 ←/→, F 전체 화면, [PDF](docs/slides.pdf)) · 말할 거리·예상 질문: [`docs/slides.md`](docs/slides.md)
+- 서울시설공단 제안서 초안: [`docs/proposal.md`](docs/proposal.md) ([PDF](docs/proposal.pdf)) — 보낼지는 사용자 결정
+- 시연 영상: [`docs/demo/demo.mp4`](docs/demo/demo.mp4) (1분 27초, 자막 포함) · 앱 화면: [`docs/shots/`](docs/shots)
 
 ## 핵심 결과
 | | 결과 | 근거 |
@@ -18,17 +21,23 @@
 | 아침 목록 예행연습 | 운영 코드 그대로 7일 연속: 한 달 전체 목록과 99.6% 일치, 목록 자전거 첫 이용자 42.3% 헛걸음 | [`docs/phase3_rehearsal.md`](docs/phase3_rehearsal.md) |
 | 생년·성별 없는 자료 | "반납 2분 안 재대여 = 같은 사람" 으로 대신 → 정밀도 차 ≤0.2%p | [`docs/no_who.md`](docs/no_who.md) |
 
-## 진행 상황 (2026-09-24)
+## 진행 상황 (2026-09-25)
 | Phase | 상태 | 한 것 | 남은 것 |
 |---|---|---|---|
 | 0 정리 | ✅ 완료 | 엔진 모듈·테스트, 원본 자료 자동 내려받기(키 불필요), 명령 하나로 5개월 결과 재생성 | — |
 | 1 엔진 확정 | ✅ 완료 | 1월 격자로 규칙 선택 → 다른 달·도시 시험 통과, 두 단계 경보(노랑·빨강) | — |
 | 2 실시간 가능성 | ✅ 완료 (방향 전환) | 실시간 대수 재구성 시험 → 불가 판정, 아침 목록으로 전환 | — |
-| 3 매일 아침 목록 서버 | 🟡 예행연습 완료 | 목록 기록·다음 날 채점(SQLite), 7일 연속 예행연습, 생년·성별 없는 경우 대비 | **공공데이터포털 인증키** → 실제 API 연결, 7일 실운영 |
-| 4 웹앱 | 🟡 거의 | 아침 목록·자전거 조회(QR)·구조대·시연·현장 조사 5개 탭, 진짜 오프라인 시연 검사 통과, 집 와이파이 https | 아이폰 실기기 확인 |
-| 5 현장 검증 | ⏳ 준비 완료 | 현장 조사 탭·서버 API·검증 스크립트·절차 문서 | 2주간 대여소 5곳+ 자전거 150대+ 조사, 친구 구조대 시범 |
-| 6 넓히기 (전기차 충전기) | 🟡 뼈대 | 헛충전 연쇄 엔진·수집기·테스트 | 인증키로 1~2주 수집 → 검증 |
-| 7 대회 패키지 | 🟡 초안 | 보고서 초안, 발표 10장 구성·예상 질문 | 목표 대회 정해지면 형식 맞추기, 시연 영상 |
+| 3 매일 아침 목록 서버 | 🟡 키만 오면 가동 | 목록 기록·다음 날 채점, 7일 예행연습, API 연결(주소만 넣으면 됨), 이틀 연속 운영 예행연습 테스트, 맥 자동 실행(launchd 06:10), 채점 결과를 앱에 | **공공데이터포털 인증키**·요청주소 확인 → `schedule.py install` → 7일 실운영 |
+| 4 앱 | 🟡 거의 | **웹앱** 5개 탭 + 정비 동선·구 고르기·CSV·뒤돌아 채점·구조대 가까운 순·접근성(대비 4.5:1), 화면·오프라인 자동 검사 / **아이폰 앱(SwiftUI)** 5개 탭, 맥 CI 에서 Xcode 빌드 성공·시뮬레이터 실행 | 아이폰 실기기에 설치·확인(맥 Xcode, `ios/README.md`) |
+| 5 현장 검증 | ⏳ 준비 완료 | 현장 조사(웹·아이폰, 사진 포함)·서버 API·검증 스크립트(95% 신뢰구간)·절차 문서, 조사 본 고장도 정비 순위에 | 2주간 대여소 5곳+ 자전거 150대+ 조사, 친구 구조대 시범 |
+| 6 넓히기 (전기차 충전기) | 🟡 뼈대 | 헛충전 연쇄 엔진·수집기·테스트, 수집 간격 한계 안내, 서울시설공단 제안서 초안(PDF) | 인증키로 1~2주 수집 → 검증, 제안서 보낼지 결정 |
+| 7 대회 패키지 | 🟡 거의 | 보고서·제안서·발표 10장 PDF, 예상 질문, 시연 영상(1분 32초) 자동 녹화 | 목표 대회 형식 맞추기, 이름·학교, 현장 조사 결과 채우기 |
+
+### 자동 검사 (GitHub Actions, 올릴 때마다)
+| 검사 | 내용 |
+|---|---|
+| `test` (리눅스) | pytest 20개(엔진·서버·API·매일 작업·운영 예행연습·충전기·일정), 웹 화면 검사(다섯 탭·대비·CSV·위치), 오프라인 3가지, 동선 |
+| `ios` (맥) | Swift 엔진 검사 10개(웹앱과 같은 답인지), Xcode 빌드, 시뮬레이터에서 다섯 탭 켜고 사진(`ios/shots/`) |
 
 ## 사람이 해야 하는 것
 | 할 일 | 왜 |
@@ -37,12 +46,13 @@
 | 목표 대회와 마감 | 보고서·영상·시연 형식 맞추기 |
 | 현장 조사 2주 (앱 '현장 조사' 탭, [`docs/field_protocol.md`](docs/field_protocol.md)) | 사람이 본 고장 vs 엔진 → 실측 정밀도 |
 | 아이폰에 로컬 인증서 설치 (1분, `sh server/https_local.sh` 안내) | 아이폰은 https 에서만 위치·QR 카메라 허용 |
+| (아이폰 앱) 맥에 Xcode 설치 → `ios/HeotgeoleumZero.xcodeproj` 열고 Team 고르고 ▶ | 앱은 https 없이 위치·QR 가능, 인터넷 없어도 목록·시연 |
 | 친구 5~10명 구조대 시범 | "3초 확인" 이 실제로 되는지 |
 | 작품 이름 확정 (현재 "헛걸음 제로") | 앱·발표 |
 
 ## 바로 해 보기
 ```sh
-python3 -m venv .venv && .venv/bin/pip install pandas numpy openpyxl matplotlib tabulate pytest
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python data/download.py          # 원본 자료 (인증키 불필요, 약 1.7GB)
 .venv/bin/python analysis/report.py        # 핵심 표 → docs/results.md
 .venv/bin/python analysis/export_web.py    # 앱 데이터 → web/data/
@@ -50,7 +60,18 @@ python3 -m venv .venv && .venv/bin/pip install pandas numpy openpyxl matplotlib 
 sh server/https_local.sh && .venv/bin/python server/app.py 8443 --https   # 아이폰(같은 와이파이)에서 위치·QR — 안내가 나옴
 .venv/bin/python server/rehearse.py       # 매일 아침 작업을 과거 파일로 7일 연속 예행연습 → docs/phase3_rehearsal.md
 .venv/bin/python -m pytest -q tests        # 테스트
+node tests/web/smoke.js                     # 웹앱 다섯 탭 휴대폰 화면 검사 (npm i playwright, 서버는 스스로 띄움)
+PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 node tests/web/offline.js evict   # 진짜 오프라인 시연 검사 (normal|evict|notiles)
 ```
+GitHub 에 올리면 `.github/workflows/test.yml` 이 위 검사를 전부 돌린다(원본 자료·인증키 불필요).
+
+제출물 다시 만들기 (`npm i playwright marked`):
+```sh
+SHOTS=docs/shots node tests/web/smoke.js     # 앱 화면 사진 (발표에 쓰임)
+node tests/web/record_demo.js                # 시연 영상 → docs/demo/demo.webm·demo.mp4 (mp4 는 ffmpeg 필요, FFMPEG=경로)
+node docs/build_pdf.js                       # docs/report.pdf, proposal.pdf, slides.pdf
+```
+인터넷이 되는 곳에서 찍으면 지도 조각이 깔린다(안 되면 대여소 점 바탕).
 
 ## 구성
 | 폴더 | 내용 |
@@ -58,9 +79,10 @@ sh server/https_local.sh && .venv/bin/python server/app.py 8443 --https   # 아�
 | `engine/` | 헛대여·연쇄·경보 규칙(`core.py`), 아침 목록(`morning.py`) |
 | `analysis/` | 검증: Phase 1 기준 선택, Phase 2 실시간 가능성, 현장 검증, 그림 |
 | `server/` | 서울 API(키체인), 매일 아침 목록 작업(목록 기록·다음 날 채점 SQLite)·예행연습, 웹 서버(구조대·현장조사 SQLite) |
+| `ios/` | 아이폰 앱(SwiftUI) — 엔진 패키지 `Core/`(리눅스에서도 검사), 화면 `App/`, `HeotgeoleumZero.xcodeproj` · 설치법 [`ios/README.md`](ios/README.md) |
 | `web/` | 웹앱 — 아침 목록·자전거 조회(QR)·구조대·시연·현장 조사 (홈 화면 추가 가능) |
 | `docs/` | 결과·보고서·현장 조사 절차 |
-| `tests/` | 엔진·서버·매일 작업·충전기 단위 테스트(pytest 11개), 웹 오프라인 검사(`tests/web/offline.js`) |
+| `tests/` | 엔진·서버·매일 작업·충전기 단위 테스트(pytest), 웹 화면 검사(`tests/web/smoke.js`)·오프라인 검사(`tests/web/offline.js`) |
 
 ## 인증키 (선택)
 코드·git 에 넣지 않고 macOS 키체인에:
@@ -68,6 +90,18 @@ sh server/https_local.sh && .venv/bin/python server/app.py 8443 --https   # 아�
 security add-generic-password -a bike-doctor -s seoul-openapi -w '<서울 열린데이터광장 키>'
 security add-generic-password -a bike-doctor -s datagokr -w '<공공데이터포털 키>'
 ```
+맥이 아닌 서버에서는 환경변수 `SEOUL_OPENAPI_KEY`, `DATAGOKR_KEY`.
+
+공공데이터포털 키가 오면 (대여이력 API 명세의 요청주소만 확인):
+```sh
+.venv/bin/python server/daily_job.py --source api --api-url '<요청주소>'   # 최근 7일 → 오늘 아침 목록 + 어제 목록 채점
+```
+매일 자동으로(맥 launchd — 06:10 아침 목록, 웹 서버 상시, `--ev` 면 충전기 수집도):
+```sh
+.venv/bin/python server/schedule.py install --api-url '<요청주소>'   # status · uninstall · print
+```
+앱은 최근 3일 안 목록이 있으면 가장 새 날을, 없으면 시연 날짜(6/15)를 먼저 보여 준다(`?day=YYYY-MM-DD` 로 지정 가능).
+열 이름이 예상과 다르면 받은 열 이름을 보여 주며 멈춘다 → `engine/core.py` 의 `FIELDS` 에 한 줄. 날짜 인자 이름이 다르면 `--date-param`.
 
 ## 자료·라이선스
 - 대여이력·고장신고·대여소: 서울 열린데이터광장(서울시설공단), 대전 타슈: 공공데이터포털. 원본은 저장소에 넣지 않고 `data/download.py` 로 받는다.

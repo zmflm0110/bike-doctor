@@ -1,0 +1,240 @@
+import SwiftUI
+import MapKit
+import UniformTypeIdentifiers
+import HeotgeoleumCore
+
+struct MorningView: View {
+    @Environment(AppModel.self) private var model
+    @State private var camera: MapCameraPosition = .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 37.55, longitude: 126.99),
+                                                                              span: MKCoordinateSpan(latitudeDelta: 0.28, longitudeDelta: 0.36)))
+    @State private var picked: StationGroup?
+
+    var body: some View {
+        let groups = model.groups
+        let route = model.store.map { Morning.route(groups, stations: $0.stations, from: model.here) }
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    filters
+                    summary
+                    retro
+                    StationMap(groups: groups, route: route?.stops ?? [], here: model.here, camera: $camera, picked: $picked)
+                        .frame(height: 300)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .accessibilityLabel("의심 자전거가 있는 대여소 지도 (아래 목록과 같은 내용)")
+
+                    Text("정비 먼저 볼 곳").font(.headline)
+                    ForEach(Array(groups.prefix(10))) { g in rankRow(g) }
+
+                    HStack {
+                        Text("정비 동선").font(.headline)
+                        Text("(10곳을 도는 순서, 직선거리)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Button { Task { await model.locate() } } label: {
+                        Label("내 근처 10곳으로", systemImage: "location").frame(maxWidth: .infinity)
+                    }.buttonStyle(.bordered)
+                    if let route { routeList(route) }
+
+                    Text("의심 자전거").font(.headline)
+                    ForEach(Array(model.shown.prefix(80))) { b in BikeRow(bike: b) }
+                }
+                .padding(16)
+            }
+            .navigationTitle("헛걸음 제로")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsButton() } }
+            .refreshable { await model.refreshChecked() }
+            .sheet(item: $picked) { g in StationSheet(group: g).presentationDetents([.medium]) }
+            .onChange(of: model.gu) { fit(groups: model.groups) }
+        }
+    }
+
+    private var filters: some View {
+        @Bindable var model = model
+        return HStack {
+            Picker("기준일", selection: Binding(get: { model.day }, set: { model.select(day: $0) })) {
+                ForEach(model.store?.days ?? [], id: \.self) { Text($0).tag($0) }
+            }
+            Picker("구", selection: $model.gu) {
+                Text("서울 전체 (\(model.morning?.bikes.count ?? 0)대)").tag("")
+                ForEach(model.guCounts, id: \.0) { g, n in Text("\(g) (\(n)대)").tag(g) }
+            }
+            Spacer()
+            ShareLink(item: model.csv, preview: SharePreview("아침 목록 CSV")) { Label("CSV", systemImage: "square.and.arrow.up") }
+                .accessibilityLabel("이 목록을 엑셀용 CSV 로 보내기")
+        }
+        .pickerStyle(.menu)
+    }
+
+    private var summary: some View {
+        let bikes = model.shown
+        let red = bikes.filter(\.isRed).count, unrep = bikes.filter { !$0.reported }.count
+        return Text("\(model.gu.isEmpty ? "" : model.gu + " — ")**\(bikes.count)**대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 (빨강 \(red)대). 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요.")
+            .font(.subheadline)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder private var retro: some View {
+        let r = Morning.retro(model.shown)
+        if r.known > 0 {
+            card("**이 목록은 맞았을까?** (지난 기록이라 채점할 수 있어요) 목록이 나온 뒤 처음 빌린 사람 **\(r.known)**명 중 **\(r.hit)명(\(Int((100 * Double(r.hit) / Double(r.known)).rounded()))%)**이 또 바로 반납했어요. 평소엔 약 2.5% 예요.")
+        } else if model.gu.isEmpty, let sc = model.store?.scores[model.day] {
+            card("**이 목록은 맞았을까?** 다음 날 아침 채점: 목록 \(sc.listed)대 중 그날 누가 빌린 \(sc.rode)대, 첫 이용자 **\(sc.firstDud)명**이 또 바로 반납했어요. 평소엔 약 2.5% 예요.")
+        }
+    }
+
+    private func card(_ md: LocalizedStringKey) -> some View {
+        Text(md)
+            .font(.subheadline)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.accent))
+    }
+
+    private func rankRow(_ g: StationGroup) -> some View {
+        let s = model.station(g.id)
+        let broken = g.brokenCount(model.checked)
+        return Button { picked = g } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(s?.name ?? g.id).bold()
+                    Text("\(s?.gu ?? "") · 의심 \(g.bikes.count)대 · 헛걸음 \(g.sumChain)명 누적 (최대 \(g.maxChain)명 연속)")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if broken > 0 { Text("구조대 확인 고장 \(broken)대").font(.caption.bold()).foregroundStyle(Palette.red) }
+                }
+                Spacer()
+                LevelTag(text: "\(g.bikes.count)", red: g.hasRed)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(10)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func routeList(_ route: (stops: [Station], meters: Double)) -> some View {
+        var cum = 0.0
+        var prev = model.here ?? route.stops.first?.point
+        let rows: [(Int, Station, Double)] = route.stops.enumerated().map { i, s in
+            if let p = prev { cum += Geo.meters(p, s.point) }
+            prev = s.point
+            return (i + 1, s, cum)
+        }
+        return VStack(alignment: .leading, spacing: 6) {
+            ForEach(rows, id: \.1.id) { n, s, m in
+                let g = model.groups.first { $0.id == s.id }
+                HStack {
+                    Text("\(n). \(s.name)").bold()
+                    Spacer()
+                    Text(String(format: "%.1fkm", m / 1000)).font(.caption).foregroundStyle(.secondary)
+                    LevelTag(text: "\(g?.bikes.count ?? 0)", red: g?.hasRed ?? false)
+                }
+            }
+            Text("\(model.here == nil ? "" : "내 위치에서 ")모두 돌면 직선 **\(String(format: "%.1f", route.meters / 1000))km**")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func fit(groups: [StationGroup]) {
+        let pts = groups.compactMap { model.station($0.id)?.point }
+        guard let minLat = pts.map(\.lat).min(), let maxLat = pts.map(\.lat).max(),
+              let minLon = pts.map(\.lon).min(), let maxLon = pts.map(\.lon).max() else { return }
+        withAnimation {
+            camera = .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2),
+                                                span: MKCoordinateSpan(latitudeDelta: max(0.02, (maxLat - minLat) * 1.4), longitudeDelta: max(0.02, (maxLon - minLon) * 1.4))))
+        }
+    }
+}
+
+struct StationMap: View {
+    @Environment(AppModel.self) private var model
+    let groups: [StationGroup]
+    let route: [Station]
+    let here: GeoPoint?
+    @Binding var camera: MapCameraPosition
+    @Binding var picked: StationGroup?
+
+    var body: some View {
+        // 지도 내용에는 if 를 쓰지 않는다 — 없으면 빈 목록으로 (MapContentBuilder 가 받는 모양을 단순하게)
+        let placed = groups.compactMap { g in model.station(g.id).map { (g, $0) } }
+        let line = ((here.map { [$0] } ?? []) + route.map(\.point)).map(\.coordinate)
+        Map(position: $camera) {
+            ForEach(placed, id: \.0.id) { g, s in
+                Annotation(s.name, coordinate: s.point.coordinate, anchor: .center) {
+                    let size = CGFloat(10 + 4 * g.bikes.count)
+                    Circle()
+                        .fill(Palette.level(g.hasRed).opacity(0.6))
+                        .overlay(Circle().strokeBorder(Palette.level(g.hasRed), lineWidth: 1))
+                        .frame(width: size, height: size)
+                        .onTapGesture { picked = g }
+                }
+                .annotationTitles(.hidden)
+            }
+            MapPolyline(coordinates: line.count > 1 ? line : [])
+                .stroke(Palette.accent, style: StrokeStyle(lineWidth: 3, dash: [6, 6]))
+            ForEach(Array(route.enumerated()), id: \.element.id) { i, s in
+                Annotation("", coordinate: s.point.coordinate, anchor: .center) {
+                    Text("\(i + 1)").font(.caption2.bold()).foregroundStyle(.white)
+                        .frame(width: 20, height: 20).background(Palette.accent, in: Circle())
+                }
+            }
+            ForEach(here.map { [$0] } ?? [], id: \.self) { p in
+                Marker("내 위치", systemImage: "location.fill", coordinate: p.coordinate).tint(.blue)
+            }
+        }
+        .mapStyle(.standard(pointsOfInterest: .excludingAll))
+    }
+}
+
+struct StationSheet: View {
+    @Environment(AppModel.self) private var model
+    let group: StationGroup
+    var body: some View {
+        NavigationStack {
+            List(group.bikes) { b in BikeRow(bike: b) }
+                .navigationTitle(model.station(group.id)?.name ?? group.id)
+                .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
+struct BikeRow: View {
+    @Environment(AppModel.self) private var model
+    let bike: SuspectBike
+    var body: some View {
+        let c = checkSummary(model.checked, bike: bike.bike)
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack { Text(bike.bike).bold(); Text(bike.stationName).font(.caption).foregroundStyle(.secondary) }
+                Group {
+                    Text("서로 다른 \(bike.chain)명 연속 · 마지막 \(bike.lastDud) · ") + Text(bike.reported ? "신고됨" : "미신고").bold()
+                        + Text(c.total == 0 ? "" : c.broken > 0 ? " · 사람 확인: 고장 \(c.broken)/\(c.total)" : " · 사람 확인: 멀쩡함 \(c.total)")
+                        + Text(bike.truthFirstRiderDud == true ? " · 다음 사람도 반납" : bike.truthFirstRiderDud == false ? " · 다음 사람은 탐" : "")
+                }
+                .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            LevelTag(text: bike.level, red: bike.isRed)
+        }
+        .padding(10)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+extension GeoPoint {
+    var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: lat, longitude: lon) }
+}
+
+/// ShareLink 로 보내는 CSV — 누를 때 파일을 만든다
+struct CSVFile: Transferable {
+    let name: String
+    let text: String
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .commaSeparatedText) { f in
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(f.name)
+            try f.text.write(to: url, atomically: true, encoding: .utf8)
+            return SentTransferredFile(url)
+        }
+    }
+}
