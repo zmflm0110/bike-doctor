@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>헛걸음 제로 — 빌리기 전에, 고장 난 따릉이를 먼저 알려 줍니다</title>
+<meta name="description" content="서로 다른 두 사람이 연달아 빌리자마자 반납한 따릉이는 다음 사람도 3명 중 1명이 포기합니다. 공개 대여기록만으로, 아무도 신고하지 않은 고장 자전거를 실시간으로 찾습니다.">
+<meta property="og:title" content="헛걸음 제로 — 따릉이 고장 예보">
+<meta property="og:description" content="앞사람들의 '빌리자마자 반납' 기록으로, 신고되지 않은 고장 자전거를 실시간으로 찾습니다.">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f766e'/%3E%3Ccircle cx='20' cy='40' r='10' fill='none' stroke='white' stroke-width='5'/%3E%3Ccircle cx='44' cy='40' r='10' fill='none' stroke='white' stroke-width='5'/%3E%3Cpath d='M20 40l9-15h11l4 15M29 25l-3-6' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<style>
+:root {
+  --canvas: #ffffff; --surface: #f4f6f8; --surface-2: #eceff3; --ink: #171d26; --muted: #596372; --faint: #7d8794; --line: #dce1e7;
+  --accent: #0f766e; --accent-hover: #0b5f58; --on-accent: #ffffff; --accent-soft: #e1f2ef; --focus: #8fd3c9;
+  --red: #c2410c; --red-soft: #fcebe3; --yellow: #a16207; --yellow-dot: #e0a000; --good: #237032; --good-soft: #e3f3e6;
+  --dot: rgba(89, 99, 114, .28); --shadow: 0 1px 2px rgba(23, 29, 38, .04), 0 8px 24px rgba(23, 29, 38, .06);
+  --band: linear-gradient(180deg, #eef7f5 0%, #f6f8fb 100%);
+  --grad: linear-gradient(90deg, #0f766e 0%, #1f9d6b 35%, #d69e00 70%, #c2410c 100%);
+  --radius: 18px; --header: 60px; --wrap: 1180px; --block: 136px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #0d1014; --surface: #161a20; --surface-2: #1d232b; --ink: #e8ecf1; --muted: #a3adba; --faint: #7f8a98; --line: #2a3139;
+    --accent: #2cc5b1; --accent-hover: #5eead4; --on-accent: #06201d; --accent-soft: #12302c; --focus: #2cc5b1;
+    --red: #fb8b5d; --red-soft: #3a1f15; --yellow: #f2c14e; --yellow-dot: #f2c14e; --good: #6fd08c; --good-soft: #15301d;
+    --dot: rgba(163, 173, 186, .30); --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    --band: linear-gradient(180deg, #11231f 0%, #141920 100%);
+    --grad: linear-gradient(90deg, #2cc5b1 0%, #6fd08c 35%, #f2c14e 70%, #fb8b5d 100%);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --canvas: #0d1014; --surface: #161a20; --surface-2: #1d232b; --ink: #e8ecf1; --muted: #a3adba; --faint: #7f8a98; --line: #2a3139;
+  --accent: #2cc5b1; --accent-hover: #5eead4; --on-accent: #06201d; --accent-soft: #12302c; --focus: #2cc5b1;
+  --red: #fb8b5d; --red-soft: #3a1f15; --yellow: #f2c14e; --yellow-dot: #f2c14e; --good: #6fd08c; --good-soft: #15301d;
+  --dot: rgba(163, 173, 186, .30); --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  --band: linear-gradient(180deg, #11231f 0%, #141920 100%);
+  --grad: linear-gradient(90deg, #2cc5b1 0%, #6fd08c 35%, #f2c14e 70%, #fb8b5d 100%);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header) + 12px); -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-size: 17px; line-height: 1.65; letter-spacing: -0.01em; word-break: keep-all; overflow-wrap: anywhere; -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+img { max-width: 100%; display: block; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 8px; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+.tiny { font-size: 12.5px; color: var(--faint); }
+
+/* 머리 */
+header.top { position: sticky; top: 0; z-index: 20; height: var(--header); background: color-mix(in srgb, var(--canvas) 86%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid transparent; transition: border-color .2s; }
+header.top.scrolled { border-bottom-color: var(--line); }
+header.top .wrap { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.logo { font-weight: 700; font-size: 21px; letter-spacing: -0.05em; text-decoration: none; white-space: nowrap; }
+.logo i { color: var(--accent); font-style: normal; }
+nav.links { display: flex; align-items: center; gap: 26px; font-size: 14.5px; }
+nav.links a { text-decoration: none; color: var(--ink); opacity: .86; }
+nav.links a:hover { opacity: 1; color: var(--accent); }
+.icon-btn { width: 36px; height: 36px; display: inline-grid; place-items: center; border-radius: 10px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.icon-btn:hover { background: var(--surface); }
+.icon-btn svg { width: 20px; height: 20px; }
+
+/* 단추 */
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 20px; border-radius: 12px; border: 0; font: inherit; font-size: 16px; font-weight: 600;
+  letter-spacing: -0.02em; text-decoration: none; cursor: pointer; transition: background .15s, transform .15s; white-space: nowrap; }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.soft { background: var(--surface); color: var(--ink); }
+.btn.soft:hover { background: var(--surface-2); }
+.btn.sm { height: 38px; padding: 0 14px; font-size: 14.5px; border-radius: 10px; font-weight: 550; }
+.btn svg { width: 17px; height: 17px; }
+
+/* 첫 화면 */
+.hero { text-align: center; padding: 104px 0 0; }
+.eyebrow { font-size: 15px; color: var(--muted); margin: 0 0 18px; }
+h1 { font-size: clamp(42px, 7.2vw, 78px); line-height: 1.16; font-weight: 580; letter-spacing: -0.055em; margin: 0; }
+h1 .type { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+h1 .caret { display: inline-block; width: .06em; height: .9em; margin-left: .04em; vertical-align: -0.08em; background: var(--accent); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.lede { font-size: clamp(17px, 2vw, 19px); color: var(--muted); margin: 26px auto 0; max-width: 640px; line-height: 1.7; }
+.cta { display: flex; justify-content: center; gap: 10px; margin-top: 34px; flex-wrap: wrap; }
+.hero .cap { margin-top: 14px; font-size: 13.5px; color: var(--faint); }
+
+/* 첫 화면 지도 */
+.stage { margin: 64px auto 0; max-width: 1080px; background: var(--surface); border-radius: 26px; padding: 18px; position: relative; box-shadow: var(--shadow); }
+.stage canvas { width: 100%; height: auto; aspect-ratio: 16 / 9; display: block; border-radius: 16px; background: var(--canvas); }
+.stage .hud { position: absolute; left: 34px; top: 30px; text-align: left; pointer-events: none; }
+.stage .clock { font-size: clamp(30px, 5vw, 52px); font-weight: 650; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; line-height: 1; }
+.stage .date { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.stage .counts { position: absolute; right: 34px; top: 30px; display: grid; gap: 6px; text-align: right; font-size: 14px; pointer-events: none; }
+.stage .counts b { font-variant-numeric: tabular-nums; font-size: 18px; margin-left: 6px; }
+.stage .legend { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; font-size: 13.5px; color: var(--muted); padding: 14px 4px 2px; }
+.dotk { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+.stage .controls { position: absolute; right: 30px; bottom: 58px; display: flex; gap: 8px; }
+.stage .controls .btn { background: color-mix(in srgb, var(--canvas) 88%, transparent); box-shadow: var(--shadow); }
+
+/* 구역 */
+section.block { padding: var(--block) 0 0; }
+section.block:last-of-type { padding-bottom: var(--block); }
+.kicker { font-size: 14px; color: var(--accent); font-weight: 600; margin: 0 0 12px; letter-spacing: -0.01em; }
+h2 { font-size: clamp(30px, 4.2vw, 42px); line-height: 1.28; font-weight: 580; letter-spacing: -0.04em; margin: 0; }
+h3 { font-size: 19px; font-weight: 620; letter-spacing: -0.025em; margin: 0; }
+.center { text-align: center; }
+.center .lede { margin-top: 16px; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 72px; align-items: start; }
+.card { background: var(--surface); border-radius: var(--radius); padding: 28px; }
+.card.white { background: var(--canvas); border: 1px solid var(--line); }
+
+/* 번호 조회 */
+.try { max-width: 760px; margin: 44px auto 0; }
+.try form { display: flex; gap: 10px; }
+.try input { flex: 1; min-width: 0; height: 56px; border-radius: 14px; border: 1px solid var(--line); background: var(--canvas); color: var(--ink); padding: 0 18px;
+  font: inherit; font-size: 20px; letter-spacing: 0.02em; }
+.try input::placeholder { color: var(--faint); }
+.try .btn { height: 56px; border-radius: 14px; padding: 0 24px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+.chip { border: 1px solid var(--line); background: var(--canvas); color: var(--ink); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.result { margin-top: 20px; border-radius: 16px; padding: 22px 24px; background: var(--canvas); border: 1px solid var(--line); min-height: 96px; transition: background .2s, border-color .2s; }
+.result.warn { background: var(--red-soft); border-color: transparent; }
+.result.ok { background: var(--good-soft); border-color: transparent; }
+.result h3 { margin-bottom: 6px; }
+.result.warn h3 { color: var(--red); }
+.result.ok h3 { color: var(--good); }
+
+/* 작동 예시 */
+.demo { min-height: 430px; display: flex; flex-direction: column; }
+.demo .label { font-size: 13px; color: var(--muted); }
+.steps-anim { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; flex: 1; }
+.steps-anim li { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; background: var(--canvas); border-radius: 12px; padding: 12px 14px;
+  opacity: 0; transform: translateY(8px); transition: opacity .45s, transform .45s; }
+.steps-anim li.on { opacity: 1; transform: none; }
+.steps-anim .t { font-variant-numeric: tabular-nums; font-size: 13.5px; color: var(--muted); }
+.steps-anim .who { font-size: 15px; }
+.steps-anim .tag { font-size: 12.5px; font-weight: 650; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.tag.dud { background: var(--surface-2); color: var(--muted); }
+.tag.skip { background: transparent; color: var(--faint); border: 1px dashed var(--line); }
+.tag.yellow { background: #fbe7a8; color: #6b4a00; }
+.tag.red { background: var(--red); color: #fff; }
+.tag.good { background: var(--good-soft); color: var(--good); }
+:root[data-theme="dark"] .tag.yellow { background: #4a3a10; color: #f7d77f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.yellow { background: #4a3a10; color: #f7d77f; } }
+.demo .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
+
+.explain { font-size: 18px; color: var(--muted); line-height: 1.75; margin: 0 0 28px; }
+dl.rules { margin: 0; border-top: 1px solid var(--line); }
+dl.rules > div { display: grid; grid-template-columns: 140px 1fr; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+dl.rules dt { font-weight: 640; font-size: 15.5px; }
+dl.rules dd { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.7; }
+kbd { font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); background: var(--surface-2); border-radius: 6px; padding: 2px 7px; margin: 0 2px; white-space: nowrap; }
+.after-rules { margin-top: 26px; }
+
+/* 결과 */
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.tabs button { border: 0; background: var(--canvas); color: var(--muted); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: 14px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--canvas); }
+.bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: end; height: 280px; padding-top: 8px; }
+.bar { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: 8px; }
+.bar .v { font-weight: 680; font-size: 18px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.bar .col { width: 100%; max-width: 88px; border-radius: 10px 10px 4px 4px; background: var(--surface-2); height: 0; transition: height .9s cubic-bezier(.2, .8, .2, 1); }
+.bar.hot .col { background: var(--accent); }
+.bar.hotter .col { background: var(--red); }
+.bar .x { font-size: 13.5px; color: var(--muted); text-align: center; line-height: 1.35; }
+.stats { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.stat { display: grid; grid-template-columns: 170px 1fr; gap: 18px; padding: 22px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.stat b { font-size: 30px; font-weight: 660; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 15.5px; }
+.note { margin-top: 18px; font-size: 14px; color: var(--muted); background: var(--surface); border-radius: 12px; padding: 14px 16px; line-height: 1.65; }
+
+/* 실시간 */
+.flow { list-style: none; margin: 30px 0 0; padding: 0; display: grid; gap: 0; }
+.flow li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; position: relative; padding-bottom: 24px; }
+.flow li:not(:last-child)::before { content: ""; position: absolute; left: 21px; top: 44px; bottom: 4px; width: 2px; background: var(--line); }
+.flow .n { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; }
+.flow h3 { font-size: 17px; margin-top: 2px; }
+.flow p { margin: 4px 0 0; color: var(--muted); font-size: 15.5px; }
+table.parity { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 12px; }
+table.parity th, table.parity td { padding: 12px 6px; border-bottom: 1px solid var(--line); text-align: right; font-size: 15.5px; }
+table.parity th:first-child, table.parity td:first-child { text-align: left; color: var(--muted); font-weight: 500; }
+table.parity thead th { font-size: 13.5px; color: var(--muted); font-weight: 600; }
+.pill { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--good); background: var(--good-soft); padding: 5px 12px; border-radius: 999px; font-weight: 600; }
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+
+/* 공개 자료 */
+.feats { display: grid; gap: 34px; }
+.feat .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 14px; }
+.feat .ic svg { width: 22px; height: 22px; }
+.feat p { margin: 8px 0 0; color: var(--muted); font-size: 15.5px; max-width: 460px; }
+.grid-viz { display: grid; grid-template-columns: repeat(18, 1fr); gap: 5px; margin-top: 16px; }
+.grid-viz span { aspect-ratio: 1; border-radius: 4px; background: var(--surface-2); transition: background .5s; }
+.grid-viz span.d { background: color-mix(in srgb, var(--yellow-dot) 55%, var(--surface-2)); }
+.grid-viz span.a { background: var(--red); }
+.grid-viz span.k { background: color-mix(in srgb, var(--accent) 35%, var(--surface-2)); }
+
+/* 쓰는 사람 */
+.who-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 64px; align-items: center; margin-top: 48px; }
+.who-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.who-list button { width: 100%; text-align: left; border: 0; background: transparent; color: var(--ink); font: inherit; cursor: pointer; border-radius: 14px; padding: 18px 20px; }
+.who-list button:hover { background: var(--surface); }
+.who-list button[aria-selected="true"] { background: var(--surface); }
+.who-list .t { display: flex; gap: 12px; align-items: baseline; }
+.who-list .t span { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.who-list h3 { font-size: 22px; }
+.who-list p { margin: 6px 0 0 30px; color: var(--muted); font-size: 15.5px; display: none; }
+.who-list button[aria-selected="true"] p { display: block; }
+.phone { justify-self: center; width: min(320px, 100%); aspect-ratio: 780 / 1688; border-radius: 40px; padding: 10px; background: #1b1f24; box-shadow: var(--shadow); }
+.phone img { width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: 31px; transition: opacity .25s; }
+
+/* 한계 띠 */
+.band { background: var(--band); border-radius: 28px; padding: 56px; margin-top: 0; }
+.band ul { margin: 22px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.band li { background: var(--canvas); border-radius: 16px; padding: 22px; }
+.band li b { display: block; font-size: 17px; margin-bottom: 6px; letter-spacing: -0.02em; }
+.band li span { color: var(--muted); font-size: 15px; }
+
+/* 자주 묻는 질문 */
+.faq { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 56px; }
+details { border-bottom: 1px solid var(--line); }
+details:first-of-type { border-top: 1px solid var(--line); }
+summary { list-style: none; cursor: pointer; padding: 22px 36px 22px 0; position: relative; font-weight: 620; font-size: 17px; letter-spacing: -0.02em; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: ""; position: absolute; right: 6px; top: 50%; width: 14px; height: 14px; margin-top: -7px;
+  background: linear-gradient(currentColor, currentColor) center / 14px 2px no-repeat, linear-gradient(currentColor, currentColor) center / 2px 14px no-repeat; transition: transform .2s; opacity: .7; }
+details[open] summary::after { transform: rotate(45deg); }
+details p { margin: 0 0 22px; color: var(--muted); font-size: 15.5px; line-height: 1.75; }
+
+footer { border-top: 1px solid var(--line); padding: 36px 0 48px; margin-top: var(--block); }
+footer .wrap { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; align-items: baseline; }
+footer p { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+/* 나타나기 */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+.reveal.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .steps-anim li { opacity: 1; transform: none; transition: none; }
+  .bar .col { transition: none; }
+  h1 .caret, .pill::before { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+@media (max-width: 900px) {
+  :root { --block: 96px; }
+  nav.links a.hide-sm { display: none; }
+  .two, .faq, .who-grid { grid-template-columns: 1fr; gap: 40px; }
+  .band { padding: 36px 24px; }
+  .band ul { grid-template-columns: 1fr; }
+  .stat { grid-template-columns: 130px 1fr; }
+  .stage .controls { bottom: 62px; }
+}
+@media (max-width: 600px) {
+  :root { --header: 52px; --block: 80px; }
+  .wrap { padding: 0 16px; }
+  nav.links { gap: 4px; }
+  nav.links a:not(.icon-btn) { display: none; }
+  .hero { padding-top: 64px; }
+  .stage { margin-top: 44px; padding: 10px; border-radius: 20px; }
+  .stage canvas { aspect-ratio: 4 / 5; border-radius: 12px; }
+  .stage .hud { left: 22px; top: 20px; }
+  .stage .counts { right: 22px; top: 20px; font-size: 12.5px; }
+  .stage .counts b { font-size: 15px; }
+  .stage .controls { right: 18px; bottom: 54px; }
+  .try form { flex-direction: column; }
+  .try .btn { justify-content: center; }
+  dl.rules > div { grid-template-columns: 1fr; gap: 4px; }
+  .steps-anim li { grid-template-columns: 44px 1fr; }
+  .steps-anim .tag { grid-column: 2; justify-self: start; }
+  .bars { height: 220px; gap: 10px; }
+  .stat { grid-template-columns: 1fr; gap: 4px; }
+  .card { padding: 20px; }
+  .who-list p { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="헛걸음 제로 처음으로">헛걸음 제로<i>.</i></a>
+    <nav class="links" aria-label="주요 메뉴">
+      <a href="#how" class="hide-sm">작동 방식</a>
+      <a href="#results" class="hide-sm">검증 결과</a>
+      <a href="#live">실시간</a>
+      <a href="#faq" class="hide-sm">자주 묻는 질문</a>
+      <a class="icon-btn" href="https://github.com/zmflm0110/bike-doctor" aria-label="GitHub 저장소">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+      </a>
+      <button class="icon-btn" id="theme" type="button" aria-label="밝은·어두운 화면 바꾸기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">따릉이 고장 예보</p>
+      <h1>빌리기 전에,<br><span class="type" id="type" aria-label="헛걸음 제로.">헛걸음 제로.</span><span class="caret" aria-hidden="true"></span></h1>
+      <p class="lede">고장 난 따릉이를 빌렸다가 바로 반납한 적 있나요?<br>앞사람들의 '빌리자마자 반납' 기록으로, 아무도 신고하지 않은 고장을 먼저 찾습니다.</p>
+      <div class="cta">
+        <a class="btn primary" href="#try">자전거 번호로 확인하기
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="btn soft" href="https://github.com/zmflm0110/bike-doctor">코드·보고서 보기</a>
+      </div>
+      <p class="cap">서울 따릉이·대전 타슈 대여기록 약 1천만 건으로 검증 · 공개 데이터만 사용</p>
+
+      <div class="stage reveal" aria-label="2026년 6월 15일 서울 따릉이 하루를 빠르게 재생하는 지도">
+        <canvas id="map" width="1600" height="900" role="img" aria-label="서울 대여소 2,789곳을 점으로 그린 지도. 재생 중 경보·막을 수 있던 헛걸음·뒤늦은 고장 신고가 색 원으로 켜집니다."></canvas>
+        <div class="hud"><div class="clock" id="clock">00:00</div><div class="date">2026년 6월 15일 · 실제 기록 재생</div></div>
+        <div class="counts" aria-live="off">
+          <div>헛대여<b id="c0">0</b></div>
+          <div style="color:var(--red)">경보<b id="c1">0</b></div>
+          <div style="color:var(--good)">막을 수 있던 헛걸음<b id="c2">0</b></div>
+          <div style="color:var(--accent)">뒤늦은 고장 신고<b id="c3">0</b></div>
+        </div>
+        <div class="controls"><button class="btn sm" id="playbtn" type="button">일시정지</button></div>
+        <div class="legend">
+          <span><i class="dotk" style="background:var(--red)"></i>경보 — 서로 다른 두 번째 사람이 바로 반납</span>
+          <span><i class="dotk" style="background:var(--good)"></i>경보 뒤에도 빌렸다가 또 헛걸음</span>
+          <span><i class="dotk" style="background:var(--accent)"></i>한참 뒤 들어온 고장 신고</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="try">
+    <div class="wrap">
+      <div class="center reveal">
+        <h2>빌리기 전에, 번호로 확인해 보세요.</h2>
+        <p class="lede">자전거 번호판이나 QR 옆의 번호(예: SPB-69683)를 넣으면 앞사람들의 기록을 알려 줍니다.</p>
+      </div>
+      <div class="try reveal">
+        <form id="lookup" autocomplete="off">
+          <label for="bike" class="sr" style="position:absolute;left:-9999px">자전거 번호</label>
+          <input id="bike" inputmode="text" placeholder="SPB-00000" autocapitalize="characters" spellcheck="false">
+          <button class="btn primary" type="submit">확인</button>
+        </form>
+        <div class="chips" id="samples"><span class="tiny">눌러 보기</span></div>
+        <div class="result" id="result" role="status" aria-live="polite"><span class="muted">번호를 넣고 확인을 눌러 보세요.</span></div>
+        <p class="tiny" style="margin-top:12px">시연 자료: 2026년 6월 15일 아침 목록 (전날 자정까지의 실제 기록). 앱에서는 1분마다 갱신되는 실시간 목록으로 확인합니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="how">
+    <div class="wrap two">
+      <div class="reveal">
+        <p class="kicker">작동 방식</p>
+        <h2>두 번째 사람이<br>바로 반납하는 순간, 경보.</h2>
+        <div class="card demo" style="margin-top:34px">
+          <span class="label">자전거 한 대의 하루 (규칙을 보여 주는 예시)</span>
+          <ol class="steps-anim" id="story">
+            <li><span class="t">08:12</span><span class="who">A 가 빌렸다가 <b>14초</b> 만에 같은 곳에 반납</span><span class="tag dud">헛대여 1</span></li>
+            <li><span class="t">08:13</span><span class="who">A 가 다시 빌렸다가 9초 만에 반납</span><span class="tag skip">같은 사람 — 안 셈</span></li>
+            <li><span class="t">09:40</span><span class="who">B 가 빌렸다가 <b>21초</b> 만에 반납</span><span class="tag yellow">경보 · 노랑</span></li>
+            <li><span class="t">10:05</span><span class="who">C 가 빌리기 전에 번호를 확인</span><span class="tag red">피하세요</span></li>
+            <li><span class="t">10:06</span><span class="who">C 는 옆 자전거로 — <b>헛걸음 하나를 막음</b></span><span class="tag good">막음</span></li>
+          </ol>
+          <div class="foot">
+            <button class="btn soft sm" id="replay" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>다시 보기</button>
+            <span class="tiny">고장 신고는 평균 하루 뒤에야 들어옵니다</span>
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <p class="explain">고장 난 자전거를 빌린 사람은 신고하지 않고, 조용히 반납하고 옆 자전거로 갑니다. 신고는 귀찮으니까요. 대신 그 <b style="color:var(--ink)">'빌리자마자 반납'</b>이 공개 대여기록에 그대로 남습니다.</p>
+        <dl class="rules">
+          <div><dt>헛대여</dt><dd>같은 대여소에 <kbd>3분</kbd> 안에, <kbd>300m</kbd>도 안 가고 반납한 대여.</dd></div>
+          <div><dt>서로 다른 사람</dt><dd>한 사람이 여러 번 해 본 건 한 번으로 셉니다. 생년·성별이 같으면 같은 사람, 그 자료가 없으면 반납 뒤 <kbd>2분</kbd> 안에 다시 빌린 사람을 같은 사람으로 봅니다.</dd></div>
+          <div><dt>경보</dt><dd>서로 다른 사람의 헛대여가 <kbd>2명</kbd> 이어지면 노랑, <kbd>3명</kbd>이면 빨강.</dd></div>
+          <div><dt>끝</dt><dd>누군가 정상적으로 타고 가면 연쇄가 끊기고 경보도 꺼집니다.</dd></div>
+        </dl>
+        <div class="after-rules"><a class="btn soft sm" href="https://github.com/zmflm0110/bike-doctor/blob/master/docs/phase1.md">기준을 정한 방법 — 1월로 정하고 다른 달에 시험</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="results">
+    <div class="wrap two">
+      <div class="reveal">
+        <p class="kicker">검증 결과</p>
+        <h2>앞사람이 포기할수록,<br>다음 사람도 포기합니다.</h2>
+        <div class="card" style="margin-top:34px">
+          <div class="tabs" role="tablist" id="sets"></div>
+          <div class="bars" id="bars"></div>
+          <p class="tiny" style="margin:16px 0 0">앞서 서로 다른 사람 몇 명이 바로 반납했나 → 다음 사람도 바로 반납한 비율</p>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="stats">
+          <div class="stat"><b>약 14배</b><span>서로 다른 두 사람이 포기한 자전거는 다음 사람도 35~44% 가 포기합니다. 평소엔 2.5~2.9%.</span></div>
+          <div class="stat"><b>20~25시간</b><span>경보가 고장 신고보다 먼저 울립니다(중앙값). 그 사이 한 자전거에서 평균 3.5~4.6명이 헛걸음했습니다.</span></div>
+          <div class="stat"><b>49~61%</b><span>서로 다른 사람의 연속 헛대여 중 7일이 지나도 고장 신고가 없는 비율. 신고만 보면 놓치는 고장입니다.</span></div>
+          <div class="stat"><b>하루 90~243명</b><span>서울에서 경보가 있었다면 막을 수 있었던 헛걸음 (달·계절에 따라).</span></div>
+        </div>
+        <p class="note">기준은 <b>2026년 1월 기록으로만</b> 정하고, 3·6월과 대전 타슈에 그대로 적용했습니다. 결과 차이는 ±2.3%p 안.
+          경보 한 건마다 그 뒤 처음 빌린 다른 사람만 세면 32~34% 가, 경보가 켜져 있는 동안 빌린 모든 사람을 세면 52~60% 가 또 헛걸음했습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="live">
+    <div class="wrap two">
+      <div class="reveal">
+        <p class="kicker">실시간</p>
+        <h2>반납하자마자 기록이 옵니다.<br>그래서 1분마다 판단합니다.</h2>
+        <ol class="flow">
+          <li><span class="n">1</span><div><h3>누군가 반납</h3><p>서울 열린데이터광장 대여이력 API 에 자전거 번호·대여/반납 시각·대여소가 곧바로 올라옵니다. 실측 지연 약 0분.</p></div></li>
+          <li><span class="n">2</span><div><h3>1분마다 판단</h3><p>최근 7일 기록으로 자전거마다 연쇄를 다시 셉니다. 두 번째 사람이 바로 반납한 그 순간 경보가 켜집니다.</p></div></li>
+          <li><span class="n">3</span><div><h3>앱의 '지금' 목록</h3><p>이용자는 번호로 확인하고, 정비 기사는 구별 목록과 도는 순서를 받습니다.</p></div></li>
+          <li><span class="n">4</span><div><h3>스스로 채점</h3><p>경보마다 다음에 빌린 다른 사람도 바로 반납했는지 기록합니다. 맞은 비율을 매일 봅니다.</p></div></li>
+        </ol>
+      </div>
+      <div class="reveal">
+        <div class="card white">
+          <span class="pill">2026년 9월 25일부터 운영 중</span>
+          <h3 style="margin-top:16px">실시간 자료가 검증한 자료와 같은가?</h3>
+          <p class="muted small" style="margin:6px 0 0">6월 15일 하루를 API 와 월별 공개 파일로 둘 다 받아 맞춰 봤습니다.</p>
+          <table class="parity">
+            <thead><tr><th></th><th>월별 파일</th><th>실시간 API</th></tr></thead>
+            <tbody>
+              <tr><td>대여</td><td>150,827</td><td>150,830</td></tr>
+              <tr><td>헛대여</td><td>4,085</td><td>4,087</td></tr>
+              <tr><td>다음 날 아침 목록</td><td>79대</td><td>79대 · 같은 자전거</td></tr>
+            </tbody>
+          </table>
+          <p class="muted small" style="margin:16px 0 0">→ 파일로 잰 숫자가 실시간에도 그대로 섭니다. 처음 연 날 아침, 서울에선 82대가 서로 다른 사람들이 바로 반납한 채 서 있었고, 한 대는 <b style="color:var(--ink)">21명</b>이 연달아 포기한 자전거였습니다.</p>
+        </div>
+        <p class="note">솔직한 기록: 처음엔 실시간 대여소 <b>대수</b>만 보고 "공개 자료로는 실시간이 안 된다"(정밀도 0.2~1.7%)고 결론 냈다가, 자전거별 대여이력 API 를 찾고 뒤집었습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="data">
+    <div class="wrap two">
+      <div class="reveal">
+        <p class="kicker">자료</p>
+        <h2>공개 자료만으로,<br>사람을 따라가지 않고.</h2>
+        <div class="card" style="margin-top:34px">
+          <span class="label muted small">대여소 하나의 하루 — 칸 하나가 대여 한 번</span>
+          <div class="grid-viz" id="gridviz" aria-hidden="true"></div>
+          <div class="chips" style="margin-top:14px">
+            <span class="tiny"><i class="dotk" style="background:color-mix(in srgb,var(--accent) 35%,var(--surface-2))"></i>정상 대여</span>
+            <span class="tiny"><i class="dotk" style="background:color-mix(in srgb,var(--yellow-dot) 55%,var(--surface-2))"></i>헛대여</span>
+            <span class="tiny"><i class="dotk" style="background:var(--red)"></i>경보</span>
+          </div>
+        </div>
+      </div>
+      <div class="feats reveal">
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Z"/><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+          <h3>누구나 받을 수 있는 자료만 씁니다.</h3><p>서울 열린데이터광장·공공데이터포털의 대여이력·고장신고·대여소 자료(공공누리 제1유형). 명령 하나로 모든 표를 다시 만들 수 있습니다.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <h3>사람이 아니라 자전거를 봅니다.</h3><p>생년·성별은 '같은 사람이 다시 해 본 것' 을 거르는 데만 쓰고, 9일이 지나면 지웁니다. 없어도 됩니다 — "2분 안에 다시 빌리면 같은 사람" 으로 대신해도 정밀도 차이 0.2%p.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg></div>
+          <h3>코드와 검증을 모두 공개합니다.</h3><p>엔진·서버·웹앱·아이폰 앱·검증 스크립트와 보고서를 GitHub 에 올렸습니다. 올릴 때마다 자동 검사가 돕니다.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="use">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="kicker">쓰는 사람</p>
+        <h2>셋이 같이 씁니다.</h2>
+      </div>
+      <div class="who-grid reveal">
+        <ul class="who-list" role="tablist" id="who">
+          <li><button role="tab" aria-selected="true" data-img="img/1_morning.png" data-alt="아침 목록 화면: 지도와 정비 먼저 볼 곳 순위"><span class="t"><span>1</span><h3>정비 기사 — 먼저 볼 곳</h3></span>
+            <p>구를 고르면 의심 자전거가 있는 대여소 순위와 도는 순서, 엑셀용 목록이 나옵니다. 경보의 절반이 대여소 16% 에 몰려 있어 동선이 짧아집니다.</p></button></li>
+          <li><button role="tab" aria-selected="false" data-img="img/2_lookup.png" data-alt="자전거 조회 화면: 번호를 넣으면 피하라는 경고"><span class="t"><span>2</span><h3>이용자 — 빌리기 전 확인</h3></span>
+            <p>번호를 넣거나 QR 을 비추면 "서로 다른 N명이 바로 반납했어요" 를 보여 줍니다. 옆 자전거를 고르면 끝.</p></button></li>
+          <li><button role="tab" aria-selected="false" data-img="img/3_rescue.png" data-alt="구조대 화면: 가까운 의심 자전거와 3초 확인 단추"><span class="t"><span>3</span><h3>구조대 — 지나가다 3초 확인</h3></span>
+            <p>가까운 의심 자전거를 보고 "체인·타이어·안장·브레이크·멀쩡함" 중 하나만 누릅니다. 확인된 곳이 정비 순위 맨 위로 올라갑니다.</p></button></li>
+        </ul>
+        <div class="phone"><img id="shot" src="img/1_morning.png" alt="아침 목록 화면: 지도와 정비 먼저 볼 곳 순위" width="780" height="1688" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="band reveal">
+        <p class="kicker">한계</p>
+        <h2>못 하는 것도 적어 둡니다.</h2>
+        <ul>
+          <li><b>"고장" 정답이 없습니다</b><span>고장 신고는 늦고 드물어서, 다음 사람의 헛걸음을 주 지표로 씁니다. 현장에서 자전거를 직접 보고 맞춰 보는 조사를 준비했습니다.</span></li>
+          <li><b>아무도 안 빌린 고장은 못 봅니다</b><span>흔적이 있어야 찾습니다. 연쇄 뒤 이틀 넘게 서 있던 자전거는 이미 수거된 경우가 많아 목록에서 뺍니다.</span></li>
+          <li><b>고장 종류는 못 맞힙니다</b><span>평균으로는 단말기 고장이 더 빨리 반납되지만, 한 대씩 맞히면 10~14% 뿐이라 종류는 사람이 확인합니다.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="faq">
+    <div class="wrap faq">
+      <div class="reveal"><h2>자주 묻는 질문</h2></div>
+      <div class="reveal">
+        <details><summary>고장 신고랑 뭐가 다른가요?</summary><p>신고는 사람이 앱을 열고 적어야 해서 늦고 드뭅니다. 서로 다른 사람의 연속 헛대여 중 절반 넘게(49~61%)는 7일이 지나도 신고가 없었습니다. 헛걸음 제로는 이미 남아 있는 대여기록을 읽으니 아무도 따로 할 일이 없습니다.</p></details>
+        <details><summary>정확도가 왜 두 가지인가요?</summary><p>경보 한 건마다 그 뒤 처음 빌린 다른 사람만 세면 32~34%, 경보가 켜져 있는 동안 빌린 모든 사람을 세면 52~60% 가 또 헛걸음했습니다. 뒤의 숫자는 21명 연속 같은 긴 연쇄가 크게 들어갑니다. 평소엔 2.5% 라서, 어느 쪽이든 10배가 넘습니다.</p></details>
+        <details><summary>정말 실시간인가요?</summary><p>네. 서울 대여이력 API 는 반납된 기록을 바로 줍니다(2026년 9월 25일 실측 지연 약 0분). 같은 날을 월별 공개 파일과 비교해 대여·헛대여·아침 목록이 모두 같다는 것도 확인했습니다. 서버는 1분마다 판단하고, 경보가 맞았는지도 스스로 채점합니다.</p></details>
+        <details><summary>다른 도시에서도 되나요?</summary><p>대전 타슈 2025년 5·10월 기록에 서울 기준을 그대로 적용해 확인했습니다(두 사람이 포기한 뒤 다음 사람 41.6~43.6%). 대여기록만 있으면 어느 공공자전거에도 쓸 수 있습니다.</p></details>
+        <details><summary>자전거 말고도 쓸 수 있나요?</summary><p>같은 생각을 전기차 충전기에 옮기고 있습니다. 꽂았는데 바로 끊긴 충전이 서로 다른 사람에게서 이어지면, 앱에선 '사용 가능' 인데 실제론 고장인 충전기일 가능성이 큽니다. 서울 충전기 상태를 5분마다 모으는 중입니다.</p></details>
+        <details><summary>개인정보는요?</summary><p>이름·연락처·이동 경로는 쓰지 않습니다. 공개 자료에 있는 생년·성별은 같은 사람의 재시도를 거르는 데만 쓰고, 서버는 9일 지난 기록을 지웁니다. 이 정보가 없어도 정밀도 차이는 0.2%p 입니다.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="logo" href="#top">헛걸음 제로<i>.</i></a>
+    <p>자료: 서울 열린데이터광장·공공데이터포털 (공공누리 제1유형) · 코드: <a href="https://github.com/zmflm0110/bike-doctor">GitHub</a></p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  // 밝은·어두운 화면 — 고른 것만 이 기기에 기억(안 되면 그냥 시스템 설정)
+  const root = document.documentElement;
+  try { const t = localStorage.getItem("hz-theme"); if (t) root.dataset.theme = t; } catch {}
+  $("#theme").addEventListener("click", () => {
+    const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("hz-theme", root.dataset.theme); } catch {}
+    drawBase();
+  });
+  addEventListener("scroll", () => $("#top").classList.toggle("scrolled", scrollY > 8), { passive: true });
+
+  // 제목 타자 효과
+  const type = $("#type"), full = type.textContent;
+  if (!reduce) {
+    type.textContent = "";
+    let i = 0;
+    const tick = () => { type.textContent = full.slice(0, ++i); if (i < full.length) setTimeout(tick, 150); };
+    setTimeout(tick, 450);
+  }
+
+  // 나타나기
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+
+  // ── 첫 화면 지도: 6/15 하루 재생
+  const cv = $("#map"), ctx = cv.getContext("2d");
+  let stations = {}, bounds = null, events = [], base = null, pulses = [], clock = 0, idx = 0, playing = !reduce, visible = false, last = 0;
+  const count = [0, 0, 0, 0];
+  const SPEED = 3600;   // 1초에 1시간
+  function size() {
+    const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    drawBase();
+  }
+  function proj(lat, lon) {
+    const pad = 0.07, w = cv.width, h = cv.height;
+    const k = Math.min(w * (1 - 2 * pad) / (bounds.x1 - bounds.x0), h * (1 - 2 * pad) / (bounds.y1 - bounds.y0));
+    const x = (lon - bounds.x0) * Math.cos(37.55 * Math.PI / 180);
+    const cx = (w - (bounds.x1 - bounds.x0) * k) / 2, cy = (h - (bounds.y1 - bounds.y0) * k) / 2;
+    return [cx + (x - 0) * k, cy + (bounds.y1 - lat) * k];
+  }
+  function drawBase() {
+    if (!bounds) return;
+    base = document.createElement("canvas"); base.width = cv.width; base.height = cv.height;
+    const b = base.getContext("2d"), r = Math.max(1.4, cv.width / 900);
+    b.fillStyle = css("--dot");
+    for (const s of Object.values(stations)) { const [x, y] = s.p = proj(s.lat, s.lon); b.beginPath(); b.arc(x, y, r, 0, 7); b.fill(); }
+    render();
+  }
+  const colors = () => [css("--yellow-dot"), css("--red"), css("--good"), css("--accent")];
+  function render(now = performance.now()) {
+    if (!base) return;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(base, 0, 0);
+    const col = colors(), unit = cv.width / 900;
+    pulses = pulses.filter((p) => now - p.t < p.life);
+    for (const p of pulses) {
+      const a = 1 - (now - p.t) / p.life;
+      ctx.globalAlpha = a * (p.k === 0 ? 0.55 : 0.9);
+      ctx.fillStyle = col[p.k];
+      ctx.beginPath(); ctx.arc(p.x, p.y, (p.k === 0 ? 2.2 : 4 + 6 * (1 - a)) * unit, 0, 7); ctx.fill();
+      if (p.k) { ctx.globalAlpha = a * 0.35; ctx.strokeStyle = col[p.k]; ctx.lineWidth = 1.5 * unit; ctx.beginPath(); ctx.arc(p.x, p.y, (8 + 16 * (1 - a)) * unit, 0, 7); ctx.stroke(); }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function loop(now) {
+    requestAnimationFrame(loop);
+    if (!events.length || !visible) { last = now; return; }
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (playing) {
+      clock += dt * SPEED;
+      while (idx < events.length && events[idx][0] <= clock) {
+        const [s, k, st, bike] = events[idx++];
+        count[k]++;
+        const S = stations[st] || stations[lastSt[bike]];
+        if (st) lastSt[bike] = st;
+        if (S && S.p) pulses.push({ x: S.p[0], y: S.p[1], k, t: now, life: k === 0 ? 900 : 2600 });
+      }
+      if (idx >= events.length && clock > events[events.length - 1][0] + 4 * SPEED) { clock = 0; idx = 0; count.fill(0); }
+      const h = Math.floor(clock / 3600), m = Math.floor((clock % 3600) / 60);
+      $("#clock").textContent = (h >= 24 ? "다음 날 " : "") + String(h % 24).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+      count.forEach((c, i) => ($("#c" + i).textContent = c.toLocaleString("ko-KR")));
+    }
+    render(now);
+  }
+  const lastSt = {};
+  new IntersectionObserver((es) => (visible = es[0].isIntersecting), { threshold: 0.05 }).observe(cv);
+  $("#playbtn").addEventListener("click", () => { playing = !playing; $("#playbtn").textContent = playing ? "일시정지" : "재생"; });
+  if (!playing) $("#playbtn").textContent = "재생";
+  Promise.all([fetch("data/stations.json").then((r) => r.json()), fetch("data/replay.json").then((r) => r.json())]).then(([st, rp]) => {
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const [id, name, gu, lat, lon] of st) {
+      stations[id] = { name, gu, lat, lon };
+      x0 = Math.min(x0, lon); x1 = Math.max(x1, lon); y0 = Math.min(y0, lat); y1 = Math.max(y1, lat);
+    }
+    const c = Math.cos(37.55 * Math.PI / 180);
+    bounds = { x0, x1: x0 + (x1 - x0) * c, y0, y1 };
+    // proj 는 (lon - x0)·cos 로 x 를 만든다 — 폭을 같은 비율로 맞춤
+    events = rp.events;
+    size();
+    requestAnimationFrame(loop);
+  }).catch(() => { $("#clock").textContent = "—"; });
+  let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(size, 150); });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawBase);
+
+  // ── 번호로 확인
+  let morning = null;
+  const norm = (raw) => { const m = String(raw).toUpperCase().match(/SPB\s*-?\s*(\d{3,6})/) || String(raw).match(/^\s*(\d{3,6})\s*$/); return m ? "SPB-" + m[1].padStart(5, "0") : String(raw).trim().toUpperCase(); };
+  const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  function lookup(raw) {
+    if (!morning) return;
+    const id = norm(raw), out = $("#result");
+    const hit = morning.bikes.find((b) => b[0] === id);
+    if (!/^SPB-\d{5}$/.test(id)) { out.className = "result"; out.innerHTML = `<span class="muted">번호는 SPB- 뒤에 숫자 5자리예요 (예: SPB-69683).</span>`; return; }
+    if (hit) {
+      const [bike, st, chain, level, last] = hit;
+      out.className = "result warn";
+      out.innerHTML = `<h3>⚠︎ ${esc(bike)} 는 피하세요</h3>어제까지 <b>서로 다른 ${chain}명</b>이 이 자전거를 빌리자마자 반납했어요 (마지막 ${esc(last)}, ${esc(st)}).<br>` +
+        `이런 자전거는 다음 사람도 ${level === "빨강" ? "절반 넘게" : "약 3명 중 1명"}이 바로 반납했어요. 옆 자전거를 고르세요.`;
+    } else {
+      out.className = "result ok";
+      out.innerHTML = `<h3>✓ ${esc(id)}</h3>어제까지 기록에서 헛걸음 연쇄가 없어요. 즐거운 라이딩!`;
+    }
+  }
+  $("#lookup").addEventListener("submit", (e) => { e.preventDefault(); lookup($("#bike").value); });
+  fetch("data/morning.json").then((r) => r.json()).then((m) => {
+    morning = m;
+    const picks = [m.bikes[0][0], m.bikes.find((b) => b[3] === "노랑")[0], "SPB-12345"];
+    picks.forEach((p) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.textContent = p;
+      b.addEventListener("click", () => { $("#bike").value = p; lookup(p); });
+      $("#samples").appendChild(b);
+    });
+  });
+
+  // ── 작동 예시
+  const story = [...document.querySelectorAll("#story li")];
+  let st;
+  function play() {
+    clearTimeout(st);
+    story.forEach((li) => li.classList.remove("on"));
+    if (reduce) { story.forEach((li) => li.classList.add("on")); return; }
+    let i = 0; const next = () => { story[i++].classList.add("on"); if (i < story.length) st = setTimeout(next, 1100); };
+    st = setTimeout(next, 300);
+  }
+  new IntersectionObserver((es, o) => { if (es[0].isIntersecting) { play(); o.disconnect(); } }, { threshold: 0.4 }).observe($("#story"));
+  $("#replay").addEventListener("click", play);
+
+  // ── 검증 결과 막대 (보고서 5-1)
+  const SETS = [["서울 1월", [2.5, 10.6, 37.1, 59.2]], ["서울 3월", [2.6, 10.6, 35.5, 54.6]], ["서울 6월", [2.5, 11.1, 35.3, 55.5]],
+                ["대전 5월", [2.9, 17.7, 41.6, 58.5]], ["대전 10월", [2.6, 16.3, 43.6, 61.3]]];
+  const labels = ["0명", "1명", "2명 → 경보", "3명"];
+  $("#bars").innerHTML = labels.map((l, i) => `<div class="bar ${i === 2 ? "hot" : i === 3 ? "hotter" : ""}"><span class="v">0%</span><span class="col"></span><span class="x">${l}</span></div>`).join("");
+  const bars = [...document.querySelectorAll("#bars .bar")];
+  function showSet(k) {
+    document.querySelectorAll("#sets button").forEach((b, i) => b.setAttribute("aria-selected", i === k));
+    SETS[k][1].forEach((v, i) => { bars[i].querySelector(".col").style.height = (v / 65 * 100) + "%"; bars[i].querySelector(".v").textContent = v + "%"; });
+  }
+  $("#sets").innerHTML = SETS.map((s, i) => `<button role="tab" type="button">${s[0]}</button>`).join("");
+  document.querySelectorAll("#sets button").forEach((b, i) => b.addEventListener("click", () => showSet(i)));
+  new IntersectionObserver((es, o) => { if (es[0].isIntersecting) { showSet(0); o.disconnect(); } }, { threshold: 0.3 }).observe($("#bars"));
+
+  // ── 자료 칸 그림: 대여소 하나의 하루 (정상 → 헛대여 둘 → 경보)
+  const gv = $("#gridviz"), N = 72;
+  gv.innerHTML = "<span></span>".repeat(N);
+  const cells = [...gv.children];
+  function grid() {
+    cells.forEach((c) => (c.className = ""));
+    let i = 0;
+    const tick = () => {
+      if (i >= N) { setTimeout(grid, 2200); return; }
+      const r = i % 24;   // 한 줄에 한 번쯤 헛대여, 셋째 줄에서 경보
+      cells[i].className = i === 51 ? "a" : (i === 50 || r === 7 || r === 19) ? "d" : "k";
+      i++; setTimeout(tick, reduce ? 0 : 55);
+    };
+    tick();
+  }
+  new IntersectionObserver((es, o) => { if (es[0].isIntersecting) { grid(); o.disconnect(); } }, { threshold: 0.3 }).observe(gv);
+
+  // ── 쓰는 사람
+  const tabs = [...document.querySelectorAll("#who button")], shot = $("#shot");
+  tabs.forEach((b) => b.addEventListener("click", () => {
+    tabs.forEach((x) => x.setAttribute("aria-selected", x === b));
+    shot.style.opacity = 0;
+    setTimeout(() => { shot.src = b.dataset.img; shot.alt = b.dataset.alt; shot.onload = () => (shot.style.opacity = 1); }, reduce ? 0 : 180);
+  }));
+})();
+</script>
+</body>
+</html>
