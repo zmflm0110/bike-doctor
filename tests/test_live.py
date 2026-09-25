@@ -41,3 +41,12 @@ def test_prune_keeps_recent_only(tmp_path):
                       [("A", "2026-09-01 08:00:00", "2026-09-01 08:00:30"), ("B", "2026-09-24 08:00:00", "2026-09-24 08:00:30")])
     assert live.prune(c, dt.datetime(2026, 9, 25, 12)) == 1
     assert [b for (b,) in c.execute("select bike from rentals")] == ["B"]
+
+
+def test_fetch_no_data_both_shapes(monkeypatch):
+    """새 시간이 막 시작돼 자료가 없을 때 — 두 가지 응답 모양 모두 '빈 목록' 이지 오류가 아님."""
+    from server import seoul_api
+    for resp in ({"RESULT": {"CODE": "INFO-200", "MESSAGE": "해당하는 데이터가 없습니다."}},
+                 {"CODE": "INFO-200", "MESSAGE": "해당하는 데이터가 없습니다."}):
+        monkeypatch.setattr(seoul_api, "_get", lambda url, r=resp: r)
+        assert seoul_api.fetch("tbCycleRentData", "rentData", "2026-09-25/12", k="x") == []

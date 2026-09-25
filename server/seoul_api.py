@@ -46,8 +46,9 @@ def fetch(service, root, extra="", page=1000, k=None):
         data = _get(f"{BASE}/{k}/json/{service}/{start}/{start + step - 1}/{extra}")
         body = data.get(root)
         if not body:
-            code = data.get("RESULT", {}).get("CODE")
-            if code == "INFO-200":   # 해당 자료 없음
+            # '자료 없음' 은 {"RESULT": {"CODE": ..}} 또는 맨 위 {"CODE": ..} 두 모양으로 온다 (새 시간이 막 시작됐을 때 — 2026-09-25 12:00 실측)
+            code = (data.get("RESULT") or {}).get("CODE") or data.get("CODE")
+            if code == "INFO-200":
                 break
             raise RuntimeError(f"{service}: {data}")
         rows += body["row"]
