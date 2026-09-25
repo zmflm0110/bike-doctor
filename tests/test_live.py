@@ -83,3 +83,17 @@ def test_score_held_when_next_rider_may_be_missing(tmp_path):
     _hours(c, {f"2026-09-{d:02d}/14": 6000 for d in range(18, 25)} | {"2026-09-25/14": 300})
     s = live.score(c, pd.Timestamp("2026-09-25 17:00"))
     assert s["held_thin_feed"] == 1 and s["scored"] == 0
+
+
+def test_fetch_pages_until_short_page(monkeypatch):
+    """실시간 대여소(bikeList)는 list_total_count 가 그 쪽 건수 — 전체 수를 믿으면 첫 1,000곳에서 멈춘다."""
+    from server import seoul_api
+    n = 2747
+    def fake(url):
+        a, b = map(int, url.rstrip("/").split("/")[-2:])
+        rows = [{"i": i} for i in range(a, min(b, n) + 1)]
+        return {"rentBikeStatus": {"list_total_count": len(rows), "row": rows}} if rows else {"CODE": "INFO-200"}
+    monkeypatch.setattr(seoul_api, "_get", fake)
+    assert len(seoul_api.fetch("bikeList", "rentBikeStatus", k="x")) == 2747
+    n = 3000   # 딱 떨어질 때: 다음 쪽의 '자료 없음' 으로 끝
+    assert len(seoul_api.fetch("bikeList", "rentBikeStatus", k="x")) == 3000

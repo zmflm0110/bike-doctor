@@ -52,9 +52,10 @@ def fetch(service, root, extra="", page=1000, k=None):
                 break
             raise RuntimeError(f"{service}: {data}")
         rows += body["row"]
-        total = int(body["list_total_count"])
         start += step
-        if k == "sample" or start > total:
+        # 끝은 '덜 찬 쪽' 으로 안다: 실시간 대여소(bikeList)는 list_total_count 가 전체가 아니라 그 쪽 건수(1000)라
+        # 전체 수로 멈추면 2,747곳 중 1,000곳만 받는다 (2026-09-25 실측). 딱 떨어지면 다음 쪽의 INFO-200 으로 끝.
+        if k == "sample" or len(body["row"]) < step:
             break
     return rows
 

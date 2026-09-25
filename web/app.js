@@ -49,7 +49,7 @@ function feedNote() {
   if (!f || f.ok) return "";
   const h = Number(f.since.slice(11, 13));
   return `<div class="feed-note" role="status"><b>서울시 대여 기록이 ${h}시부터 평소의 ${Math.max(1, Math.round(f.ratio * 100))}%만 올라오고 있어요.</b> ` +
-    `그 사이 새로 고장 난 자전거는 목록에 늦게 뜰 수 있어요. 기록이 다시 들어오면 자동으로 채워요.</div>`;
+    `자료가 늦는 건지 이용이 실제로 줄어든 건지는 아직 몰라요. 그동안 새 경보가 늦을 수 있고, 기록이 다시 들어오면 자동으로 채워요.</div>`;
 }
 
 // 구(區) 고르기 — 정비는 구역 단위로 움직인다. 고른 구의 자전거만 요약·지도·순위·동선·목록에.

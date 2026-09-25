@@ -54,7 +54,7 @@ public struct FeedStatus: Codable, Hashable, Sendable {
     /// 알림 문장 — 정상이면 nil
     public var note: String? {
         guard !ok, let since, since.count >= 13, let h = Int(since.dropFirst(11).prefix(2)) else { return nil }
-        return "서울시 대여 기록이 \(h)시부터 평소의 \(max(1, Int(((ratio ?? 0) * 100).rounded())))%만 올라오고 있어요. 그 사이 새로 고장 난 자전거는 목록에 늦게 뜰 수 있어요. 기록이 다시 들어오면 자동으로 채워요."
+        return "서울시 대여 기록이 \(h)시부터 평소의 \(max(1, Int(((ratio ?? 0) * 100).rounded())))%만 올라오고 있어요. 자료가 늦는 건지 이용이 실제로 줄어든 건지는 아직 몰라요. 그동안 새 경보가 늦을 수 있고, 기록이 다시 들어오면 자동으로 채워요."
     }
 }
 
