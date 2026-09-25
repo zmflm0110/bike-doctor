@@ -165,7 +165,7 @@ def main():
         if a.once:
             break
         i += 1
-        time.sleep(a.every)
+        time.sleep(max(5, a.every - (dt.datetime.now() - now).total_seconds()))   # 받기·판정에 걸린 시간을 빼고 기다림 → 약 1분 간격
 
 
 if __name__ == "__main__":
