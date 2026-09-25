@@ -32,3 +32,12 @@ def test_live_state_and_score(tmp_path):
     s = live.score(c, now)
     assert s == {"alarms": 1, "scored": 1, "next_rider_dud": 1, "precision_%": 100.0, "waiting": 0}
     assert live.score(c, now, live_only=False)["alarms"] == 2
+
+
+def test_prune_keeps_recent_only(tmp_path):
+    c = live.db(tmp_path / "p.sqlite")
+    with c:
+        c.executemany("insert into rentals values (?, ?, '00101', ?, '00101', 0, '1990F')",
+                      [("A", "2026-09-01 08:00:00", "2026-09-01 08:00:30"), ("B", "2026-09-24 08:00:00", "2026-09-24 08:00:30")])
+    assert live.prune(c, dt.datetime(2026, 9, 25, 12)) == 1
+    assert [b for (b,) in c.execute("select bike from rentals")] == ["B"]

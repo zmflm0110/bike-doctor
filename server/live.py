@@ -65,6 +65,18 @@ def backfill(c, now, days=LOOKBACK_DAYS, workers=6):
     return n
 
 
+KEEP_DAYS = LOOKBACK_DAYS + 2   # 채점에 이틀 더 — 그보다 오래된 대여(생년·성별 포함)는 지운다
+
+
+def prune(c, now, keep_days=KEEP_DAYS):
+    """오래된 대여 기록 지우기 — 하루 약 15만 건이라 안 지우면 끝없이 커지고, 생년·성별을 필요 이상 오래 갖게 된다."""
+    lo = str(now - dt.timedelta(days=keep_days))
+    with c:
+        n = c.execute("delete from rentals where t0 < ?", (lo,)).rowcount
+        c.execute("delete from hours where hour < ?", ((now - dt.timedelta(days=keep_days)).strftime("%Y-%m-%d/%H"),))
+    return n
+
+
 def window(c, now, days=LOOKBACK_DAYS):
     lo = str(now - dt.timedelta(days=days))
     R = pd.read_sql("select * from rentals where t0 >= ?", c, params=(lo,))
@@ -128,6 +140,8 @@ def tick(c, now, station_name, refresh_older=False):
     out = {"date": "live", "at": now.isoformat(timespec="seconds"), "rule": "서로 다른 사람이 3분·300m 안 반납을 2번 이상 이어서 했고, "
            f"그 뒤 정상 이용이 없는 자전거 (마지막 헛대여 {FRESH_HOURS}시간 안)", "bikes": bikes,
            "today_alarms": len(today), "rentals_in_window": len(R), "score": _last_score}
+    if refresh_older:   # 10분마다 오래된 기록 정리
+        prune(c, now)
     if refresh_older or not _last_score:   # 채점은 10분마다
         _last_score.clear(); _last_score.update(score(c, pd.Timestamp(now)))
     tmp = OUT.with_suffix(".tmp")
