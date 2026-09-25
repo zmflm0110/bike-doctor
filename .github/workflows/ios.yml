@@ -67,7 +67,8 @@ jobs:
           git add shots/*.png
           git diff --cached --quiet && exit 0
           git commit -m "아이폰 앱 화면 사진 (시뮬레이터, $(date -u +%F)) [skip ci]"
-          for i in 1 2 3; do git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep 5; done
+          for i in 1 2 3; do git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && exit 0; sleep 5; done
+          exit 1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
