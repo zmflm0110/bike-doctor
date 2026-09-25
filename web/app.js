@@ -43,6 +43,14 @@ async function refreshLive() {
   guOptions(); renderMorning();
 }
 const minsAgo = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso + "+09:00").getTime()) / 60e3));
+// 서울 API 가 평소보다 훨씬 적게 내놓을 때(server/live.py feed) — 그 사이 새 경보를 놓칠 수 있다고 알림
+function feedNote() {
+  const f = state.day === "live" && state.morning && state.morning.feed;
+  if (!f || f.ok) return "";
+  const h = Number(f.since.slice(11, 13));
+  return `<div class="feed-note" role="status"><b>서울시 대여 기록이 ${h}시부터 평소의 ${Math.max(1, Math.round(f.ratio * 100))}%만 올라오고 있어요.</b> ` +
+    `그 사이 새로 고장 난 자전거는 목록에 늦게 뜰 수 있어요. 기록이 다시 들어오면 자동으로 채워요.</div>`;
+}
 
 // 구(區) 고르기 — 정비는 구역 단위로 움직인다. 고른 구의 자전거만 요약·지도·순위·동선·목록에.
 const guOf = (b) => (state.stations[b.station] || {}).gu || "기타";
@@ -66,6 +74,7 @@ function renderMorning() {
       `<span class="muted">${minsAgo(state.morning.at)}분 전 갱신 · 오늘 켜진 경보 ${state.morning.today_alarms}번</span>` +
       (sc.scored ? `<br>실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 ${sc.scored}명 중 <b class="confirmed">${sc.next_rider_dud}명(${sc["precision_%"]}%)</b>이 또 바로 반납 (평소 약 2.5%)` : "");
     if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
+    $("#morning-summary").insertAdjacentHTML("beforeend", feedNote());
     renderMap(bikes); renderRetro(bikes); renderLists(); renderStories();
     return;
   }
@@ -306,7 +315,7 @@ function lookup(raw) {
       `<div class="choices"><button onclick="rescueSave('${id}','체인·기어')">체인·기어 문제</button><button onclick="rescueSave('${id}','타이어')">타이어</button>` +
       `<button onclick="rescueSave('${id}','안장·핸들')">안장·핸들</button><button class="fine" onclick="rescueSave('${id}','멀쩡함')">멀쩡해 보여요</button></div></div>`;
   } else {
-    out.innerHTML = m ? `<div class="result ok"><h3>✓ ${esc(id)}</h3>${state.day === "live" ? "최근" : "어제까지"} 기록에 헛걸음 연쇄가 없어요.</div>`
+    out.innerHTML = m ? `<div class="result ok"><h3>✓ ${esc(id)}</h3>${state.day === "live" ? "최근" : "어제까지"} 기록에 헛걸음 연쇄가 없어요.${feedNote()}</div>`
       : `<div class="result">따릉이 번호(SPB-00000)를 못 찾았어요: <code>${esc(String(raw).slice(0, 60))}</code></div>`;
   }
 }

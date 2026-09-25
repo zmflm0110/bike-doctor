@@ -65,20 +65,25 @@ struct LookupView: View {
         if let hit = model.morning?.bikes.first(where: { $0.bike == id }) { result = .suspect(hit) } else { result = .clean(id) }
     }
 
+    private var until: String { model.day == AppModel.liveDay ? "최근" : "어제까지" }
+
     @ViewBuilder private var resultView: some View {
         switch result {
         case .suspect(let b):
             VStack(alignment: .leading, spacing: 10) {
                 Label("\(b.bike) 는 피하세요", systemImage: "exclamationmark.triangle.fill").font(.title3.bold()).foregroundStyle(Palette.red)
-                Text("어제까지 **서로 다른 \(b.chain)명**이 이 자전거를 빌리자마자 반납했어요 (마지막 \(b.lastDud), \(b.stationName)).")
+                md("\(until) **서로 다른 \(b.chain)명**이 이 자전거를 빌리자마자 반납했어요 (마지막 \(b.lastDud), \(b.stationName)).")
                 Text("이런 자전거는 다음 사람도 \(b.isRed ? "약 70%" : "약 35~55%")가 바로 반납했어요. 옆 자전거를 고르세요.")
                 VerdictButtons(bike: b.bike)
             }
             .padding(18)
             .background(Palette.redSoft, in: RoundedRectangle(cornerRadius: 20))
         case .clean(let id):
-            Label("\(id) — 어제까지 기록에 헛걸음 연쇄가 없어요.", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(Palette.good).padding(18)
+            VStack(alignment: .leading, spacing: 8) {
+                Label("\(id) — \(until) 기록에 헛걸음 연쇄가 없어요.", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
+                if model.day == AppModel.liveDay, let note = model.morning?.feed?.note { Text("⏳ " + note).font(.footnote) }
+            }
+                .padding(18)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Palette.goodSoft, in: RoundedRectangle(cornerRadius: 20))
         case .notABike(let raw):

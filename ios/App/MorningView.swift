@@ -112,7 +112,8 @@ struct MorningView: View {
         if model.day == AppModel.liveDay, let m = model.morning {
             let sc = m.score
             let scored = (sc?.scored ?? 0) > 0 ? "\n실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 \(sc?.scored ?? 0)명 중 **\(sc?.nextRiderDud ?? 0)명**(\(Int((sc?.precision ?? 0).rounded()))%)이 또 바로 반납 (평소 약 2.5%)" : ""
-            return md("\(model.gu.isEmpty ? "" : model.gu + " — ")**지금 \(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 \(red)대). \(AppModel.minutesAgo(m.at ?? ""))분 전 갱신 · 오늘 켜진 경보 \(m.todayAlarms ?? 0)번\(scored)")
+            let feed = m.feed?.note.map { "\n\n⏳ \($0)" } ?? ""
+            return md("\(model.gu.isEmpty ? "" : model.gu + " — ")**지금 \(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 \(red)대). \(AppModel.minutesAgo(m.at ?? ""))분 전 갱신 · 오늘 켜진 경보 \(m.todayAlarms ?? 0)번\(scored)\(feed)")
                 .font(.subheadline)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -143,10 +144,6 @@ struct MorningView: View {
     }
 
     /// 문자열 속 **굵게** 를 바로 해석 (숫자를 끼워 넣어도 되게)
-    private func md(_ s: String) -> Text {
-        Text((try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s))
-    }
-
     private func rankRow(_ g: StationGroup) -> some View {
         let s = model.station(g.id)
         let broken = g.brokenCount(model.checked)

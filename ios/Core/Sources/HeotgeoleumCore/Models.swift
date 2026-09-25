@@ -41,7 +41,21 @@ public struct MorningList: Codable, Sendable {
     public let at: String?
     public let todayAlarms: Int?
     public let score: LiveScore?
-    enum CodingKeys: String, CodingKey { case date, rule, bikes, at, score, todayAlarms = "today_alarms" }
+    public let feed: FeedStatus?
+    enum CodingKeys: String, CodingKey { case date, rule, bikes, at, score, feed, todayAlarms = "today_alarms" }
+}
+
+/// 서울 API 가 평소보다 훨씬 적게 내놓는 중인가 (server/live.py feed_status) — 그 사이 새 경보를 놓칠 수 있다
+public struct FeedStatus: Codable, Hashable, Sendable {
+    public let ok: Bool
+    public let since: String?   // "2026-09-25T14:00"
+    public let ratio: Double?
+    public init(ok: Bool, since: String? = nil, ratio: Double? = nil) { self.ok = ok; self.since = since; self.ratio = ratio }
+    /// 알림 문장 — 정상이면 nil
+    public var note: String? {
+        guard !ok, let since, since.count >= 13, let h = Int(since.dropFirst(11).prefix(2)) else { return nil }
+        return "서울시 대여 기록이 \(h)시부터 평소의 \(max(1, Int(((ratio ?? 0) * 100).rounded())))%만 올라오고 있어요. 그 사이 새로 고장 난 자전거는 목록에 늦게 뜰 수 있어요. 기록이 다시 들어오면 자동으로 채워요."
+    }
 }
 
 /// 실시간 경보 채점 — 경보 뒤 처음 빌린 다른 사람도 바로 반납했나 (server/live.py)

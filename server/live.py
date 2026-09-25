@@ -7,6 +7,10 @@
 
 받는 법: 대여 시각 기준 한 시간씩 받는다. 긴 대여는 반납해야 올라오므로(09:50 에 빌려 12:30 반납 → 09시 칸에 12:30 에 생김)
 지금·직전 시간은 1분마다, 그 전 6시간은 10분마다 다시 받는다. 헛대여(3분 안)는 한 시간 안에 다 들어온다.
+
+자료 지연: 2026-09-25 14시부터 API 가 한 시간에 평소(6천~1만 건)의 3~6% 만 내놓았다. 그러면 경보를 놓치고,
+채점에선 빠진 대여 때문에 '다음 사람' 을 잘못 볼 수 있다. 그래서 시간마다 평소(같은 시각 지난 7일 중앙값)와 비교해
+크게 모자란 시간(THIN)은 48시간 동안 10분마다 다시 받고, 앱에 '자료 지연' 을 알리고, 그 시간이 낀 경보는 채점을 보류한다.
 """
 import argparse, datetime as dt, json, pathlib, sqlite3, sys, time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -77,6 +81,44 @@ def prune(c, now, keep_days=KEEP_DAYS):
     return n
 
 
+THIN = 0.3           # 지난 7일 같은 시각 중 '가장 한산했던 날' 의 30% 도 안 되면 모자란 시간
+RECHECK_HOURS = 48   # 모자란 시간을 다시 받는 기간
+# 가장 한산한 날과 비교하는 까닭: 추석(9/24~26) 아침은 평일 중앙값의 22~25% 였지만 주말 아침과는 비슷했다(진짜로 적음).
+# 자료가 끊긴 9/25 14~16시는 가장 한산한 날의 3~7% — 둘 사이가 넓다.
+
+
+def hour_health(c, now):
+    """시간마다 {'YYYY-MM-DD/HH': (받은 수 ÷ 평소 중앙값, 모자람 여부)} — 비교는 같은 시각 지난 7일(3일 이상 있을 때만).
+    지금 시간은 아직 덜 찼으니 빼고, 직전 시간부터 본다(짧은 대여는 한 시간 안에 거의 다 들어옴)."""
+    H = pd.read_sql("select hour, rows from hours", c)
+    if H.empty:
+        return {}
+    H["t"] = pd.to_datetime(H["hour"], format="%Y-%m-%d/%H")
+    H = H[H["t"] < pd.Timestamp(now).floor("h")]
+    out = {}
+    for r in H.itertuples():
+        past = H[(H["t"].dt.hour == r.t.hour) & (H["t"] < r.t) & (H["t"] >= r.t - pd.Timedelta(days=7))]["rows"]
+        if len(past) >= 3 and past.min() > 0:
+            out[r.hour] = (r.rows / past.median(), r.rows < THIN * past.min())
+    return out
+
+
+def thin_hours(health):
+    return {h for h, (_, thin) in health.items() if thin}
+
+
+def feed_status(health, now):
+    """앱에 보일 상태: 직전 시간까지 이어진 모자란 시간들의 시작과 가장 최근 시간의 비율(평소 중앙값 대비)."""
+    t = pd.Timestamp(now).floor("h") - pd.Timedelta(hours=1)
+    since, ratio = None, None
+    while (h := t.strftime("%Y-%m-%d/%H")) in health and health[h][1]:
+        since, ratio = t, health[h][0] if ratio is None else ratio
+        t -= pd.Timedelta(hours=1)
+    if since is None:
+        return {"ok": True}
+    return {"ok": False, "since": since.strftime("%Y-%m-%dT%H:00"), "ratio": round(float(ratio), 3)}
+
+
 def window(c, now, days=LOOKBACK_DAYS):
     lo = str(now - dt.timedelta(days=days))
     R = pd.read_sql("select * from rentals where t0 >= ?", c, params=(lo,))
@@ -111,25 +153,35 @@ def score(c, now, live_only=True):
         return {"alarms": 0}
     R = mark(window(c, now, days=LOOKBACK_DAYS + 2), RULE)
     g = {k: v for k, v in R.groupby("bike")}
-    hit = miss = wait = 0
+    thin = thin_hours(hour_health(c, now))
+    hit = miss = wait = held = 0
     for a in A.itertuples():
         b = g.get(a.bike)
         nxt = b[(b["t0"] > pd.Timestamp(a.at)) & ~b["retry"]] if b is not None else None
         if nxt is None or nxt.empty:
             wait += 1
+            continue
+        span = pd.date_range(pd.Timestamp(a.at).floor("h"), nxt["t0"].iloc[0].floor("h"), freq="h")
+        if any(t.strftime("%Y-%m-%d/%H") in thin for t in span):   # 그 사이 자료가 빠졌으면 진짜 다음 사람을 모른다
+            held += 1
         elif nxt["dud"].iloc[0]:
             hit += 1
         else:
             miss += 1
     done = hit + miss
-    return {"alarms": len(A), "scored": done, "next_rider_dud": hit, "precision_%": round(100 * hit / done, 1) if done else None, "waiting": wait}
+    return {"alarms": len(A), "scored": done, "next_rider_dud": hit, "precision_%": round(100 * hit / done, 1) if done else None,
+            "waiting": wait, "held_thin_feed": held}
 
 
 _last_score = {}
 
 
 def tick(c, now, station_name, refresh_older=False):
-    for h in ([now - dt.timedelta(hours=k) for k in range(2, 8)] if refresh_older else []) + [now - dt.timedelta(hours=1), now]:
+    hours = [now - dt.timedelta(hours=k) for k in range(2, 8)] if refresh_older else []
+    if refresh_older:   # 모자랐던 시간(48시간 안)도 다시 — API 가 뒤늦게 채우면 경보·채점이 바로잡힌다
+        old = [dt.datetime.strptime(h, "%Y-%m-%d/%H") for h in thin_hours(hour_health(c, now))]
+        hours += [t for t in old if now - dt.timedelta(hours=RECHECK_HOURS) <= t < now - dt.timedelta(hours=7)]
+    for h in hours + [now - dt.timedelta(hours=1), now]:
         fetch_hour(c, h)
     R = window(c, now)
     bikes, alarms = live_state(R, pd.Timestamp(now), station_name)
@@ -139,7 +191,8 @@ def tick(c, now, station_name, refresh_older=False):
     today = alarms[alarms["t1"] >= pd.Timestamp(now.date())]
     out = {"date": "live", "at": now.isoformat(timespec="seconds"), "rule": "서로 다른 사람이 3분·300m 안 반납을 2번 이상 이어서 했고, "
            f"그 뒤 정상 이용이 없는 자전거 (마지막 헛대여 {FRESH_HOURS}시간 안)", "bikes": bikes,
-           "today_alarms": len(today), "rentals_in_window": len(R), "score": _last_score}
+           "today_alarms": len(today), "rentals_in_window": len(R), "score": _last_score,
+           "feed": feed_status(hour_health(c, now), now)}
     if refresh_older:   # 10분마다 오래된 기록 정리 + 정비 동선용 대여소 붐빔(지난 7일 시간대별)
         prune(c, now)
         from engine.busy import station_busy
@@ -164,6 +217,9 @@ def main():
     if a.report:
         print("실시간으로 알아챈 경보:", json.dumps(score(c, pd.Timestamp.now()), ensure_ascii=False))
         print("처음 채운 지난 기록 포함:", json.dumps(score(c, pd.Timestamp.now(), live_only=False), ensure_ascii=False))
+        h = hour_health(c, pd.Timestamp.now())
+        print("자료 상태:", json.dumps(feed_status(h, pd.Timestamp.now()), ensure_ascii=False),
+              "· 모자란 시간:", ", ".join(f"{k[5:]}시 {v[0]:.0%}" for k, v in sorted(h.items()) if v[1]) or "없음")
         return
     if not seoul_api.key():
         raise SystemExit("서울 열린데이터광장 인증키가 없습니다: security add-generic-password -a bike-doctor -s seoul-openapi -w")
@@ -175,9 +231,10 @@ def main():
         now = dt.datetime.now()
         try:
             out = tick(c, now, stn, refresh_older=(i % 10 == 0))
-            s = out["score"]
+            s, f = out["score"], out["feed"]
             print(f"{now:%m-%d %H:%M} 지금 의심 {len(out['bikes'])}대 · 오늘 경보 {out['today_alarms']} · "
-                  f"채점 {s.get('scored', 0)}건 정밀도 {s.get('precision_%')}%", flush=True)
+                  f"채점 {s.get('scored', 0)}건 정밀도 {s.get('precision_%')}%"
+                  + ("" if f["ok"] else f" · 자료 지연 {f['since'][11:13]}시부터 (평소의 {f['ratio']:.0%})"), flush=True)
         except Exception as e:   # 한 번 실패해도 계속
             print(f"{now:%m-%d %H:%M} 실패: {e}", flush=True)
         if a.once:

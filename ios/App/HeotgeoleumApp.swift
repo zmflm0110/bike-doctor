@@ -125,3 +125,8 @@ struct LevelTag: View {
             .foregroundStyle(red ? Palette.onRed : Color(red: 0.12, green: 0.09, blue: 0))
     }
 }
+
+/// 굵게(**…**)가 들어간 문장 — 문자열 끼워 넣기가 있으면 Text 가 마크다운을 안 읽어서 직접 바꾼다
+func md(_ s: String) -> Text {
+    Text((try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s))
+}

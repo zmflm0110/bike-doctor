@@ -5,6 +5,15 @@ import FoundationNetworking
 #endif
 
 final class EngineTests: XCTestCase {
+    func testLiveFeedNote() throws {
+        let json = #"{"date":"live","bikes":[],"at":"2026-09-25T17:00:00","feed":{"ok":false,"since":"2026-09-25T14:00","ratio":0.023}}"#
+        let m = try JSONDecoder().decode(MorningList.self, from: Data(json.utf8))
+        XCTAssertEqual(m.feed?.note?.hasPrefix("서울시 대여 기록이 14시부터 평소의 2%만"), true)
+        XCTAssertNil(FeedStatus(ok: true).note)
+        let old = try JSONDecoder().decode(MorningList.self, from: Data(#"{"date":"2026-06-15","bikes":[]}"#.utf8))   // feed 없는 예전 목록
+        XCTAssertNil(old.feed)
+    }
+
     func testRouteLine() {
         // 한 줄로 늘어선 점을 뒤섞어 줘도 끝에서 끝으로 (tests/web/route.test.js 와 같은 검사)
         let line = (0..<8).map { GeoPoint(lat: 37.5, lon: 127 + 0.01 * Double($0)) }

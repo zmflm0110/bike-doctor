@@ -30,7 +30,7 @@ def test_live_state_and_score(tmp_path):
         c.execute("insert into alarms values ('A', '2026-09-25 10:00:20', '00101', 2, '2026-09-25 10:01:00')")   # 1분 뒤 알아챔 → 실시간
         c.execute("insert into alarms values ('B', '2026-09-23 09:00:30', '00101', 2, '2026-09-25 11:00:00')")   # 처음 채울 때 → 실시간 아님
     s = live.score(c, now)
-    assert s == {"alarms": 1, "scored": 1, "next_rider_dud": 1, "precision_%": 100.0, "waiting": 0}
+    assert s == {"alarms": 1, "scored": 1, "next_rider_dud": 1, "precision_%": 100.0, "waiting": 0, "held_thin_feed": 0}
     assert live.score(c, now, live_only=False)["alarms"] == 2
 
 
@@ -50,3 +50,36 @@ def test_fetch_no_data_both_shapes(monkeypatch):
                  {"CODE": "INFO-200", "MESSAGE": "해당하는 데이터가 없습니다."}):
         monkeypatch.setattr(seoul_api, "_get", lambda url, r=resp: r)
         assert seoul_api.fetch("tbCycleRentData", "rentData", "2026-09-25/12", k="x") == []
+
+
+def _hours(c, counts):
+    with c:
+        c.executemany("insert into hours values (?, ?, '2026-09-25T12:00:00')", counts.items())
+
+
+def test_feed_health_thin_vs_quiet_day(tmp_path):
+    """자료가 끊긴 시간(가장 한산한 날의 30% 미만)만 모자람 — 명절처럼 진짜 한산한 날은 아님."""
+    c = live.db(tmp_path / "h.sqlite")
+    counts = {f"2026-09-{d:02d}/14": n for d, n in [(18, 6000), (19, 8000), (20, 8500), (21, 5700), (22, 5800), (23, 8300), (24, 6800)]}
+    counts |= {f"2026-09-{d:02d}/07": n for d, n in [(18, 11000), (19, 3500), (20, 2600), (21, 11600), (22, 12100), (23, 10900)]}
+    counts |= {"2026-09-24/07": 2400, "2026-09-25/14": 380, "2026-09-25/13": 3000}
+    _hours(c, counts)
+    now = dt.datetime(2026, 9, 25, 15, 30)
+    h = live.hour_health(c, now)
+    assert live.thin_hours(h) == {"2026-09-25/14"}          # 추석 아침(평일 중앙값의 22%)은 모자람 아님
+    assert live.feed_status(h, now) == {"ok": False, "since": "2026-09-25T14:00", "ratio": round(380 / 6800, 3)}
+    assert live.feed_status(h, dt.datetime(2026, 9, 25, 14, 30)) == {"ok": True}   # 지금 시간은 아직 덜 찼으니 판단 안 함
+
+
+def test_score_held_when_next_rider_may_be_missing(tmp_path):
+    """경보와 다음 대여 사이에 자료가 빠진 시간이 끼면 채점 보류 — 빠진 대여가 진짜 다음 사람일 수 있다."""
+    c = live.db(tmp_path / "s.sqlite")
+    R = _finish(pd.DataFrame([ride("A", "2026-09-25 13:00", 30, "1990F"), ride("A", "2026-09-25 13:20", 20, "2001M"),
+                              ride("A", "2026-09-25 15:10", 25, "1975M")]))
+    R["t0"] = R["t0"].astype(str); R["t1"] = R["t1"].astype(str)
+    with c:
+        c.executemany("insert into rentals values (?, ?, ?, ?, ?, ?, ?)", R[live.COLS].itertuples(index=False))
+        c.execute("insert into alarms values ('A', '2026-09-25 13:20:20', '00101', 2, '2026-09-25 13:21:00')")
+    _hours(c, {f"2026-09-{d:02d}/14": 6000 for d in range(18, 25)} | {"2026-09-25/14": 300})
+    s = live.score(c, pd.Timestamp("2026-09-25 17:00"))
+    assert s["held_thin_feed"] == 1 and s["scored"] == 0

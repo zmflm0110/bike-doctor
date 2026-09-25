@@ -150,6 +150,24 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
       for (const t of ["morning", "lookup", "rescue", "replay", "survey"]) { await tab(t); (await lowContrast()).forEach((x) => low.push([cs, t, ...x])); }
     }
     check(low.length === 0, "4.5:1 이상" + (low.length ? ": " + JSON.stringify(low.slice(0, 4)) : ""));
+    console.log("실시간 — 서울 자료가 늦을 때");
+    const st = JSON.parse(fs.readFileSync(path.join(ROOT, "web/data/stations.json")))[0];
+    const kst = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 19);
+    const live = { date: "live", at: kst, rule: "시험", today_alarms: 3, score: {}, rentals_in_window: 1,
+      bikes: [{ bike: "SPB-54321", station: st.id, station_name: st.name, chain: 3, level: "빨강", last_dud: "09-25 13:40", minutes_ago: 5, reported: null }],
+      feed: { ok: false, since: kst.slice(0, 11) + "14:00", ratio: 0.023 } };
+    await page.route(/data\/live\.json/, (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify(live) }));
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto(URL, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => document.querySelector("#morning-summary").textContent.includes("지금"));
+    const note = await page.textContent("#morning-summary .feed-note").catch(() => "");
+    check(/14시부터 평소의 2%만/.test(note), "자료 지연 알림: " + (note.match(/\d+시부터 평소의 \d+%만/) || [""])[0]);
+    await tab("lookup"); await page.fill("#bike-input", "SPB-11111"); await page.press("#bike-input", "Enter");
+    check(!!(await page.$("#lookup-result .feed-note")), "조회 '연쇄 없음' 에도 지연 알림");
+    live.feed = { ok: true }; await page.goto(URL, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => document.querySelector("#morning-summary").textContent.includes("지금"));
+    check(!(await page.$("#morning-summary .feed-note")), "자료가 정상이면 알림 없음");
+    await page.unroute(/data\/live\.json/);
     check(errors.length === 0, "화면 오류 없음" + (errors.length ? ": " + errors.slice(0, 3).join(" | ") : ""));
   } catch (e) {
     fails.push(e.message);
