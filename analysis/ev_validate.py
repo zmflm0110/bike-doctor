@@ -31,14 +31,32 @@ def load(db=DB):
     return S
 
 
+GAP_MAX = pd.Timedelta(minutes=12)   # 찍은 간격이 이보다 길면(맥이 잠듦 등) 이어진 구간이 끊긴 것으로 본다
+
+
+def segments(S):
+    """찍은 때들을 '빈틈없이 이어 찍은 구간' 으로 나눈다 → {찍은 때: 구간 번호}, [(시작, 끝)]."""
+    ts = S["t"].drop_duplicates().sort_values().reset_index(drop=True)
+    seg = (ts.diff() > GAP_MAX).cumsum()
+    spans = [(g.iloc[0], g.iloc[-1]) for _, g in ts.groupby(seg)]
+    return dict(zip(ts, seg)), spans
+
+
 def sessions(S):
-    """처음 본 때 기준으로 끝난 충전 한 건씩 — 모으기 시작한 뒤 끝난 것만(그 전 것은 '마지막 한 건' 만 남아 치우침)."""
-    X = S.dropna(subset=["lastTsdt", "lastTedt"]).sort_values("t").drop_duplicates(["charger", "lastTsdt", "lastTedt"])
-    X = X[(X["lastTedt"] >= X["lastTsdt"]) & (X["lastTedt"] >= S["t"].min() - pd.Timedelta(minutes=10))]
-    X = X.rename(columns={"lastTsdt": "start", "lastTedt": "end"})[["charger", "op", "start", "end"]]
+    """처음 본 때 기준으로 끝난 충전 한 건씩. API 는 충전기마다 '마지막 한 건' 과 최근 10분 안에 바뀐 충전기만 주므로,
+    못 찍은 사이(잠듦)에 끝난 충전은 대부분 사라진다 → 각 구간이 시작된 뒤(10분 여유) 끝난 것만 쓰고, 구간 번호(seg)를 붙인다.
+    연쇄·다음 충전은 같은 구간 안에서만 잇는다(key = 충전기#구간) — 빈틈을 건너면 사이의 충전이 빠졌을 수 있다."""
+    seg_of, spans = segments(S)
+    X = S.dropna(subset=["lastTsdt", "lastTedt"]).sort_values("t").drop_duplicates(["charger", "lastTsdt", "lastTedt"]).copy()
+    X["seg"] = X["t"].map(seg_of)
+    X["seg_start"] = X["seg"].map(lambda k: spans[k][0])
+    X = X[(X["lastTedt"] >= X["lastTsdt"]) & (X["lastTedt"] >= X["seg_start"] - pd.Timedelta(minutes=10))]
+    X = X.rename(columns={"lastTsdt": "start", "lastTedt": "end"})
+    X["key"] = X["charger"] + "#" + X["seg"].astype(str)
+    X = X[["charger", "key", "seg", "op", "start", "end"]]
     X["minutes"] = (X["end"] - X["start"]).dt.total_seconds() / 60
     X["zero"] = X["minutes"] == 0
-    return X.sort_values(["charger", "start"]).reset_index(drop=True)
+    return X.sort_values(["key", "start"]).reset_index(drop=True)
 
 
 def op_quality(X, rule=EvRule()):
@@ -50,7 +68,7 @@ def op_quality(X, rule=EvRule()):
 
 def persistence(X, rule=EvRule()):
     """연쇄가 k 에 닿은 헛충전 뒤, 같은 사람 재시도를 건너뛴 다음 충전이 또 헛충전인 비율."""
-    M = mark_ev(X[~X["zero"]].reset_index(drop=True), rule)
+    M = mark_ev(X[~X["zero"]].drop(columns="charger").rename(columns={"key": "charger"}).reset_index(drop=True), rule)
     base = M["dud"].mean()
     out = []
     for k in (1, 2, 3):
@@ -68,7 +86,8 @@ def persistence(X, rule=EvRule()):
 
 def offline_after(S, X, rule=EvRule()):
     """연쇄 2 이상이 된 충전기 중, 그 뒤 통신이상·운영중지·점검중으로 바뀐 비율 vs 다른 충전기 (사업자가 알아챘나)."""
-    M = mark_ev(X[~X["zero"]].reset_index(drop=True), rule)
+    M = mark_ev(X[~X["zero"]].reset_index(drop=True).assign(charger=lambda d: d["key"]), rule)
+    M["charger"] = M["charger"].str.split("#").str[0]
     first = M[M["alarm"]].groupby("charger")["end"].min()
     off = S[S["stat"].isin(OFF)].groupby("charger")["t"].agg(list)
     alarmed = sum(any(t > first[c] for t in off.get(c, [])) for c in first.index)
@@ -88,11 +107,15 @@ def main():
     clean = X[X["op"].isin(q.index[q["clean"]])]
     hours = (S["t"].max() - S["t"].min()).total_seconds() / 3600
     snaps = S["t"].drop_duplicates().sort_values()
+    _, spans = segments(S)
+    covered = sum((b - a).total_seconds() for a, b in spans) / 3600
     lines = [
         "# 전기차 충전기 헛충전 검증 (중간)",
         "",
         f"`python analysis/ev_validate.py` 로 다시 만든다. 자료: 서울 충전기 상태 {len(snaps)}번 찍음, "
         f"{S['t'].min():%m-%d %H:%M} ~ {S['t'].max():%m-%d %H:%M} (약 {hours:.0f}시간, 간격 중앙값 {snaps.diff().dt.total_seconds().median() / 60:.0f}분).",
+        f"그중 빈틈없이 이어 찍은 구간 {len(spans)}개, 합 {covered:.0f}시간 ({covered / hours:.0%}). 나머지는 맥이 잠들었거나 인터넷이 끊긴 때 — "
+        "충전기 API 는 지난 기록을 다시 주지 않아 그 사이 충전은 사라진다. 연쇄는 같은 구간 안에서만 잇는다.",
         "",
         "> **아직 판정 전.** 목표는 1\\~2주, 연쇄 2 뒤 다음 충전 100건 이상. 아래는 쌓이는 대로 바뀐다.",
         "",
