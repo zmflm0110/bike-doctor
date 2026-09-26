@@ -85,7 +85,8 @@ function renderMorning() {
     $("#morning-summary").innerHTML =
       `<b>지금</b> <b>${bikes.length}</b>대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 ${red}대). ` +
       `<span class="muted">${minsAgo(state.morning.at)}분 전 갱신${state.morning.source === "cloud" ? "(10분마다)" : ""} · 오늘 켜진 경보 ${state.morning.today_alarms}번</span>` +
-      (sc.scored ? `<br>실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 ${sc.scored}명 중 <b class="confirmed">${sc.next_rider_dud}명(${sc["precision_%"]}%)</b>이 또 바로 반납 (평소 약 2.5%)` : "");
+      (sc.scored >= 20 ? `<br>실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 ${sc.scored}명 중 <b class="confirmed">${sc.next_rider_dud}명(${sc["precision_%"]}%)</b>이 또 바로 반납 (평소 약 2.5%)`
+        : sc.scored ? `<br><span class="muted">실시간 경보 채점을 모으는 중 (${sc.scored}건 — 20건부터 보여 줘요)</span>` : "");   // 몇 건으로 낸 % 는 오해를 부른다
     if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
     $("#morning-summary").insertAdjacentHTML("beforeend", feedNote());
     renderMap(bikes); renderRetro(bikes); renderLists(); renderStories();
@@ -501,8 +502,11 @@ function defaultDay(days) {
   state.busyOps = await getJSON(`${state.opsBase}busy.json`).catch(() => null);
   const live = await getLive();
   const pick = live && !new URLSearchParams(location.search).get("day") ? "live" : defaultDay(days);
+  // 지금 → 매일 아침 목록(최근 것부터) → 시연 자료. 이름은 사람이 읽는 말로, 값은 날짜 그대로
+  const label = (d) => state.ops.has(d) ? (d === kstToday() ? `오늘 아침 (${koDay(d)})` : `${koDay(d)} 아침`) : `${d} (시연)`;
+  const ordered = [...days.filter((d) => state.ops.has(d)).reverse(), ...days.filter((d) => !state.ops.has(d)).reverse()];
   $("#day").innerHTML = (live ? `<option value="live" ${pick === "live" ? "selected" : ""}>지금 (실시간)</option>` : "") +
-    days.map((d) => `<option ${d === pick ? "selected" : ""}>${d}</option>`).join("");
+    ordered.map((d) => `<option value="${d}" ${d === pick ? "selected" : ""}>${label(d)}</option>`).join("");
   $("#day").addEventListener("change", (e) => loadDay(e.target.value));
   await loadDay($("#day").value);
   stationOptions(null);
