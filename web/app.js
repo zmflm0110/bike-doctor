@@ -43,6 +43,11 @@ async function refreshLive() {
   guOptions(); renderMorning();
 }
 const minsAgo = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso + "+09:00").getTime()) / 60e3));
+// 지난 날 목록을 보고 있나 — 실시간도, 오늘 아침 목록도 아니면 '지금' 상태는 모른다 (시연 자료·지난 운영 목록)
+const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const koDay = (d) => { const [, m, dd] = d.split("-").map(Number); return `${m}월 ${dd}일`; };
+const isPast = () => state.day !== "live" && state.day !== kstToday();
+const pastNote = () => isPast() ? `<p class="past-note">📅 ${koDay(state.day)} 자료예요${state.ops.has(state.day) ? "" : "(시연용)"}. 지금 이 자전거 상태는 실시간 목록이 있어야 알 수 있어요.</p>` : "";
 // 서울 API 가 평소보다 훨씬 적게 내놓을 때(server/live.py feed) — 그 사이 새 경보를 놓칠 수 있다고 알림
 function feedNote() {
   const f = state.day === "live" && state.morning && state.morning.feed;
@@ -78,9 +83,10 @@ function renderMorning() {
     renderMap(bikes); renderRetro(bikes); renderLists(); renderStories();
     return;
   }
-  $("#morning-summary").innerHTML =
-    `<b>${bikes.length}</b>대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 ` +
-    `(빨강 ${red}대).` + (known.length ? ` 이 중 <b>${unrep}</b>대는 아직 아무도 고장 신고를 안 했어요.` : "");
+  $("#morning-summary").innerHTML = (isPast()
+    ? `${koDay(state.day)} 아침, <b>${bikes.length}</b>대가 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있었어요 `
+    : `<b>${bikes.length}</b>대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 `) +
+    `(빨강 ${red}대).` + (known.length ? ` 이 중 <b>${unrep}</b>대는 아직 아무도 고장 신고를 안 했어요.` : "") + pastNote();
   if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
   renderMap(bikes);
   renderRetro(bikes);
@@ -310,12 +316,14 @@ function lookup(raw) {
   const out = $("#lookup-result");
   if (hit) {
     out.innerHTML = `<div class="result warn"><h3>⚠︎ ${id} 는 피하세요</h3>` +
-      `${state.day === "live" ? "최근" : "어제까지"} <b>서로 다른 ${hit.chain}명</b>이 이 자전거를 빌리자마자 반납했어요 (마지막 ${hit.last_dud}, ${hit.station_name}).<br>` +
+      `${state.day === "live" ? "최근" : isPast() ? `${koDay(state.day)} 아침 목록에서` : "어제까지"} <b>서로 다른 ${hit.chain}명</b>이 이 자전거를 빌리자마자 반납했어요 (마지막 ${hit.last_dud}, ${hit.station_name}).<br>` +
       `이런 자전거는 다음 사람도 ${hit.level === "빨강" ? "약 70%" : "약 35~55%"}가 바로 반납했어요. 옆 자전거를 고르세요.` +
       `<div class="choices"><button onclick="rescueSave('${id}','체인·기어')">체인·기어 문제</button><button onclick="rescueSave('${id}','타이어')">타이어</button>` +
-      `<button onclick="rescueSave('${id}','안장·핸들')">안장·핸들</button><button class="fine" onclick="rescueSave('${id}','멀쩡함')">멀쩡해 보여요</button></div></div>`;
+      `<button onclick="rescueSave('${id}','안장·핸들')">안장·핸들</button><button class="fine" onclick="rescueSave('${id}','멀쩡함')">멀쩡해 보여요</button></div>${pastNote()}</div>`;
   } else {
-    out.innerHTML = m ? `<div class="result ok"><h3>✓ ${esc(id)}</h3>${state.day === "live" ? "최근" : "어제까지"} 기록에 헛걸음 연쇄가 없어요.${feedNote()}</div>`
+    out.innerHTML = m ? (isPast()   // 지난 자료에 없다는 건 '괜찮다' 가 아니다 — 초록 체크 대신 모른다고
+      ? `<div class="result"><h3>? ${esc(id)}</h3>${koDay(state.day)} 자료에는 이 자전거가 없어요.${pastNote()}</div>`
+      : `<div class="result ok"><h3>✓ ${esc(id)}</h3>${state.day === "live" ? "최근" : "어제까지"} 기록에 헛걸음 연쇄가 없어요.${feedNote()}</div>`)
       : `<div class="result">따릉이 번호(SPB-00000)를 못 찾았어요: <code>${esc(String(raw).slice(0, 60))}</code></div>`;
   }
 }

@@ -70,6 +70,7 @@ h2 .muted { font-weight: 500; }
 .summary.retro::before { content: "✅"; }
 .summary b { font-size: 19px; font-weight: 800; }
 .summary .confirmed { font-size: inherit; }
+.past-note { margin: 10px 0 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
 .feed-note { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); font-size: 13.5px; line-height: 1.55; }
 .feed-note b { font-size: inherit; font-weight: 700; }
 .feed-note::before { content: "⏳ "; }

@@ -40,7 +40,7 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     await page.goto(URL + "?day=2026-06-15", { waitUntil: "networkidle" });   // 시연 날짜로 고정 (실시간 서버가 도는 맥에선 기본이 '지금' 이 됨)
     console.log("아침 목록");
     await page.waitForSelector("#bike-list li");
-    check(/\d+<\/b>대가/.test(await page.innerHTML("#morning-summary")), "요약 문장");
+    check(/6월 15일 아침, <b>\d+<\/b>대가/.test(await page.innerHTML("#morning-summary")) && !!(await page.$("#morning-summary .past-note")), "요약 문장 (지난 자료라고 분명히)");
     check((await page.$$("#station-rank li")).length === 10, "정비 순위 10곳");
     check((await page.$$("#map path.leaflet-interactive")).length > 5, "지도에 의심 대여소 표시");
     const retro = await page.textContent("#morning-retro");
@@ -88,7 +88,8 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     await shot("2_lookup");
     await page.fill("#bike-input", "SPB-00001");
     await page.press("#bike-input", "Enter");
-    check((await page.textContent("#lookup-result")).includes("연쇄가 없어요"), "멀쩡한 자전거");
+    check((await page.textContent("#lookup-result")).includes("6월 15일 자료에는 이 자전거가 없어요") && !(await page.$("#lookup-result .result.ok")),
+      "지난(시연) 자료에 없는 자전거 — '괜찮다' 가 아니라 '그 날 자료에 없음'");
     await page.fill("#bike-input", '<img src=x onerror=alert(1)>');
     await page.press("#bike-input", "Enter");
     check((await page.$$("#lookup-result img")).length === 0 && (await page.textContent("#lookup-result")).includes("<img"), "QR·입력 속 HTML 은 글자로만");
