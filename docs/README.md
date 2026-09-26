@@ -7,7 +7,7 @@
 | [slides.html](slides.html) · [PDF](slides.pdf) | 발표 10장 (브라우저로 열고 ←/→, F 전체 화면) |
 | [slides.md](slides.md) | 발표에서 말할 거리 · 예상 질문 |
 | [proposal.md](proposal.md) · [PDF](proposal.pdf) | 서울시설공단 제안서 초안 — 한 구에서 2주 시범 |
-| [demo/demo.mp4](demo/demo.mp4) | 시연 영상 (1분 32초, 자막) |
+| [demo/demo.mp4](demo/demo.mp4) | 시연 영상 (1분 39초, 자막 — 2026-09-27 새로 찍음) |
 | [shots/](shots) · [img/site.png](img/site.png) | 앱 화면 사진 · 웹사이트 화면 |
 
 ## 결과 표 (스크립트가 자동으로 만듦)
