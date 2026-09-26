@@ -150,7 +150,11 @@ def main(argv=None):
         if a.source == "live":   # 오늘 0시 전까지의 최근 7일 (실시간 서버가 이미 받아 둠 → 추가 호출 없음)
             from server import live
             midnight = dt.datetime.combine(today, dt.time())
-            R = live.window(live.db(), midnight)
+            lc = live.db()
+            n = live.ensure_complete(lc, midnight - dt.timedelta(days=LOOKBACK_DAYS), midnight)
+            if n:
+                print(f"덜 받은 시간 {n}칸 다시 받음 (맥이 잠들었던 듯)")
+            R = live.window(lc, midnight)
             R = R[R["t0"] < midnight].reset_index(drop=True)
         else:
             R = fetch_rentals_api(today - dt.timedelta(days=LOOKBACK_DAYS), today - dt.timedelta(days=1), url=a.api_url, date_params=a.date_param)

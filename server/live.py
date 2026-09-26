@@ -69,6 +69,24 @@ def backfill(c, now, days=LOOKBACK_DAYS, workers=6):
     return n
 
 
+SETTLE = dt.timedelta(hours=3)   # 대여 시각 기준 한 시간 칸은 끝나고 3시간쯤 지나야 긴 대여까지 거의 다 들어온다
+
+
+def ensure_complete(c, start, end, settle=SETTLE):
+    """start~end 사이 시간 칸 중 아예 없거나, 칸이 끝나고 settle 이 지나기 전에 마지막으로 받은 것을 다시 받는다.
+    아침 목록(daily_job --source live)이 맥이 막 깨어난 때 돌아도 어제 기록이 빠짐없게 (2026-09-26 09:15 목록이 23시 이후 없이 만들어졌었다)."""
+    got = {h: dt.datetime.fromisoformat(f) for h, f in c.execute("select hour, fetched_at from hours")}
+    t, todo = start.replace(minute=0, second=0, microsecond=0), []
+    while t < end:
+        h = t.strftime("%Y-%m-%d/%H")
+        if h not in got or got[h] < t + dt.timedelta(hours=1) + settle:
+            todo.append(t)
+        t += dt.timedelta(hours=1)
+    for t in todo:
+        fetch_hour(c, t)
+    return len(todo)
+
+
 KEEP_DAYS = LOOKBACK_DAYS + 2   # 채점에 이틀 더 — 그보다 오래된 대여(생년·성별 포함)는 지운다
 
 

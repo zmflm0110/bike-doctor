@@ -117,3 +117,18 @@ def test_backfill_fills_hours_missed_while_asleep(tmp_path, monkeypatch):
     assert sorted(asked) == ["2026-09-25/23", "2026-09-26/00", "2026-09-26/01"]
     asked.clear(); live.backfill(c, now)
     assert asked == []
+
+
+def test_ensure_complete_refetches_missing_and_early(tmp_path, monkeypatch):
+    """아침 목록 전에: 없는 칸과 '칸 끝 + 3시간' 전에 받은 칸만 다시 받는다."""
+    from server import seoul_api
+    c = live.db(tmp_path / "e.sqlite")
+    with c:
+        c.executemany("insert into hours values (?, 100, ?)", [
+            ("2026-09-25/20", "2026-09-26T01:00:00"),   # 21시 끝 + 3시간 = 00시 → 01시에 받음: 됨
+            ("2026-09-25/22", "2026-09-25T22:10:00"),   # 칸이 끝나기도 전에 받고 잠듦: 다시
+        ])                                               # 21·23시: 없음 → 다시
+    asked = []
+    monkeypatch.setattr(seoul_api, "fetch", lambda svc, root, hour, **k: asked.append(hour) or [])
+    n = live.ensure_complete(c, dt.datetime(2026, 9, 25, 20), dt.datetime(2026, 9, 26))
+    assert n == 3 and asked == ["2026-09-25/21", "2026-09-25/22", "2026-09-25/23"]
