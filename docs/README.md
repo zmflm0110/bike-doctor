@@ -19,6 +19,7 @@
 | [phase2.md](phase2.md) · [phase2_nextday.md](phase2_nextday.md) | 실시간 대여소 대수로 되나(안 됨) · 하루 늦은 자전거별 목록 | `analysis/phase2_*.py` |
 | [api_parity.md](api_parity.md) | 실시간 대여이력 API 와 월별 파일이 같은 자료인가 (같음) | `analysis/api_parity.py` |
 | [ev_validation.md](ev_validation.md) | 전기차 충전기 헛충전 중간 검증 — 기록 품질 거르기, 연쇄 뒤 다음 충전 | `analysis/ev_validate.py` |
+| [outreach.md](outreach.md) | 이야기와 실제 반응 모으기 — 이용자 설문·정비 쪽 인터뷰·공단 문의 초안 | — |
 | [phase3_rehearsal.md](phase3_rehearsal.md) | 매일 아침 작업 7일 연속 예행연습 | `server/rehearse.py` |
 | [no_who.md](no_who.md) | 생년·성별 없이 같은 사람 거르기 (반납 2분 안 재대여) | `analysis/no_who.py` |
 | [fault_kind.md](fault_kind.md) · [fault_kind_per_bike.md](fault_kind_per_bike.md) | 헛대여 모양으로 고장 종류 짐작 — 평균은 갈리지만 한 대씩은 10~14% | `analysis/fault_kind*.py` |

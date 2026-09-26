@@ -1,6 +1,7 @@
 """현장 조사 검증 — 사람이 본 자전거 상태(survey.csv)와, 그 시각까지의 대여기록으로 엔진이 낸 판단을 맞춘다.
 
-실시간 서버(server/live.py)가 돌고 있으면 조사한 그날 바로 (최근 7일 창 = data/live.sqlite):
+조사한 그날 바로 — 서울 대여이력 API 로 조사 기간과 그 앞 7일을 채워서(data/live.sqlite, 맥 실시간 서버는 꺼져 있어도 됨):
+    python server/supabase_export.py                          # 앱에서 모인 조사 기록 → data/survey.csv
     python analysis/field_validation.py data/survey.csv live
 그달 대여이력 파일로(보통 다음 달 중순 공개):
     python analysis/field_validation.py data/survey.csv data/raw/rent_2610.csv
@@ -76,10 +77,16 @@ def to_markdown(S, m):
 
 if __name__ == "__main__":
     survey = pd.read_csv(sys.argv[1], encoding="utf-8-sig")
-    if sys.argv[2] == "live":
+    if sys.argv[2] == "live":   # 서울 API 로 조사 기간 + 그 앞 7일을 채워서 (맥 실시간 서버가 꺼져 있어도 됨)
         import datetime as dt
         from server import live
-        R = live.window(live.db(), dt.datetime.now())
+        c, now = live.db(), dt.datetime.now()
+        start = pd.to_datetime(survey["at"]).min().to_pydatetime() - dt.timedelta(days=live.LOOKBACK_DAYS)
+        days = (now - start).days + 1
+        print(f"대여 기록 채우는 중: {start:%m-%d} 부터 ({days}일) — 처음이면 몇 분 걸림", flush=True)
+        live.backfill(c, now, days=days)
+        live.ensure_complete(c, start, now)
+        R = live.window(c, now, days=days)
     else:
         R = load_seoul(sys.argv[2])
     S, m = validate(survey, R)
