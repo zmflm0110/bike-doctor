@@ -111,7 +111,7 @@ def pct(a, b):
 
 
 def main():
-    S = load()
+    S = load(DB)
     X = sessions(S)
     q = op_quality(X)
     clean = X[X["op"].isin(q.index[q["clean"]])]
@@ -124,7 +124,7 @@ def main():
         "",
         f"`python analysis/ev_validate.py` 로 다시 만든다. 자료: 서울 충전기 상태 {len(snaps)}번 찍음, "
         f"{snaps.min():%m-%d %H:%M} ~ {snaps.max():%m-%d %H:%M} (약 {hours:.0f}시간, 간격 중앙값 {snaps.diff().dt.total_seconds().median() / 60:.0f}분).",
-        f"그중 빈틈없이 이어 찍은 구간 {len(spans)}개, 합 {covered:.0f}시간 ({covered / hours:.0%}). 나머지는 맥이 잠들었거나 인터넷이 끊긴 때 — "
+        f"그중 빈틈없이 이어 찍은 구간 {len(spans)}개, 합 {covered:.0f}시간 ({covered / hours if hours else 0:.0%}). 나머지는 맥이 잠들었거나 인터넷이 끊긴 때 — "
         "충전기 API 는 지난 기록을 다시 주지 않아 그 사이 충전은 사라진다. 연쇄는 같은 구간 안에서만 잇는다.",
         "",
         "> **아직 판정 전.** 목표는 1\\~2주, 연쇄 2 뒤 다음 충전 100건 이상. 아래는 쌓이는 대로 바뀐다.",

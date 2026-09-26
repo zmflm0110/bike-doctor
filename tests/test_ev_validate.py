@@ -63,3 +63,15 @@ def test_collector_stores_changes_only(tmp_path):
     c.close()
     S = V.load(tmp_path / "ev.sqlite")
     assert len(S) == 2 and len(V.run_times(S)) == 3
+
+
+def test_report_with_one_run(tmp_path, monkeypatch):
+    """GitHub 첫 수집(한 번 찍음)에도 보고서가 죽지 않는다."""
+    from server import ev_collect as E
+    c = E.db(tmp_path / "ev.sqlite")
+    E.store(c, "2026-09-26T17:02:18", [{"statId": "AA000001", "chgerId": "01", "stat": "2", "statUpdDt": "20260926170000",
+                                         "lastTsdt": "20260926165900", "lastTedt": "20260926170000", "nowTsdt": ""}])
+    c.close()
+    monkeypatch.setattr(V, "DB", tmp_path / "ev.sqlite"); monkeypatch.setattr(V, "OUT", tmp_path / "r.md")
+    V.main()
+    assert "판정 전" in (tmp_path / "r.md").read_text()
