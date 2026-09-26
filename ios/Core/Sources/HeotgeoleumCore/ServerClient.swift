@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-/// 맥의 작은 서버(server/app.py)와 주고받기. 서버가 없으면(밖, 오프라인) 앱은 기기에만 남긴다.
+/// 맥의 작은 서버(server/app.py)와 주고받기. 같은 모양으로 GitHub 의 live-data 가지(Cloud.data)도 읽는다.
 public struct ServerClient: Sendable {
     public static let verdicts = ["체인·기어", "타이어", "안장·핸들", "브레이크", "멀쩡함"]
     public static let surveyStatuses = ["멀쩡함", "타이어", "체인·기어", "안장·핸들", "브레이크", "기타 고장"]
@@ -14,8 +14,8 @@ public struct ServerClient: Sendable {
 
     public enum Failure: Error, Equatable { case rejected(Int), server(Int) }
 
-    func send(_ path: String, json: [String: Any]? = nil) async throws -> Data {
-        var req = URLRequest(url: base.appendingPathComponent(path), timeoutInterval: 10)
+    public func send(_ path: String, json: [String: Any]? = nil) async throws -> Data {
+        var req = URLRequest(url: base.appendingPathComponent(path), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
         if let json {
             req.httpMethod = "POST"
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -92,7 +92,7 @@ public actor SurveyQueue {
 
     /// 보내고 남은 건수
     @discardableResult
-    public func flush(with client: ServerClient?) async -> Int {
+    public func flush(with client: (any RecordSink)?) async -> Int {
         guard let client else { return items.count }
         var left: [SurveyRecord] = []
         for var r in items {

@@ -99,7 +99,8 @@ struct MorningView: View {
     private var dayPicker: some View {
         Picker("기준일", selection: Binding(get: { model.day }, set: { model.select(day: $0) })) {
             if model.live != nil { Text("지금 (실시간)").tag(AppModel.liveDay) }
-            ForEach(model.store?.days ?? [], id: \.self) { Text($0).tag($0) }
+            ForEach(model.cloudDays.reversed(), id: \.self) { Text($0 == AppModel.today ? "오늘 아침" : "\(AppModel.koDay($0)) 아침").tag($0) }
+            ForEach(model.store?.days ?? [], id: \.self) { Text("\($0) (시연)").tag($0) }
         }
         .pickerStyle(.menu)
         .lineLimit(1)
@@ -119,7 +120,12 @@ struct MorningView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.background.secondary, in: RoundedRectangle(cornerRadius: 18))
         }
-        return md("\(model.gu.isEmpty ? "" : model.gu + " — ")\(AppModel.koDay(model.day)) 아침, **\(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있었어요 (빨강 \(red)대).\(known ? " 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요." : "")\n\n📅 앱에 넣어 둔 지난 자료(시연용)예요. 지금 목록은 설정에서 맥 서버를 연결하면 떠요.")
+        let lead = model.gu.isEmpty ? "" : model.gu + " — "
+        let body = model.isPastData
+            ? "\(AppModel.koDay(model.day)) 아침, **\(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있었어요 (빨강 \(red)대)."
+            : "오늘 아침, **\(bikes.count)**대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 (빨강 \(red)대)."
+        let tail = model.isPastData ? "\n\n📅 지난 자료예요\(model.cloudLists[model.day] == nil ? "(시연용)" : ""). 지금 목록은 맨 위 날짜에서 '지금 (실시간)' 을 고르세요." : ""
+        return md(lead + body + (known ? " 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요." : "") + tail)
             .font(.subheadline)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)

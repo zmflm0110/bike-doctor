@@ -65,12 +65,12 @@ struct LookupView: View {
         if let hit = model.morning?.bikes.first(where: { $0.bike == id }) { result = .suspect(hit) } else { result = .clean(id) }
     }
 
-    private var until: String { model.isPastData ? "\(AppModel.koDay(model.day)) 아침 목록에서" : "최근" }
+    private var until: String { model.day == AppModel.liveDay ? "최근" : model.isPastData ? "\(AppModel.koDay(model.day)) 아침 목록에서" : "어제까지" }
 
     /// 지난 자료로 본 결과일 때 — 지금 이 자전거 상태는 모른다고 분명히
     @ViewBuilder private var pastNote: some View {
         if model.isPastData {
-            Text("이건 앱에 넣어 둔 \(AppModel.koDay(model.day)) 자료예요. 지금 이 자전거 상태는 맥 서버에 연결돼야 볼 수 있어요 (설정 → 맥 서버 주소, 같은 와이파이).")
+            Text("이건 \(AppModel.koDay(model.day)) 자료예요. 지금 이 자전거 상태는 맨 위 날짜에서 '지금 (실시간)' 을 고르면 볼 수 있어요\(model.live == nil ? " (지금은 실시간 목록을 못 받았어요 — 인터넷 연결 확인)" : "").")
                 .font(.footnote).foregroundStyle(.secondary)
         }
     }
@@ -99,7 +99,7 @@ struct LookupView: View {
                 .background(.background.secondary, in: RoundedRectangle(cornerRadius: 20))
         case .clean(let id):
             VStack(alignment: .leading, spacing: 8) {
-                Label("\(id) — 최근 기록에 헛걸음 연쇄가 없어요.", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
+                Label("\(id) — \(until) 기록에 헛걸음 연쇄가 없어요.", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
                 if let note = model.morning?.feed?.note { Text("⏳ " + note).font(.footnote) }
             }
                 .padding(18)

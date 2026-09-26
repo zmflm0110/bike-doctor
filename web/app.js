@@ -27,7 +27,7 @@ let liveTimer = null;
 async function loadDay(day) {
   state.day = day;
   clearInterval(liveTimer);
-  state.morning = await getJSON(day === "live" ? `data/live.json?t=${Date.now()}` : `data/${state.ops.has(day) ? "ops" : "morning"}/${day}.json`);
+  state.morning = day === "live" ? (await getLive()) || state.morning : await getJSON(state.ops.has(day) ? `${state.opsBase}${day}.json` : `data/morning/${day}.json`);
   if (day === "live") liveTimer = setInterval(() => state.day === "live" && refreshLive(), 60e3);
   state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
   guOptions();
@@ -36,9 +36,17 @@ async function loadDay(day) {
   loadChecked();
 }
 
-// 실시간: server/live.py 가 1분마다 쓰는 data/live.json (반납하자마자 올라오는 서울 대여이력 API)
+// 실시간: 맥의 server/live.py(1분마다, 같은 와이파이) 와 GitHub(10분마다, 어디서든) 중 더 새 것
+async function getLive() {
+  const got = await Promise.allSettled([getJSON(`data/live.json?t=${Date.now()}`), getJSON(`${CLOUD.data}live.json?t=${Date.now()}`)]);
+  const ok = got.map((g, i) => g.status === "fulfilled" && g.value && g.value.at ? { ...g.value, source: i ? "cloud" : "mac" } : null).filter(Boolean)
+    .filter((m) => minsAgo(m.at) <= (m.source === "cloud" ? 45 : 20));   // GitHub 은 붐비면 늦게 돈다
+  return ok.sort((a, b) => b.at.localeCompare(a.at))[0] || null;
+}
 async function refreshLive() {
-  try { state.morning = await getJSON(`data/live.json?t=${Date.now()}`); } catch { return; }
+  const m = await getLive();
+  if (!m) return;
+  state.morning = m;
   state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
   guOptions(); renderMorning();
 }
@@ -76,7 +84,7 @@ function renderMorning() {
     const sc = state.morning.score || {};
     $("#morning-summary").innerHTML =
       `<b>지금</b> <b>${bikes.length}</b>대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 ${red}대). ` +
-      `<span class="muted">${minsAgo(state.morning.at)}분 전 갱신 · 오늘 켜진 경보 ${state.morning.today_alarms}번</span>` +
+      `<span class="muted">${minsAgo(state.morning.at)}분 전 갱신${state.morning.source === "cloud" ? "(10분마다)" : ""} · 오늘 켜진 경보 ${state.morning.today_alarms}번</span>` +
       (sc.scored ? `<br>실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 ${sc.scored}명 중 <b class="confirmed">${sc.next_rider_dud}명(${sc["precision_%"]}%)</b>이 또 바로 반납 (평소 약 2.5%)` : "");
     if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
     $("#morning-summary").insertAdjacentHTML("beforeend", feedNote());
@@ -204,7 +212,10 @@ const noLocation = () => toast("위치를 쓸 수 없어요(아이폰은 https �
 
 // 구조대가 서버에 보낸 확인 결과 (자전거별 {판정: 명}) — 정비 순위에 '사람이 봤음' 으로 붙인다. 서버가 없으면(정적·오프라인) 조용히 건너뜀.
 async function loadChecked() {
-  try { const r = await fetch("api/rescue"); if (r.ok) { state.checked = await r.json(); renderLists(); } } catch {}
+  try {
+    if (sbOn()) { state.checked = await sbChecked(); renderLists(); return; }
+    const r = await fetch("api/rescue"); if (r.ok) { state.checked = await r.json(); renderLists(); }
+  } catch {}
 }
 function checkedOf(bike) {
   const v = state.checked[bike] || {};
@@ -369,10 +380,16 @@ window.rescueSave = async (bike, verdict) => {
   renderRescue();
   // 서버가 있으면 정비 쪽으로 보낸다. 없으면(정적 호스팅·오프라인) 이 기기에만 남는다.
   let sent = "";
+  const day = state.day === "live" ? kstToday() : state.day;
   try {
-    const r = await fetch("api/rescue", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bike, verdict, day: state.day }) });
-    if (r.ok) { const j = await r.json(); sent = ` 지금까지 ${j.count}명이 이 자전거를 확인했어요.`; loadChecked(); }
+    if (sbOn()) {   // 어디서든 → Supabase
+      const r = await sbInsert("rescue", { bike, verdict, day });
+      if (r.ok) { const c = (await sbChecked(bike))[bike] || {}; sent = ` 지금까지 ${Object.values(c).reduce((a, b) => a + b, 0)}명이 이 자전거를 확인했어요.`; loadChecked(); }
+    } else {
+      const r = await fetch("api/rescue", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bike, verdict, day }) });
+      if (r.ok) { const j = await r.json(); sent = ` 지금까지 ${j.count}명이 이 자전거를 확인했어요.`; loadChecked(); }
+    }
   } catch {}
   toast(`고마워요! ${bike} 를 "${verdict}" 로 기록했어요.${sent}`);
 };
@@ -471,16 +488,18 @@ function defaultDay(days) {
   const list = await getJSON("data/stations.json");
   list.forEach((s) => { s.name = s.name.trim(); state.stations[s.id] = s; });   // 원본 이름 앞에 빈칸이 붙은 곳이 많다
   // 시연 목록(data/morning, 월별 파일) + 운영 목록(data/ops, 매일 06:10 — 서버에만 있음)
-  const ops = await getJSON("data/ops/index.json").catch(() => []);
+  // 운영 목록: 맥 서버에 있으면 거기, 없으면(밖·GitHub Pages) GitHub 가 매일 06:10 만든 것
+  state.opsBase = "data/ops/";
+  let ops = await getJSON("data/ops/index.json").catch(() => null);
+  if (!ops || !ops.length) { ops = await getJSON(`${CLOUD.data}ops/index.json?t=${Date.now()}`).catch(() => []); state.opsBase = `${CLOUD.data}ops/`; }
   state.ops = new Set(ops);
   const days = [...new Set([...(await getJSON("data/morning/index.json")), ...ops])].sort();
-  try { state.scores = await getJSON("data/ops/scores.json"); } catch {}   // 운영 중에만 있음
+  try { state.scores = await getJSON(`${state.opsBase}scores.json`); } catch {}   // 운영 중에만 있음
   state.routeValue = await getJSON("data/route_value.json").catch(() => null);   // 정비 동선 값 표
   // 대여소 시간대별 대여 — 시연 날짜는 그때 자료(busy.json, 6/15 앞 7일), 운영(실시간·매일 목록)은 서버가 지난 7일로 쓴 ops/busy.json
   state.busyDemo = await getJSON("data/busy.json").catch(() => ({}));
-  state.busyOps = await getJSON("data/ops/busy.json").catch(() => null);
-  let live = null;
-  try { live = await getJSON(`data/live.json?t=${Date.now()}`); if (minsAgo(live.at) > 20) live = null; } catch {}
+  state.busyOps = await getJSON(`${state.opsBase}busy.json`).catch(() => null);
+  const live = await getLive();
   const pick = live && !new URLSearchParams(location.search).get("day") ? "live" : defaultDay(days);
   $("#day").innerHTML = (live ? `<option value="live" ${pick === "live" ? "selected" : ""}>지금 (실시간)</option>` : "") +
     days.map((d) => `<option ${d === pick ? "selected" : ""}>${d}</option>`).join("");
@@ -495,10 +514,24 @@ function defaultDay(days) {
 const SURVEY_STATUS = ["멀쩡함", "타이어", "체인·기어", "안장·핸들", "브레이크", "기타 고장"];
 function queue() { try { return JSON.parse(localStorage.getItem("survey_queue") || "[]"); } catch { return []; } }
 function setQueue(q) { try { localStorage.setItem("survey_queue", JSON.stringify(q)); return true; } catch { return false; } }
+// Supabase 로 한 건: 사진 먼저 올리고(안 되면 사진만 빼고) 기록. 돌려주는 값은 fetch 응답처럼 {ok, status}
+async function sbSurvey(rec) {
+  const bike = normBike(rec.bike);
+  if (!bike) return { ok: false, status: 400 };
+  let photo = null;
+  if (rec.photo) { try { photo = await sbPhoto(rec.photo); } catch (e) { if (!e.status) throw e; } }   // 네트워크 문제면 다음에 통째로
+  return sbInsert("survey", { at: rec.at || new Date().toISOString(), station: rec.station ? String(rec.station).slice(0, 10) : null, bike,
+    status: rec.status, note: rec.note ? String(rec.note).slice(0, 200) : null, lat: rec.lat ?? null, lon: rec.lon ?? null, photo });
+}
 async function flushQueue() {
   const q = queue(); const left = [];
   for (const rec of q) {
     try {
+      if (sbOn()) {
+        const r = await sbSurvey(rec);
+        if (!r.ok && ![400, 409, 422].includes(r.status)) left.push(rec);   // 잘못된 기록은 버리고, 서버 문제면 다음에 다시
+        continue;
+      }
       let r = await fetch("api/survey", { method: "POST", body: JSON.stringify(rec) });
       if (r.status === 400 && rec.photo) {   // 사진이 거절돼도 본 기록은 살린다
         const { photo, ...plain } = rec;

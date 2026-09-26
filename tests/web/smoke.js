@@ -19,6 +19,8 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "ko-KR", serviceWorkers: "block",
     permissions: ["geolocation"], geolocation: { latitude: 37.5556, longitude: 126.9106 } });   // 망원역 앞에 서 있다고
   await ctx.route(/tile\.openstreetmap\.org/, (r) => r.abort());   // 검사는 바깥 지도 조각 없이 (결과가 인터넷에 안 흔들리게)
+  await ctx.route(/raw\.githubusercontent\.com|supabase\.co/, (r) => r.abort());   // 클라우드 목록·DB 도 막음 — 맥 서버(임시 DB)로만 검사, 필요한 곳은 page.route 로 흉내
+  await ctx.addInitScript(() => { window.HZ_CLOUD_OFF = true; });   // 기록은 맥 서버로 (클라우드 DB 로 보내는 건 아래에서 따로)
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -169,6 +171,32 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     await page.waitForFunction(() => document.querySelector("#morning-summary").textContent.includes("지금"));
     check(!(await page.$("#morning-summary .feed-note")), "자료가 정상이면 알림 없음");
     await page.unroute(/data\/live\.json/);
+    console.log("클라우드 DB (Supabase 흉내) — 밖에서 현장 조사");
+    const cctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "ko-KR", serviceWorkers: "block" });
+    await cctx.route(/tile\.openstreetmap\.org|raw\.githubusercontent\.com/, (r) => r.abort());
+    const calls = [];
+    await cctx.route(/supabase\.co/, (r) => {
+      const u = new globalThis.URL(r.request().url()); calls.push({ path: u.pathname, method: r.request().method(), body: r.request().postData(), key: r.request().headers()["apikey"] });
+      if (u.pathname.includes("/storage/")) return r.fulfill({ status: 200, contentType: "application/json", body: '{"Key":"x"}' });
+      if (r.request().method() === "POST") return r.fulfill({ status: 201, body: "" });
+      return r.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+    });
+    const cp = await cctx.newPage();
+    cp.on("pageerror", (e) => errors.push("cloud: " + e.message));
+    await cp.goto(URL + "?day=2026-06-15", { waitUntil: "networkidle" });
+    await cp.click('#tabs button[data-tab="survey"]');
+    await cp.fill("#survey-bike", "spb 1234");
+    await cp.setInputFiles("#survey-photo", { name: "bike.png", mimeType: "image/png", buffer: Buffer.from(big, "base64") });
+    await cp.waitForFunction(() => !document.querySelector("#survey-thumb").hidden);
+    await cp.click('#survey-choices button[data-st="타이어"]');
+    await cp.waitForFunction(() => document.querySelector("#survey-count").textContent.includes("대"));
+    const up = calls.find((c) => c.path.startsWith("/storage/v1/object/survey-photos/"));
+    const ins = calls.find((c) => c.path === "/rest/v1/survey" && c.method === "POST");
+    const row = ins ? JSON.parse(ins.body) : {};
+    check(!!up && /^[0-9a-f]{16}\.jpg$/.test(up.path.split("/").pop()), "사진을 비공개 저장소에 먼저 (이름 16자 hex.jpg)");
+    check(row.bike === "SPB-01234" && row.status === "타이어" && row.photo === (up && up.path.split("/").pop()), `조사 기록을 클라우드 DB 로 (${row.bike}, 사진 이름 연결)`);
+    check(calls.every((c) => c.key && c.key.startsWith("sb_publishable_")), "공개 키만 씀 (비밀 키 없음)");
+    await cctx.close();
     check(errors.length === 0, "화면 오류 없음" + (errors.length ? ": " + errors.slice(0, 3).join(" | ") : ""));
   } catch (e) {
     fails.push(e.message);

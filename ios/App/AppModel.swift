@@ -26,16 +26,23 @@ final class AppModel {
     var lookupQuery: String?
     var rescueLog: [RescueEntry] = RescueEntry.load()
 
-    /// 맥 서버 주소 (예: http://내맥.local:8765). 비우면 기기에만 남긴다.
+    /// 집 맥 서버 주소 (선택, 예: http://내맥.local:8765) — 같은 와이파이면 1분마다 갱신되는 목록. 없어도 앱은 어디서든 돈다(Cloud).
     var serverURL: String = UserDefaults.standard.string(forKey: "serverURL") ?? ""
     func saveServer() {
         UserDefaults.standard.set(serverURL, forKey: "serverURL")
-        Task { queued = await queue.flush(with: client); await refreshChecked() }
+        Task { queued = await queue.flush(with: sink); await refreshChecked() }
     }
     var client: ServerClient? {
         guard let u = URL(string: serverURL.trimmingCharacters(in: .whitespaces)), u.scheme?.hasPrefix("http") == true else { return nil }
         return ServerClient(base: u)
     }
+    /// 구조대 확인·현장 조사를 보내는 곳 — 어디서든 Supabase (키가 없으면 맥 서버)
+    var sink: (any RecordSink)? { Cloud.supabaseKey.isEmpty ? client : SupabaseClient() }
+    /// GitHub 가 10분마다 만드는 목록 (live-data 가지)
+    let cloud = ServerClient(base: Cloud.data)
+    /// GitHub 가 매일 06:10 만든 아침 목록 (최근 7일) — 앱에 넣은 시연 자료보다 먼저 보인다
+    var cloudLists: [String: MorningList] = [:]
+    var cloudDays: [String] { cloudLists.keys.sorted() }
 
     let queue = SurveyQueue(file: URL.documentsDirectory.appendingPathComponent("survey_queue.json"))
     private let locator = Locator()
@@ -50,37 +57,62 @@ final class AppModel {
         } catch {
             loadError = "앱 안의 자료(data 폴더)를 읽지 못했어요: \(error.localizedDescription)"
         }
-        queued = await queue.flush(with: client)
+        queued = await queue.flush(with: sink)
         await refreshChecked()
+        await refreshCloudDays()
         await refreshLive()
-        if live != nil, UserDefaults.standard.string(forKey: "day") == nil { select(day: Self.liveDay) }   // 실시간이 있으면 먼저 (-day 인자로 고정 가능)
+        if UserDefaults.standard.string(forKey: "day") == nil {   // -day 인자로 고정하지 않았으면: 실시간 → 오늘 아침 목록 → 시연 자료
+            if live != nil { select(day: Self.liveDay) } else if let d = cloudDays.last, d == Self.today { select(day: d) }
+        }
+    }
+
+    /// 오늘(서울) 'YYYY-MM-DD'
+    static var today: String {
+        let f = DateFormatter(); f.timeZone = TimeZone(identifier: "Asia/Seoul"); f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
+    }
+
+    /// GitHub 의 최근 아침 목록 받기 (없거나 밖이 아니어도 조용히 넘어감)
+    func refreshCloudDays() async {
+        guard let d = try? await cloud.send("data/ops/index.json"), let days = try? JSONDecoder().decode([String].self, from: d) else { return }
+        for day in days.suffix(7) where cloudLists[day] == nil {
+            if let data = try? await cloud.send("data/ops/\(day).json"), var m = try? JSONDecoder().decode(MorningList.self, from: data) {
+                for i in m.bikes.indices { m.bikes[i].stationName = m.bikes[i].stationName.trimmingCharacters(in: .whitespaces) }
+                cloudLists[day] = m
+            }
+        }
     }
 
     /// 맥 서버 연결 상태 — 설정의 '연결 확인' 과 조회 안내에 쓴다. nil = 주소 없음
     var serverStatus: String?
 
-    /// 실시간 목록 다시 받기 — 화면이 1분마다 부른다
+    /// 실시간 목록 다시 받기 — 화면이 1분마다 부른다. 집 맥(1분 간격, 같은 와이파이)과 GitHub(10분 간격, 어디서든) 중 더 새 것
     func refreshLive() async {
-        func drop(_ why: String?) {
-            serverStatus = why
-            if live != nil { live = nil; if day == Self.liveDay { select(day: store?.defaultDay() ?? "") } }
-        }
-        guard let client else { return drop(nil) }
-        do {
-            let m = try await client.live()
-            guard let at = m.at else { return drop("맥에 닿았지만 실시간 목록이 없어요 — 맥에서 실시간 서버(server/live.py)가 도는지 확인해 주세요.") }
+        let (mc, cc) = (client, cloud)   // 메인 액터 밖에서 동시에 받으려고 값으로 꺼냄
+        async let mac: MorningList? = { guard let mc else { return nil }; return try? await mc.live() }()
+        async let web: MorningList? = try? await cc.live()
+        let (m, w) = await (mac, web)
+        let fresh = [(m, 20, "집 맥"), (w, 45, "클라우드")].compactMap { x, limit, name -> (MorningList, Int, String)? in
+            guard let x, let at = x.at else { return nil }
             let ago = Self.minutesAgo(at)
-            guard ago <= 20 else { return drop("맥에 닿았지만 실시간 목록이 \(ago)분 전 것이에요 — 맥이 잠들었었나 봐요. 깨우면 몇 분 안에 따라잡아요.") }
-            serverStatus = "연결됨 · 지금 의심 \(m.bikes.count)대 (\(ago)분 전 갱신)"
-            live = m
-            if day == Self.liveDay { morning = m }
-        } catch {
-            drop("맥 서버에 닿지 않아요. 집 와이파이에 연결돼 있는지, 맥이 켜져 있는지 확인해 주세요. 밖에서는 아직 안 돼요. (\(error.localizedDescription))")
+            return ago <= limit ? (x, ago, name) : nil
+        }.min { $0.1 < $1.1 }
+        guard let (best, ago, name) = fresh else {
+            serverStatus = client == nil ? "실시간 목록을 받지 못했어요 — 인터넷 연결을 확인해 주세요." :
+                "집 맥에도, 클라우드에도 닿지 않거나 목록이 오래됐어요 — 인터넷 연결을 확인해 주세요."
+            if live != nil { live = nil; if day == Self.liveDay { select(day: cloudDays.last ?? store?.defaultDay() ?? "") } }
+            return
         }
+        serverStatus = "연결됨 · \(name) · 지금 의심 \(best.bikes.count)대 (\(ago)분 전 갱신)"
+        live = best
+        liveSource = name
+        if day == Self.liveDay { morning = best }
     }
+    /// 지금 목록이 어디서 왔나 — "집 맥" (1분마다) / "클라우드" (10분마다)
+    var liveSource = ""
 
     /// 시연(지난) 자료를 보고 있나 — 실시간이 아니면 앱에 넣은 지난 날의 아침 목록이다
-    var isPastData: Bool { day != Self.liveDay }
+    var isPastData: Bool { day != Self.liveDay && day != Self.today }
     /// "2026-06-15" → "6월 15일"
     static func koDay(_ d: String) -> String {
         let p = d.split(separator: "-").compactMap { Int($0) }
@@ -106,7 +138,7 @@ final class AppModel {
     func select(day d: String) {
         day = d
         guard let store, !day.isEmpty else { return }
-        morning = day == Self.liveDay ? live : (try? store.morning(day))
+        morning = day == Self.liveDay ? live : (cloudLists[day] ?? (try? store.morning(day)))
         if !gu.isEmpty, !(morning?.bikes.contains { store.gu(of: $0) == gu } ?? false) { gu = "" }
     }
 
@@ -148,8 +180,8 @@ final class AppModel {
     // MARK: 구조대·서버
 
     func refreshChecked() async {
-        guard let client else { return }
-        if let c = try? await client.checked() { checked = c }
+        guard let sink else { return }
+        if let c = try? await sink.checked() { checked = c }
     }
 
     func rescue(_ bike: String, _ verdict: String) async {
@@ -157,7 +189,7 @@ final class AppModel {
         rescueLog.insert(RescueEntry(bike: bike, verdict: verdict, day: recordDay, at: Date()), at: 0)
         RescueEntry.save(rescueLog)
         var sent = ""
-        if let client, let n = try? await client.rescue(bike: bike, verdict: verdict, day: recordDay) {
+        if let sink, let n = try? await sink.rescue(bike: bike, verdict: verdict, day: recordDay) {
             sent = " 지금까지 \(n)명이 이 자전거를 확인했어요."
             await refreshChecked()
         }
@@ -166,7 +198,7 @@ final class AppModel {
 
     func survey(_ r: SurveyRecord) async {
         do { try await queue.add(r) } catch { show("기기에 저장하지 못했어요: \(error.localizedDescription)"); return }
-        queued = await queue.flush(with: client)
+        queued = await queue.flush(with: sink)
         await refreshChecked()
         show("\(r.bike) → \(r.status)\(r.photoJPEG != nil ? " (사진 포함)" : "")\(queued > 0 ? " — 서버에 못 보낸 \(queued)건은 폰에 보관 중" : "")")
     }

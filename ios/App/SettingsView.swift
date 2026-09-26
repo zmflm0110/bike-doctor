@@ -13,17 +13,19 @@ struct SettingsView: View {
                     TextField("http://내맥이름.local:8765", text: $model.serverURL)
                         .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                 } header: {
-                    Text("맥 서버 주소 (선택)")
+                    Text("집 맥 서버 (선택)")
                     Button(checking ? "확인하는 중…" : "연결 확인") {
                         Task { checking = true; model.saveServer(); await model.refreshLive(); checking = false }
                     }
-                    .disabled(checking || model.serverURL.isEmpty)
+                    .disabled(checking)
                     if let s = model.serverStatus { Text(s).font(.footnote) }
                 } footer: {
-                    Text("맥의 '시스템 설정 → 일반 → 공유' 맨 아래 이름 뒤에 .local:8765 를 붙여 넣으세요 (예: http://내맥이름.local:8765). 폰과 맥이 같은 와이파이여야 하고, 맥이 켜져 있어야 '지금' 목록이 떠요. 연결 안 돼도 구조대 확인·현장 조사는 폰에 보관했다가 나중에 보냅니다.")
+                    Text("없어도 됩니다 — 앱은 어디서든 클라우드(10분마다 갱신)로 돌고, 구조대 확인·현장 조사는 클라우드 DB 로 바로 갑니다(인터넷이 없으면 폰에 보관했다가 나중에). 집 와이파이에서 맥 서버를 켜 두면 1분마다 갱신되는 목록을 먼저 씁니다: 맥의 '시스템 설정 → 일반 → 공유' 맨 아래 이름 뒤에 .local:8765 (예: http://내맥이름.local:8765).")
                 }
                 Section("자료") {
-                    LabeledContent("아침 목록", value: "\(model.store?.days.count ?? 0)일 (\(model.store?.days.first ?? "") ~ \(model.store?.days.last ?? ""))")
+                    LabeledContent("지금 목록", value: model.live == nil ? "못 받음" : "\(model.liveSource) · \(AppModel.minutesAgo(model.live?.at ?? ""))분 전")
+                    LabeledContent("매일 아침 목록 (클라우드)", value: model.cloudDays.isEmpty ? "아직 없음" : "\(model.cloudDays.count)일 (~ \(model.cloudDays.last ?? ""))")
+                    LabeledContent("시연 자료 (앱 안)", value: "\(model.store?.days.count ?? 0)일 (\(model.store?.days.first ?? "") ~ \(model.store?.days.last ?? ""))")
                     LabeledContent("대여소", value: "\(model.store?.stations.count ?? 0)곳")
                     LabeledContent("보관 중인 조사 기록", value: "\(model.queued)건")
                 }
