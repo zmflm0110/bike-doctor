@@ -226,11 +226,18 @@ def main():
     stn = {s["id"]: s["name"].strip() for s in json.load(open(ROOT / "web" / "data" / "stations.json"))}
     n = backfill(c, dt.datetime.now())
     print(f"지난 {LOOKBACK_DAYS}일 채움: 새로 {n:,}건", flush=True)
-    i = 0
+    i, last = 0, None
     while True:
         now = dt.datetime.now()
         try:
-            out = tick(c, now, stn, refresh_older=(i % 10 == 0))
+            # 맥이 잠들었다 깨면(지난 판단에서 3분 넘게 지남) 바로 지난 7시간을 다시 받고, 잠든 사이 통째로 빠진 시간도 채운다
+            # (2026-09-25 22시~26일 9시 잠듦 → 23·0·1시가 아예 안 받아졌었다: 지난 7일 채우기는 켤 때만 돌았음)
+            woke = last is not None and (now - last) > dt.timedelta(minutes=3)
+            if woke or i % 10 == 0:
+                n = backfill(c, now)
+                if n or woke:
+                    print(f"{now:%m-%d %H:%M} {'깨어남 — ' if woke else ''}빠진 시간 채움: 새로 {n:,}건", flush=True)
+            out = tick(c, now, stn, refresh_older=(woke or i % 10 == 0))
             s, f = out["score"], out["feed"]
             print(f"{now:%m-%d %H:%M} 지금 의심 {len(out['bikes'])}대 · 오늘 경보 {out['today_alarms']} · "
                   f"채점 {s.get('scored', 0)}건 정밀도 {s.get('precision_%')}%"
@@ -239,7 +246,7 @@ def main():
             print(f"{now:%m-%d %H:%M} 실패: {e}", flush=True)
         if a.once:
             break
-        i += 1
+        i, last = i + 1, now
         time.sleep(max(5, a.every - (dt.datetime.now() - now).total_seconds()))   # 받기·판정에 걸린 시간을 빼고 기다림 → 약 1분 간격
 
 

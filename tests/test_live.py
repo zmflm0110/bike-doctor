@@ -97,3 +97,23 @@ def test_fetch_pages_until_short_page(monkeypatch):
     assert len(seoul_api.fetch("bikeList", "rentBikeStatus", k="x")) == 2747
     n = 3000   # 딱 떨어질 때: 다음 쪽의 '자료 없음' 으로 끝
     assert len(seoul_api.fetch("bikeList", "rentBikeStatus", k="x")) == 3000
+
+
+def test_backfill_fills_hours_missed_while_asleep(tmp_path, monkeypatch):
+    """맥이 잠든 사이 통째로 빠진 시간(지난 판단 창 7시간보다 오래된 것)을 채운다 — 이미 받은 시간은 다시 안 받는다."""
+    from server import seoul_api
+    c = live.db(tmp_path / "b.sqlite")
+    now = dt.datetime(2026, 9, 26, 16, 22)
+    t, have = (now - dt.timedelta(days=7)).replace(minute=0), []
+    while t < now - dt.timedelta(hours=7):
+        h = t.strftime("%Y-%m-%d/%H")
+        if h not in ("2026-09-25/23", "2026-09-26/00", "2026-09-26/01"):
+            have.append(h)
+        t += dt.timedelta(hours=1)
+    _hours(c, {h: 5000 for h in have})
+    asked = []
+    monkeypatch.setattr(seoul_api, "fetch", lambda svc, root, hour, **k: asked.append(hour) or [])
+    live.backfill(c, now)
+    assert sorted(asked) == ["2026-09-25/23", "2026-09-26/00", "2026-09-26/01"]
+    asked.clear(); live.backfill(c, now)
+    assert asked == []
