@@ -40,7 +40,7 @@ async function loadDay(day) {
 async function getLive() {
   const got = await Promise.allSettled([getJSON(`data/live.json?t=${Date.now()}`), getJSON(`${CLOUD.data}live.json?t=${Date.now()}`)]);
   const ok = got.map((g, i) => g.status === "fulfilled" && g.value && g.value.at ? { ...g.value, source: i ? "cloud" : "mac" } : null).filter(Boolean)
-    .filter((m) => minsAgo(m.at) <= (m.source === "cloud" ? 45 : 20));   // GitHub 은 붐비면 늦게 돈다
+    .filter((m) => minsAgo(m.at) <= (m.source === "cloud" ? 180 : 20));   // GitHub 은 붐비면 예약을 건너뛴다 — 3시간 안이면 늦었다고 알리고 보여 줌(6월 시연 자료보다 낫다)
   return ok.sort((a, b) => b.at.localeCompare(a.at))[0] || null;
 }
 async function refreshLive() {
@@ -89,6 +89,8 @@ function renderMorning() {
         : sc.scored ? `<br><span class="muted">실시간 경보 채점을 모으는 중 (${sc.scored}건 — 20건부터 보여 줘요)</span>` : "");   // 몇 건으로 낸 % 는 오해를 부른다
     if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
     $("#morning-summary").insertAdjacentHTML("beforeend", feedNote());
+    if (minsAgo(state.morning.at) > 30) $("#morning-summary").insertAdjacentHTML("beforeend",
+      `<p class="past-note">⏳ 목록 갱신이 늦어지고 있어요(마지막 ${minsAgo(state.morning.at)}분 전). 그사이 새로 생긴 경보는 아직 안 보일 수 있어요.</p>`);
     renderMap(bikes); renderRetro(bikes); renderLists(); renderStories();
     return;
   }

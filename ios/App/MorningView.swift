@@ -115,7 +115,8 @@ struct MorningView: View {
             let n = sc?.scored ?? 0   // 몇 건으로 낸 % 는 오해를 부른다 — 20건부터
             let scored = n >= 20 ? "\n실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 \(n)명 중 **\(sc?.nextRiderDud ?? 0)명**(\(Int((sc?.precision ?? 0).rounded()))%)이 또 바로 반납 (평소 약 2.5%)"
                 : n > 0 ? "\n실시간 경보 채점을 모으는 중 (\(n)건 — 20건부터 보여 줘요)" : ""
-            let feed = m.feed?.note.map { "\n\n⏳ \($0)" } ?? ""
+            let late = AppModel.minutesAgo(m.at ?? "") > 30 ? "\n\n⏳ 목록 갱신이 늦어지고 있어요(마지막 \(AppModel.minutesAgo(m.at ?? ""))분 전). 그사이 새로 생긴 경보는 아직 안 보일 수 있어요." : ""
+            let feed = (m.feed?.note.map { "\n\n⏳ \($0)" } ?? "") + late
             return md("\(model.gu.isEmpty ? "" : model.gu + " — ")**지금 \(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 \(red)대). \(AppModel.minutesAgo(m.at ?? ""))분 전 갱신 · 오늘 켜진 경보 \(m.todayAlarms ?? 0)번\(scored)\(feed)")
                 .font(.subheadline)
                 .padding(12)

@@ -148,6 +148,15 @@ security add-generic-password -a bike-doctor -s datagokr -w           # 공공�
 </details>
 
 <details>
+<summary><b>안드로이드에서 쓰기 (APK)</b></summary>
+
+- 웹앱을 [Capacitor](https://capacitorjs.com) 로 감싼 앱(`android-app/`). 지금 목록·조회·QR·위치 동선·재생·현장 조사(사진 찍기)가 그대로, 인터넷이 없으면 앱 안의 시연 자료로.
+- 만들기(맥): `brew install openjdk@21 && brew install --cask android-commandlinetools` → SDK(`platforms;android-36`, `build-tools;36.0.0`) → `cd android-app && npm i && npm run apk` (디버그) 또는 `npm run release` (서명 — 열쇠 `data/android/`, 비밀번호 키체인 `android-keystore`).
+- 아이콘·시작 화면: `node tools/make_android_assets.js`. 에뮬레이터 기능 시험: `tests/android/webview_e2e.js`.
+- 대회 제출 zip: `python tools/make_submission.py --id <학번> --name <이름>` (APK·소스·출처·영상·보고서·발표를 규칙대로 한 파일로).
+</details>
+
+<details>
 <summary><b>아이폰에서 쓰기</b></summary>
 
 - **웹앱**: 같은 와이파이에서 사파리로 `http://<맥 이름>.local:8765` → 공유 → 홈 화면에 추가.
@@ -179,6 +188,8 @@ GitHub 에 올릴 때마다 `test`(파이썬·웹), `ios`(Swift 엔진·Xcode �
 | [`analysis/`](analysis) | 검증 스크립트 — 기준 선택, 실시간 가능성, API 대조, 현장 검증, 그림 |
 | [`web/`](web) | 웹앱 — 아침 목록·자전거 조회(QR)·구조대·시연·현장 조사, 오프라인 동작 |
 | [`ios/`](ios/README.md) | 아이폰 앱(SwiftUI) — 엔진 패키지 `Core/`, 화면 `App/` |
+| [`android-app/`](android-app) | 안드로이드 앱(APK) — `web/` 을 Capacitor 로 감쌈 |
+| [`supabase/`](supabase/schema.sql) | 쓰기 DB 표·권한(누구나 넣기만, 확인 수만 읽기) |
 | [`site/`](site) | 작품 소개 웹사이트 (GitHub Pages) |
 | [`docs/`](docs/README.md) | 보고서·발표·결과 표·절차 — [문서 목록](docs/README.md) |
 | [`tests/`](tests) | 파이썬 테스트 23개, 웹 화면·오프라인 검사 |

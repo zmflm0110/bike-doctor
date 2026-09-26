@@ -170,6 +170,10 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     live.feed = { ok: true }; await page.goto(URL, { waitUntil: "networkidle" });
     await page.waitForFunction(() => document.querySelector("#morning-summary").textContent.includes("지금"));
     check(!(await page.$("#morning-summary .feed-note")), "자료가 정상이면 알림 없음");
+    live.at = new Date(Date.now() + 9 * 3600e3 - 90 * 60e3).toISOString().slice(0, 19);   // 클라우드 예약이 건너뛰어 90분 묵음
+    await page.goto(URL, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => document.querySelector("#morning-summary").textContent.includes("지금"));
+    check(/늦어지고 있어요\(마지막 9\d분 전\)/.test(await page.textContent("#morning-summary")), "90분 묵은 클라우드 목록도 보여 주되 늦었다고 알림");
     await page.unroute(/data\/live\.json/);
     console.log("클라우드 DB (Supabase 흉내) — 밖에서 현장 조사");
     const cctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "ko-KR", serviceWorkers: "block" });

@@ -92,7 +92,7 @@ final class AppModel {
         async let mac: MorningList? = { guard let mc else { return nil }; return try? await mc.live() }()
         async let web: MorningList? = try? await cc.live()
         let (m, w) = await (mac, web)
-        let fresh = [(m, 20, "집 맥"), (w, 45, "클라우드")].compactMap { x, limit, name -> (MorningList, Int, String)? in
+        let fresh = [(m, 20, "집 맥"), (w, 180, "클라우드")].compactMap { x, limit, name -> (MorningList, Int, String)? in
             guard let x, let at = x.at else { return nil }
             let ago = Self.minutesAgo(at)
             return ago <= limit ? (x, ago, name) : nil
