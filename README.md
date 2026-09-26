@@ -7,6 +7,8 @@
   <a href="https://zmflm0110.github.io/bike-doctor/app/"><img alt="웹앱" src="https://img.shields.io/badge/웹앱-써_보기-237032"></a>
   <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/test.yml"><img alt="검사" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/test.yml/badge.svg"></a>
   <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/ios.yml"><img alt="아이폰 앱 빌드" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/ios.yml/badge.svg"></a>
+  <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/live.yml"><img alt="실시간 경보" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/live.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="라이선스 MIT" src="https://img.shields.io/badge/라이선스-MIT-555"></a>
 </p>
 
 <p align="center">
@@ -196,3 +198,4 @@ GitHub 에 올릴 때마다 `test`(파이썬·웹), `ios`(Swift 엔진·Xcode �
 - **참고 연구**: Kaspi·Raviv·Tzur, [Detection of Unusable Bicycles in Bike-Sharing Systems](https://www.researchgate.net/publication/290496984_Detection_of_Unusable_Bicycles_in_Bike-Sharing_Systems) (Omega, 2016) · [Self-Supervised Transformer for Unusable Shared Bike Detection](https://arxiv.org/pdf/2505.00932) (2025).
   이 작품은 한국 공개 자료로 누구나 재현할 수 있고, 같은 사람의 재시도를 걸러 낸 "서로 다른 사람" 연쇄를 쓰며, 근거(앞사람 몇 명이 포기했는지)를 이용자 화면에 그대로 보여 준다.
 - **포함한 라이브러리**: [Leaflet](https://leafletjs.com) 1.9.4 (BSD-2), [jsQR](https://github.com/cozmo/jsQR) 1.4.0 (Apache-2.0) — `web/vendor/` 에 라이선스 동봉. 지도 © OpenStreetMap 기여자. 글꼴 [Pretendard](https://github.com/orioncactus/pretendard) (OFL).
+- **라이선스**: 코드는 [MIT](LICENSE). 자료는 각 출처의 공공누리 제1유형(출처 표시).
