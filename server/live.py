@@ -12,7 +12,7 @@
 채점에선 빠진 대여 때문에 '다음 사람' 을 잘못 볼 수 있다. 그래서 시간마다 평소(같은 시각 지난 7일 중앙값)와 비교해
 크게 모자란 시간(THIN)은 48시간 동안 10분마다 다시 받고, 앱에 '자료 지연' 을 알리고, 그 시간이 낀 경보는 채점을 보류한다.
 """
-import argparse, datetime as dt, json, pathlib, sqlite3, sys, time
+import argparse, datetime as dt, json, os, pathlib, sqlite3, sys, time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import numpy as np
@@ -21,15 +21,20 @@ from engine.core import from_rows, mark
 from engine.morning import RULE
 from server import seoul_api
 
-DB = ROOT / "data" / "live.sqlite"
-OUT = ROOT / "web" / "data" / "live.json"
+# 경로는 환경변수로 바꿀 수 있다 — GitHub 에서 돌 때(.github/workflows/live.yml) 캐시에 둔 DB 와 올릴 폴더를 쓴다
+DB = pathlib.Path(os.environ.get("LIVE_DB", ROOT / "data" / "live.sqlite"))
+OUT = pathlib.Path(os.environ.get("LIVE_OUT", ROOT / "web" / "data" / "live.json"))
+OPS = pathlib.Path(os.environ.get("OPS_DIR", ROOT / "web" / "data" / "ops"))
+SEEN_MIN = int(os.environ.get("LIVE_SEEN_MIN", "10"))   # 이 안에 알아챈 경보만 '실시간' 채점 (GitHub 은 10분마다라 30)
 LOOKBACK_DAYS = 7          # 연쇄는 며칠 이어지기도 한다 (아침 목록과 같게)
 FRESH_HOURS = 24           # 마지막 헛대여가 이보다 오래된 연쇄는 목록에서 뺌 — 2일+ 서 있던 연쇄는 다음 사람 헛걸음 10~12% (docs/report.md 5-4)
 COLS = ["bike", "t0", "st0", "t1", "st1", "dist_m", "who"]
 
 
-def db(path=DB):
-    c = sqlite3.connect(path)
+def db(path=None):
+    path = pathlib.Path(path or DB)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(path, timeout=30)
     c.execute("create table if not exists rentals(bike text, t0 text, st0 text, t1 text, st1 text, dist_m real, who text, primary key(bike, t0))")
     c.execute("create table if not exists hours(hour text primary key, rows int, fetched_at text)")
     c.execute("create table if not exists alarms(bike text, at text, station text, chain int, seen_at text, primary key(bike, at))")
@@ -166,7 +171,7 @@ def score(c, now, live_only=True):
     live_only: 서비스가 켜져 있을 때 10분 안에 알아챈 경보만 (처음 채운 지난 7일 경보는 파일로 잰 것과 같은 옛 기록이라 뺌)."""
     A = pd.read_sql("select * from alarms", c)
     if live_only and not A.empty:
-        A = A[(pd.to_datetime(A["seen_at"]) - pd.to_datetime(A["at"])) <= pd.Timedelta(minutes=10)]
+        A = A[(pd.to_datetime(A["seen_at"]) - pd.to_datetime(A["at"])) <= pd.Timedelta(minutes=SEEN_MIN)]
     if A.empty:
         return {"alarms": 0}
     R = mark(window(c, now, days=LOOKBACK_DAYS + 2), RULE)
@@ -214,11 +219,11 @@ def tick(c, now, station_name, refresh_older=False):
     if refresh_older:   # 10분마다 오래된 기록 정리 + 정비 동선용 대여소 붐빔(지난 7일 시간대별)
         prune(c, now)
         from engine.busy import station_busy
-        ops = ROOT / "web" / "data" / "ops"
-        ops.mkdir(parents=True, exist_ok=True)
-        json.dump(station_busy(R, days=LOOKBACK_DAYS, end=pd.Timestamp(now)), open(ops / "busy.json", "w"), separators=(",", ":"))
+        OPS.mkdir(parents=True, exist_ok=True)
+        json.dump(station_busy(R, days=LOOKBACK_DAYS, end=pd.Timestamp(now)), open(OPS / "busy.json", "w"), separators=(",", ":"))
     if refresh_older or not _last_score:   # 채점은 10분마다
         _last_score.clear(); _last_score.update(score(c, pd.Timestamp(now)))
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     tmp = OUT.with_suffix(".tmp")
     json.dump(out, open(tmp, "w"), ensure_ascii=False)
     tmp.replace(OUT)   # 앱이 반쯤 쓴 파일을 읽지 않게

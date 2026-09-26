@@ -1,12 +1,82 @@
-# 실시간 경보를 맥 대신 GitHub 에서 (작업 중 — 먼저 서울 API 가 GitHub 서버에서 열리는지 확인)
+# 실시간 경보를 맥 대신 GitHub 에서 — 맥이 꺼져 있어도, 폰이 밖에 있어도 '지금' 목록이 뜨게. (사용자 허락 2026-09-26)
+#   10분마다(붐비면 GitHub 이 조금 늦게 돌림): 서울 대여이력 API → DB(SQLite) → 경보·채점·06:10 아침 목록
+#   → 결과 JSON 을 live-data 가지에 올림. 앱·웹앱은 https://raw.githubusercontent.com/<저장소>/live-data/data/... 를 읽는다.
+# 비밀: SEOUL_OPENAPI_KEY(서울 인증키), LIVE_STATE_KEY(DB 암호). 코드·git 에는 없다.
+# DB 에는 대여의 생년·성별이 있어 캐시에 넣기 전에 암호화한다 — 다른 사람의 PR 작업도 기본 가지 캐시를 풀 수 있어서.
+# 끄기: 저장소 Actions → live → ⋯ → Disable workflow
 name: live
 on:
+  schedule:
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write   # live-data 가지에 올리기
+  actions: write    # 지난 DB 캐시 지우기
+concurrency:
+  group: live
+  cancel-in-progress: false   # 한 번에 하나씩 — DB 를 이어받는다
 jobs:
-  probe:
+  live:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TZ: Asia/Seoul
+      SEOUL_OPENAPI_KEY: ${{ secrets.SEOUL_OPENAPI_KEY }}
+      LIVE_STATE_KEY: ${{ secrets.LIVE_STATE_KEY }}
+      LIVE_DB: state/live.sqlite
+      DAILY_DB: state/daily.sqlite
+      LIVE_OUT: out/data/live.json
+      OPS_DIR: out/data/ops
+      LIVE_SEEN_MIN: "30"
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - run: |
-          curl -s -m 30 -w '\nHTTP %{http_code} %{time_total}s\n' "http://openapi.seoul.go.kr:8088/sample/json/tbCycleRentData/1/2/2026-09-26/10" | tail -c 400
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install pandas numpy
+      - name: 지난 DB 이어받기
+        uses: actions/cache/restore@v4
+        with:
+          path: cache
+          key: live-db-${{ github.run_id }}
+          restore-keys: live-db-
+      - name: DB 풀기
+        run: |
+          mkdir -p state
+          if [ -f cache/state.enc ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:LIVE_STATE_KEY -in cache/state.enc | zstd -dq | tar -x
+          fi
+          ls -la state
+      - name: 지난 결과 이어받기 (아침 목록은 날마다 쌓인다)
+        run: |
+          mkdir -p out
+          if git ls-remote --exit-code origin live-data >/dev/null; then
+            git fetch -q --depth 1 origin live-data && git archive FETCH_HEAD | tar -x -C out
+          fi
+      - name: 경보 (처음이면 지난 7일부터 채움)
+        run: python server/live.py --once
+      - name: 아침 목록 (06:10 이 지났고 오늘 것이 없으면)
+        run: |
+          if [ "$(date +%H%M)" -ge 0610 ] && [ ! -f "$OPS_DIR/$(date +%F).json" ]; then python server/daily_job.py --source live; fi
+      - name: DB 잠그기
+        run: |
+          rm -rf cache && mkdir cache
+          tar -c state | zstd -q -3 | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:LIVE_STATE_KEY -out cache/state.enc
+          ls -la cache
+      - name: DB 보관
+        uses: actions/cache/save@v4
+        with:
+          path: cache
+          key: live-db-${{ github.run_id }}
+      - name: 지난 DB 캐시 지우기 (방금 것만 남김)
+        run: |
+          gh cache list -R "$GITHUB_REPOSITORY" --key live-db- --sort created_at --order desc --limit 100 --json id -q '.[1:][].id' |
+            xargs -r -n1 gh cache delete -R "$GITHUB_REPOSITORY" || true
+      - name: 결과 올리기 (live-data 가지, 한 커밋만 유지)
+        run: |
+          cd out
+          git init -q && git checkout -q -b live-data
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "실시간 결과 $(date '+%m-%d %H:%M')"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" live-data

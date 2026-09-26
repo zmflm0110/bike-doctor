@@ -7,7 +7,7 @@
                                   → engine/core.py FIELDS 에 한 줄. 날짜 인자 이름이 다르면 --date-param.
 그리고 키 1 이 있으면 실시간 대여소 현황을 web/data/status.json 에 남긴다(지도의 지금 자전거 수).
 """
-import argparse, datetime as dt, json, pathlib, sqlite3, sys
+import argparse, datetime as dt, json, os, pathlib, sqlite3, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import pandas as pd
@@ -16,12 +16,13 @@ from engine.morning import RULE, morning_lists
 from server import seoul_api
 
 OUT = ROOT / "web" / "data" / "morning"   # 시연용(월별 파일) — git 에 들어감
-OPS = ROOT / "web" / "data" / "ops"       # 운영(API·실시간) 매일 목록·채점·대여소 현황 — git 에서 뺌(매일 바뀜), 앱이 둘을 합쳐 보여 줌
-DB = ROOT / "data" / "daily.sqlite"
+OPS = pathlib.Path(os.environ.get("OPS_DIR", ROOT / "web" / "data" / "ops"))       # 운영(API·실시간) 매일 목록·채점·대여소 현황 — git 에서 뺌(매일 바뀜), 앱이 둘을 합쳐 보여 줌
+DB = pathlib.Path(os.environ.get("DAILY_DB", ROOT / "data" / "daily.sqlite"))
 LOOKBACK_DAYS = 7   # 연쇄는 며칠씩 이어지기도 한다 — 일주일 치를 보고 오늘 아침 목록을 만든다 (server/rehearse.py 로 확인)
 
 
 def db(path=None):
+    pathlib.Path(path or DB).parent.mkdir(parents=True, exist_ok=True)
     c = sqlite3.connect(path or DB)
     c.execute("create table if not exists lists(day text, bike text, station text, chain int, level text, primary key(day, bike))")
     c.execute("create table if not exists scores(day text primary key, listed int, rode int, first_dud int, scored_at text)")

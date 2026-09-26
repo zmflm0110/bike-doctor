@@ -1,6 +1,9 @@
 # 올릴 때마다: 엔진·서버 단위 테스트 + 웹앱 휴대폰 화면 검사 + 진짜 오프라인 시연 검사 (원본 자료·인증키 불필요)
 name: test
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]   # live-data(실시간 결과, 10분마다) 는 검사하지 않음
+  pull_request:
 jobs:
   test:
     runs-on: ubuntu-latest
