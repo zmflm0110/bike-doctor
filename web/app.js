@@ -511,7 +511,7 @@ function defaultDay(days) {
   await loadDay($("#day").value);
   stationOptions(null);
   flushQueue();
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  if ("serviceWorker" in navigator && !window.Capacitor) navigator.serviceWorker.register("sw.js").catch(() => {});   // 안드로이드 앱은 파일이 앱 안에 있어 필요 없음
 })();
 
 // ── 현장 조사 (검증용): 보이는 그대로 기록 → 서버, 안 되면 폰에 모아 두고 다음에 보냄

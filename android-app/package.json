@@ -1,0 +1,15 @@
+{
+  "name": "heotgeoleum-zero-android",
+  "private": true,
+  "description": "헛걸음 제로 안드로이드 앱 — web/ 웹앱을 Capacitor 로 감싼 APK (대회 제출용 설치파일)",
+  "scripts": {
+    "web": "node sync-web.js",
+    "sync": "node sync-web.js && npx cap sync android",
+    "apk": "node sync-web.js && npx cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
+}

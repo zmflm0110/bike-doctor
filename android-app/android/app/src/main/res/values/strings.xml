@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">헛걸음 제로</string>
+    <string name="title_activity_main">헛걸음 제로</string>
+    <string name="package_name">kr.bikedoctor.heotgeoleumzero</string>
+    <string name="custom_url_scheme">kr.bikedoctor.heotgeoleumzero</string>
+</resources>
