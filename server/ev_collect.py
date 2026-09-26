@@ -11,7 +11,7 @@
 하필 헛충전(3분 안)이 바로 다음 사람으로 이어지는 경우가 잘 사라진다. 그래서 --report 는 '찍은 간격' 도 보여 주고,
 간격은 호출 한도(개발 계정 보통 하루 1,000번) 안에서 짧게: 5분 = 하루 288번(쪽 1개일 때), 2분 = 720번.
 """
-import argparse, datetime as dt, json, pathlib, sqlite3, sys, time, urllib.parse, urllib.request
+import argparse, datetime as dt, json, os, pathlib, sqlite3, sys, time, urllib.parse, urllib.request
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import pandas as pd
@@ -19,15 +19,34 @@ from server.seoul_api import key
 from engine.ev import sessions, zombie_chargers
 
 URL = "http://apis.data.go.kr/B552584/EvCharger/getChargerStatus"
-DB = ROOT / "data" / "ev.sqlite"
+DB = pathlib.Path(os.environ.get("EV_DB", ROOT / "data" / "ev.sqlite"))   # GitHub 에서는 캐시에 둔 DB
 FIELDS = ["statId", "chgerId", "stat", "statUpdDt", "lastTsdt", "lastTedt", "nowTsdt"]
 
 
-def db():
-    DB.parent.mkdir(exist_ok=True)
-    c = sqlite3.connect(DB)
+def db(path=None):
+    path = pathlib.Path(path or DB)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(path)
     c.execute("create table if not exists snap(at text, " + ", ".join(f"{f} text" for f in FIELDS) + ")")
+    c.execute("create table if not exists runs(at text primary key, rows int)")        # 찍은 때 — 빈틈없이 이어 찍은 구간을 알려고
+    c.execute("create table if not exists last(charger text primary key, sig text)")   # 충전기마다 마지막으로 본 상태
     return c
+
+
+def store(c, at, items):
+    """바뀐 상태만 저장한다 — period 창이 겹쳐 같은 상태가 여러 번 오므로. 처음 본 때(at)가 그대로 남는다."""
+    seen = dict(c.execute("select charger, sig from last"))
+    new = []
+    for it in items:
+        row = [str(it.get(f, "")) for f in FIELDS]
+        ch, sig = f"{row[0]}-{row[1]}", "|".join(row[2:])
+        if seen.get(ch) != sig:
+            new.append((at, *row)); seen[ch] = sig
+    with c:
+        c.executemany(f"insert into snap values (?, {', '.join('?' * len(FIELDS))})", new)
+        c.executemany("insert or replace into last values (?, ?)", [(f"{r[1]}-{r[2]}", "|".join(r[3:])) for r in new])
+        c.execute("insert or replace into runs values (?, ?)", (at, len(items)))
+    return len(new)
 
 
 def fetch(zcode, period):
@@ -51,23 +70,26 @@ def fetch(zcode, period):
         page += 1
 
 
-def collect(zcode, every):
-    print(f"{every}분마다 → 하루 약 {24 * 60 // every}번 × 쪽 수 호출 (한도 확인). 두 번 찍는 사이 끝난 충전 두 건 중 앞의 것은 못 봄.", flush=True)
+def collect(zcode, every, once=False, period=None):
+    if not once:
+        print(f"{every}분마다 → 하루 약 {24 * 60 // every}번 × 쪽 수 호출 (한도 확인). 두 번 찍는 사이 끝난 충전 두 건 중 앞의 것은 못 봄.", flush=True)
+    c = db()
     while True:
         at = dt.datetime.now().isoformat(timespec="seconds")
         try:
-            items = fetch(zcode, period=every * 2)
-            with db() as c:
-                c.executemany(f"insert into snap values (?, {', '.join('?' * len(FIELDS))})",
-                              [(at, *[str(it.get(f, "")) for f in FIELDS]) for it in items])
-            print(f"{at} 상태 {len(items)}건", flush=True)
+            items = fetch(zcode, period=period or every * 2)
+            print(f"{at} 상태 {len(items)}건, 바뀐 것 {store(c, at, items)}건", flush=True)
         except Exception as e:   # 한 번 실패해도 계속 모은다
+            if once:
+                raise
             print(f"{at} 실패: {e}", flush=True)
+        if once:
+            return
         time.sleep(every * 60)
 
 
 def report():
-    with db() as c:
+    with db() as c:   # 예전(바뀐 것만 저장 전) 기록도 같은 표라 그대로 읽힌다
         S = pd.read_sql("select * from snap", c)
     X = sessions(S)
     ats = pd.to_datetime(S["at"].drop_duplicates()).sort_values()
@@ -83,6 +105,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--zcode", default="11")
     ap.add_argument("--every", type=int, default=5)
+    ap.add_argument("--period", type=int, help="최근 N분 안에 바뀐 충전기 (기본: 간격×2). GitHub 은 늦게 돌 때가 있어 30")
+    ap.add_argument("--once", action="store_true", help="한 번만 (GitHub 예약 작업용)")
     ap.add_argument("--report", action="store_true")
     a = ap.parse_args()
-    report() if a.report else collect(a.zcode, a.every)
+    report() if a.report else collect(a.zcode, a.every, a.once, a.period)

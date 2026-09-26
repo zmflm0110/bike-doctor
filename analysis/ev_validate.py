@@ -9,21 +9,25 @@
 
     python analysis/ev_validate.py            # docs/ev_validation.md 갱신
 """
-import pathlib, sqlite3, sys
+import os, pathlib, sqlite3, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import pandas as pd
 from engine.ev import EvRule, mark_ev
 
-DB = ROOT / "data" / "ev.sqlite"
-OUT = ROOT / "docs" / "ev_validation.md"
+DB = pathlib.Path(os.environ.get("EV_DB", ROOT / "data" / "ev.sqlite"))
+OUT = pathlib.Path(os.environ.get("EV_REPORT", ROOT / "docs" / "ev_validation.md"))
 ZERO_MAX, SHORT_MAX = 0.01, 0.10   # 사업자 기록 품질 기준: 0초 충전 1% 미만, 짧은 충전 10% 미만
 OFF = {"1": "통신이상", "4": "운영중지", "5": "점검중"}
 
 
 def load(db=DB):
-    S = pd.read_sql("select * from snap", sqlite3.connect(db))
+    c = sqlite3.connect(db)
+    S = pd.read_sql("select * from snap", c)
     S["t"] = pd.to_datetime(S["at"])
+    # 바뀐 것만 저장하므로 '찍은 때' 는 runs 표에서 (없던 예전 기록은 snap 의 at 으로)
+    has_runs = c.execute("select count(*) from sqlite_master where name='runs'").fetchone()[0]
+    S.attrs["runs"] = pd.to_datetime(pd.read_sql("select at from runs", c)["at"]) if has_runs else pd.Series(dtype="datetime64[ns]")
     for f in ["lastTsdt", "lastTedt"]:
         S[f] = pd.to_datetime(S[f], format="%Y%m%d%H%M%S", errors="coerce")
     S["charger"] = S["statId"] + "-" + S["chgerId"]
@@ -31,12 +35,18 @@ def load(db=DB):
     return S
 
 
-GAP_MAX = pd.Timedelta(minutes=12)   # 찍은 간격이 이보다 길면(맥이 잠듦 등) 이어진 구간이 끊긴 것으로 본다
+GAP_MAX = pd.Timedelta(minutes=int(os.environ.get("EV_GAP_MAX", "25")))
+# 찍은 간격이 이보다 길면(맥이 잠듦·GitHub 이 못 돎) 이어진 구간이 끊긴 것으로 본다. 맥 5분·GitHub 10분(늦으면 15~20분)이라 25분.
+
+
+def run_times(S):
+    """찍은 때들 (runs 표 + 예전 기록의 at)."""
+    return pd.concat([S["t"], S.attrs.get("runs", pd.Series(dtype="datetime64[ns]"))]).drop_duplicates().sort_values().reset_index(drop=True)
 
 
 def segments(S):
     """찍은 때들을 '빈틈없이 이어 찍은 구간' 으로 나눈다 → {찍은 때: 구간 번호}, [(시작, 끝)]."""
-    ts = S["t"].drop_duplicates().sort_values().reset_index(drop=True)
+    ts = run_times(S)
     seg = (ts.diff() > GAP_MAX).cumsum()
     spans = [(g.iloc[0], g.iloc[-1]) for _, g in ts.groupby(seg)]
     return dict(zip(ts, seg)), spans
@@ -105,15 +115,15 @@ def main():
     X = sessions(S)
     q = op_quality(X)
     clean = X[X["op"].isin(q.index[q["clean"]])]
-    hours = (S["t"].max() - S["t"].min()).total_seconds() / 3600
-    snaps = S["t"].drop_duplicates().sort_values()
+    snaps = run_times(S)
+    hours = (snaps.max() - snaps.min()).total_seconds() / 3600
     _, spans = segments(S)
     covered = sum((b - a).total_seconds() for a, b in spans) / 3600
     lines = [
         "# 전기차 충전기 헛충전 검증 (중간)",
         "",
         f"`python analysis/ev_validate.py` 로 다시 만든다. 자료: 서울 충전기 상태 {len(snaps)}번 찍음, "
-        f"{S['t'].min():%m-%d %H:%M} ~ {S['t'].max():%m-%d %H:%M} (약 {hours:.0f}시간, 간격 중앙값 {snaps.diff().dt.total_seconds().median() / 60:.0f}분).",
+        f"{snaps.min():%m-%d %H:%M} ~ {snaps.max():%m-%d %H:%M} (약 {hours:.0f}시간, 간격 중앙값 {snaps.diff().dt.total_seconds().median() / 60:.0f}분).",
         f"그중 빈틈없이 이어 찍은 구간 {len(spans)}개, 합 {covered:.0f}시간 ({covered / hours:.0%}). 나머지는 맥이 잠들었거나 인터넷이 끊긴 때 — "
         "충전기 API 는 지난 기록을 다시 주지 않아 그 사이 충전은 사라진다. 연쇄는 같은 구간 안에서만 잇는다.",
         "",

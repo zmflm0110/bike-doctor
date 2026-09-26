@@ -50,3 +50,16 @@ def test_chain_does_not_cross_collection_gap(tmp_path):
     assert len(spans) == 2 and X["key"].nunique() == 2
     base, n, out = V.persistence(X)
     assert out[0] == (1, 0, 0)   # 앞 헛충전의 '다음 충전' 은 모른다
+
+
+def test_collector_stores_changes_only(tmp_path):
+    """겹치는 period 창으로 같은 상태가 다시 와도 한 번만 — 찍은 때는 runs 에 남아 구간 계산에 쓰인다."""
+    from server import ev_collect as E
+    c = E.db(tmp_path / "ev.sqlite")
+    it = {"statId": "AA000001", "chgerId": "01", "stat": "2", "statUpdDt": "20260926100000", "lastTsdt": "20260926095900", "lastTedt": "20260926100000", "nowTsdt": ""}
+    assert E.store(c, "2026-09-26T10:00:00", [it]) == 1
+    assert E.store(c, "2026-09-26T10:10:00", [it]) == 0                     # 같은 상태 — 저장 안 함
+    assert E.store(c, "2026-09-26T10:20:00", [dict(it, stat="3")]) == 1     # 바뀜
+    c.close()
+    S = V.load(tmp_path / "ev.sqlite")
+    assert len(S) == 2 and len(V.run_times(S)) == 3
