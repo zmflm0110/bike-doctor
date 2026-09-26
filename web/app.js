@@ -250,6 +250,12 @@ function showTab(t) {
   const btn = document.querySelector(`#tabs button[data-tab="${t}"]`);
   if (btn) btn.click();
 }
+// 안드로이드 앱의 뒤로 가기 — 다른 탭이면 홈으로, 홈이면 앱을 닫는다 (Capacitor App 플러그인, 웹에서는 없음)
+const capApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+if (capApp) capApp.addListener("backButton", () => {
+  const on = document.querySelector("#tabs button[aria-selected=\"true\"], #tabs button.on");
+  if (on && on.dataset.tab !== "morning") showTab("morning"); else capApp.exitApp();
+});
 $("#bike-list").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-act]");
   if (!btn) return;
