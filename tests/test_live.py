@@ -132,3 +132,13 @@ def test_ensure_complete_refetches_missing_and_early(tmp_path, monkeypatch):
     monkeypatch.setattr(seoul_api, "fetch", lambda svc, root, hour, **k: asked.append(hour) or [])
     n = live.ensure_complete(c, dt.datetime(2026, 9, 25, 20), dt.datetime(2026, 9, 26))
     assert n == 3 and asked == ["2026-09-25/21", "2026-09-25/22", "2026-09-25/23"]
+
+
+def test_backfill_limit_takes_newest_first(tmp_path, monkeypatch):
+    """GitHub 처음 채우기는 나눠서 — 최근 시간부터 max_hours 칸만."""
+    from server import seoul_api
+    c = live.db(tmp_path / "m.sqlite")
+    asked = []
+    monkeypatch.setattr(seoul_api, "fetch", lambda svc, root, hour, **k: asked.append(hour) or [])
+    live.backfill(c, dt.datetime(2026, 9, 26, 16, 22), max_hours=3)
+    assert sorted(asked) == ["2026-09-26/07", "2026-09-26/08", "2026-09-26/09"]   # 여러 개 동시에 받으니 순서는 섞일 수 있음

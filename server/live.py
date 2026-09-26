@@ -57,7 +57,10 @@ def fetch_hour(c, t):
     return store(c, seoul_api.fetch("tbCycleRentData", "rentData", hour), hour)
 
 
-def backfill(c, now, days=LOOKBACK_DAYS, workers=6):
+BACKFILL_MAX = int(os.environ.get("LIVE_BACKFILL_MAX", "0")) or None   # 한 번에 채울 시간 수 (GitHub: 제한 시간 안에 끝나고 진행을 저장하게)
+
+
+def backfill(c, now, days=LOOKBACK_DAYS, workers=6, max_hours=None):
     """아직 안 받은 지난 시간들을 채운다 (한 시간 ≈ 1~7번 호출, 서울 API 는 호출 수 제한 없음). 받기는 여러 개 동시에, 저장은 차례로."""
     from concurrent.futures import ThreadPoolExecutor
     have = {h for (h,) in c.execute("select hour from hours")}
@@ -67,6 +70,9 @@ def backfill(c, now, days=LOOKBACK_DAYS, workers=6):
         if t.strftime("%Y-%m-%d/%H") not in have:
             todo.append(t.strftime("%Y-%m-%d/%H"))
         t += dt.timedelta(hours=1)
+    max_hours = max_hours or BACKFILL_MAX
+    if max_hours:   # 최근 시간부터 — 지금 목록에 필요한 순서
+        todo = sorted(todo, reverse=True)[:max_hours]
     n = 0
     with ThreadPoolExecutor(workers) as ex:
         for hour, rows in zip(todo, ex.map(lambda h: seoul_api.fetch("tbCycleRentData", "rentData", h), todo)):

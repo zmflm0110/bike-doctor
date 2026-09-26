@@ -32,6 +32,7 @@ jobs:
       LIVE_OUT: out/data/live.json
       OPS_DIR: out/data/ops
       LIVE_SEEN_MIN: "30"
+      LIVE_BACKFILL_MAX: "48"   # 처음 7일 채우기를 여러 번에 나눠 (한 번에 다 하면 제한 시간을 넘길 수 있음)
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
