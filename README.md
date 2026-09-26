@@ -7,7 +7,7 @@
   <a href="https://zmflm0110.github.io/bike-doctor/app/"><img alt="웹앱" src="https://img.shields.io/badge/웹앱-써_보기-237032"></a>
   <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/test.yml"><img alt="검사" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/test.yml/badge.svg"></a>
   <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/ios.yml"><img alt="아이폰 앱 빌드" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/ios.yml/badge.svg"></a>
-  <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/live.yml"><img alt="실시간 경보" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/live.yml/badge.svg"></a>
+  <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/cloud.yml"><img alt="실시간 경보" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/cloud.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="라이선스 MIT" src="https://img.shields.io/badge/라이선스-MIT-555"></a>
 </p>
 
@@ -56,7 +56,7 @@ flowchart LR
 
 | 어디서 | 무엇을 |
 |---|---|
-| GitHub Actions (`.github/workflows/live.yml`, 10분마다) | 서울 API → DB(SQLite, **암호화해** Actions 캐시에) → 경보·채점·06:10 아침 목록·충전기 상태 → `live-data` 가지에 JSON |
+| GitHub Actions (`.github/workflows/cloud.yml`, 10분마다) | 서울 API → DB(SQLite, **암호화해** Actions 캐시에) → 경보·채점·06:10 아침 목록·충전기 상태 → `live-data` 가지에 JSON |
 | 앱·웹앱 | `live-data` 의 목록을 **어디서든** 읽는다. 같은 와이파이에 맥 서버가 있으면 1분마다 갱신되는 그쪽을 먼저 |
 | Supabase (`supabase/schema.sql`) | 구조대 확인·현장 조사·사진. 앱의 공개 키로는 **넣기만** 되고, 읽기는 자전거별 확인 수(집계)만. 위치·메모·사진은 우리만 본다 |
 
@@ -142,7 +142,7 @@ security add-generic-password -a bike-doctor -s datagokr -w           # 공공�
 ```
 앱은 집 맥(20분 안)·클라우드(45분 안) 목록 중 더 새 것을 '지금 (실시간)' 으로, 없으면 오늘 아침 목록 → 시연 날짜(6/15) 순으로 먼저 보여 준다.
 
-**클라우드로 돌리기** (맥 없이) — 저장소 비밀 `SEOUL_OPENAPI_KEY`·`DATAGOKR_KEY`·`LIVE_STATE_KEY`(DB 암호, 아무 긴 글자) 를 넣으면 `live.yml` 이 10분마다 돈다.
+**클라우드로 돌리기** (맥 없이) — 저장소 비밀 `SEOUL_OPENAPI_KEY`·`DATAGOKR_KEY`·`LIVE_STATE_KEY`(DB 암호, 아무 긴 글자) 를 넣으면 `cloud.yml` 이 10분마다 돈다.
 쓰기 DB 는 Supabase 프로젝트에 `supabase/schema.sql` 을 한 번 적용하고, 공개(publishable) 키를 `web/cloud.js`·`ios/Core/Sources/HeotgeoleumCore/Cloud.swift` 에.
 모인 조사 기록은 `server/supabase_export.py` → `data/survey.csv` (DB 비밀번호는 키체인 `supabase-db`).
 </details>

@@ -4,7 +4,7 @@ import FoundationNetworking
 #endif
 
 /// 어디서든 — 맥 없이도 앱이 진짜 앱처럼. 웹앱 web/cloud.js 와 같은 값.
-///   읽기: GitHub 가 10분마다 만드는 실시간·아침 목록 (.github/workflows/live.yml → live-data 가지)
+///   읽기: GitHub 가 10분마다 만드는 실시간·아침 목록 (.github/workflows/cloud.yml → live-data 가지)
 ///   쓰기: 구조대 확인·현장 조사 → Supabase (supabase/schema.sql — 누구나 넣기만, 읽기는 자전거별 확인 수만)
 public enum Cloud {
     public static let data = URL(string: "https://raw.githubusercontent.com/zmflm0110/bike-doctor/live-data/")!

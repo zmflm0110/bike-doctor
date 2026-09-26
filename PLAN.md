@@ -6,7 +6,7 @@
 서울 1·3·6월 + 대전 타슈 5·10월 재현, 경보가 고장 신고보다 중앙값 20시간 먼저, 그 사이 평균 4.4명 헛걸음, 서울 하루 84\~223명 예방 가능.
 
 ## 다시 시작할 때 (2026-09-26 17시 기준 — 맥 없이 도는 구조로 바꿈)
-- **돌고 있는 것 — 클라우드(맥 꺼져도 됨)**: GitHub Actions `live.yml` 10분마다 — 서울 API → DB(SQLite, `LIVE_STATE_KEY` 로 암호화해 Actions 캐시) → 경보·채점·06:10 아침 목록·충전기 상태
+- **돌고 있는 것 — 클라우드(맥 꺼져도 됨)**: GitHub Actions `cloud.yml` 10분마다 — 서울 API → DB(SQLite, `LIVE_STATE_KEY` 로 암호화해 Actions 캐시) → 경보·채점·06:10 아침 목록·충전기 상태
   → `live-data` 가지(`data/live.json`, `data/ops/*.json`, `data/ev_validation.md`). 앱·웹앱은 여기를 **어디서든** 읽는다.
   쓰기 DB = **Supabase** 프로젝트 `iqvquwvoljzuvdgtbpnu`(ap-southeast-1): `supabase/schema.sql` 적용됨 — rescue·survey 표(누구나 넣기만), checked 뷰(자전거별 확인 수만), 비공개 사진 저장소.
   앱 키 = 공개 publishable 키(`web/cloud.js`, `Cloud.swift`). DB 비밀번호는 키체인 `supabase-db`. 조사 기록 내려받기: `server/supabase_export.py`.
