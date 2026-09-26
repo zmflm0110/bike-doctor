@@ -8,7 +8,8 @@
 name: live
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # 정각·10분 단위는 GitHub 이 붐벼 예약이 빠진다(9/26 첫 6시간 동안 한 번만 돎) — 덜 붐비는 분(3·13·23…)에
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
 permissions:
   contents: write   # live-data 가지에 올리기
