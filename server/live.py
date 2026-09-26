@@ -21,7 +21,7 @@ from engine.core import from_rows, mark
 from engine.morning import RULE
 from server import seoul_api
 
-# 경로는 환경변수로 바꿀 수 있다 — GitHub 에서 돌 때(.github/workflows/live.yml) 캐시에 둔 DB 와 올릴 폴더를 쓴다
+# 경로는 환경변수로 바꿀 수 있다 — GitHub 에서 돌 때(.github/workflows/cloud.yml) 캐시에 둔 DB 와 올릴 폴더를 쓴다
 DB = pathlib.Path(os.environ.get("LIVE_DB", ROOT / "data" / "live.sqlite"))
 OUT = pathlib.Path(os.environ.get("LIVE_OUT", ROOT / "web" / "data" / "live.json"))
 OPS = pathlib.Path(os.environ.get("OPS_DIR", ROOT / "web" / "data" / "ops"))
