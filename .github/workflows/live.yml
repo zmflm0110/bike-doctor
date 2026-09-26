@@ -82,6 +82,11 @@ jobs:
         run: |
           gh cache list -R "$GITHUB_REPOSITORY" --key live-db- --sort created_at --order desc --limit 100 --json id -q '.[1:][].id' |
             xargs -r -n1 gh cache delete -R "$GITHUB_REPOSITORY" || true
+      - name: 쓰기 DB 깨워 두기 (Supabase 무료는 1주 안 쓰면 멈춤 — 공개 키로 확인 수 한 줄 읽기)
+        continue-on-error: true
+        run: |
+          curl -s -o /dev/null -w "Supabase %{http_code}\n" "https://iqvquwvoljzuvdgtbpnu.supabase.co/rest/v1/checked?select=bike&limit=1" \
+            -H "apikey: sb_publishable_YFBKlBvyPFAhBpLdS3o8_A_xIeUmTVE"
       - name: 결과 올리기 (live-data 가지, 한 커밋만 유지)
         run: |
           cd out
