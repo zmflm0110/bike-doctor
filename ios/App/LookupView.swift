@@ -65,7 +65,15 @@ struct LookupView: View {
         if let hit = model.morning?.bikes.first(where: { $0.bike == id }) { result = .suspect(hit) } else { result = .clean(id) }
     }
 
-    private var until: String { model.day == AppModel.liveDay ? "최근" : "어제까지" }
+    private var until: String { model.isPastData ? "\(AppModel.koDay(model.day)) 아침 목록에서" : "최근" }
+
+    /// 지난 자료로 본 결과일 때 — 지금 이 자전거 상태는 모른다고 분명히
+    @ViewBuilder private var pastNote: some View {
+        if model.isPastData {
+            Text("이건 앱에 넣어 둔 \(AppModel.koDay(model.day)) 자료예요. 지금 이 자전거 상태는 맥 서버에 연결돼야 볼 수 있어요 (설정 → 맥 서버 주소, 같은 와이파이).")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
+    }
 
     @ViewBuilder private var resultView: some View {
         switch result {
@@ -75,13 +83,24 @@ struct LookupView: View {
                 md("\(until) **서로 다른 \(b.chain)명**이 이 자전거를 빌리자마자 반납했어요 (마지막 \(b.lastDud), \(b.stationName)).")
                 Text("이런 자전거는 다음 사람도 \(b.isRed ? "약 70%" : "약 35~55%")가 바로 반납했어요. 옆 자전거를 고르세요.")
                 VerdictButtons(bike: b.bike)
+                pastNote
             }
             .padding(18)
             .background(Palette.redSoft, in: RoundedRectangle(cornerRadius: 20))
+        case .clean(let id) where model.isPastData:
+            // 지난 자료에 없다는 건 '괜찮다' 가 아니다 — 초록 체크 대신 모른다고
+            VStack(alignment: .leading, spacing: 8) {
+                Label("\(id) — \(AppModel.koDay(model.day)) 자료에는 없어요", systemImage: "questionmark.circle.fill").font(.headline)
+                pastNote
+                if let s = model.serverStatus { Text(s).font(.footnote).foregroundStyle(.secondary) }
+            }
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 20))
         case .clean(let id):
             VStack(alignment: .leading, spacing: 8) {
-                Label("\(id) — \(until) 기록에 헛걸음 연쇄가 없어요.", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
-                if model.day == AppModel.liveDay, let note = model.morning?.feed?.note { Text("⏳ " + note).font(.footnote) }
+                Label("\(id) — 최근 기록에 헛걸음 연쇄가 없어요.", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
+                if let note = model.morning?.feed?.note { Text("⏳ " + note).font(.footnote) }
             }
                 .padding(18)
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -56,14 +56,35 @@ final class AppModel {
         if live != nil, UserDefaults.standard.string(forKey: "day") == nil { select(day: Self.liveDay) }   // 실시간이 있으면 먼저 (-day 인자로 고정 가능)
     }
 
+    /// 맥 서버 연결 상태 — 설정의 '연결 확인' 과 조회 안내에 쓴다. nil = 주소 없음
+    var serverStatus: String?
+
     /// 실시간 목록 다시 받기 — 화면이 1분마다 부른다
     func refreshLive() async {
-        guard let client, let m = try? await client.live(), let at = m.at, Self.minutesAgo(at) <= 20 else {
+        func drop(_ why: String?) {
+            serverStatus = why
             if live != nil { live = nil; if day == Self.liveDay { select(day: store?.defaultDay() ?? "") } }
-            return
         }
-        live = m
-        if day == Self.liveDay { morning = m }
+        guard let client else { return drop(nil) }
+        do {
+            let m = try await client.live()
+            guard let at = m.at else { return drop("맥에 닿았지만 실시간 목록이 없어요 — 맥에서 실시간 서버(server/live.py)가 도는지 확인해 주세요.") }
+            let ago = Self.minutesAgo(at)
+            guard ago <= 20 else { return drop("맥에 닿았지만 실시간 목록이 \(ago)분 전 것이에요 — 맥이 잠들었었나 봐요. 깨우면 몇 분 안에 따라잡아요.") }
+            serverStatus = "연결됨 · 지금 의심 \(m.bikes.count)대 (\(ago)분 전 갱신)"
+            live = m
+            if day == Self.liveDay { morning = m }
+        } catch {
+            drop("맥 서버에 닿지 않아요. 집 와이파이에 연결돼 있는지, 맥이 켜져 있는지 확인해 주세요. 밖에서는 아직 안 돼요. (\(error.localizedDescription))")
+        }
+    }
+
+    /// 시연(지난) 자료를 보고 있나 — 실시간이 아니면 앱에 넣은 지난 날의 아침 목록이다
+    var isPastData: Bool { day != Self.liveDay }
+    /// "2026-06-15" → "6월 15일"
+    static func koDay(_ d: String) -> String {
+        let p = d.split(separator: "-").compactMap { Int($0) }
+        return p.count == 3 ? "\(p[1])월 \(p[2])일" : d
     }
 
     /// 'YYYY-MM-DDTHH:MM:SS'(서울 시각) → 지금부터 몇 분 전

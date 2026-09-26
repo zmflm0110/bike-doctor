@@ -119,7 +119,7 @@ struct MorningView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.background.secondary, in: RoundedRectangle(cornerRadius: 18))
         }
-        return md("\(model.gu.isEmpty ? "" : model.gu + " — ")**\(bikes.count)**대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 (빨강 \(red)대).\(known ? " 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요." : "")")
+        return md("\(model.gu.isEmpty ? "" : model.gu + " — ")\(AppModel.koDay(model.day)) 아침, **\(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있었어요 (빨강 \(red)대).\(known ? " 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요." : "")\n\n📅 앱에 넣어 둔 지난 자료(시연용)예요. 지금 목록은 설정에서 맥 서버를 연결하면 떠요.")
             .font(.subheadline)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)

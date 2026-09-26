@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @State private var checking = false
 
     var body: some View {
         @Bindable var model = model
@@ -13,8 +14,13 @@ struct SettingsView: View {
                         .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                 } header: {
                     Text("맥 서버 주소 (선택)")
+                    Button(checking ? "확인하는 중…" : "연결 확인") {
+                        Task { checking = true; model.saveServer(); await model.refreshLive(); checking = false }
+                    }
+                    .disabled(checking || model.serverURL.isEmpty)
+                    if let s = model.serverStatus { Text(s).font(.footnote) }
                 } footer: {
-                    Text("같은 와이파이의 맥에서 python server/app.py 를 켜 두면 구조대 확인·현장 조사가 맥으로 모입니다. 비워 두면 이 폰에만 남아요. 앱이라서 https 가 아니어도 됩니다.")
+                    Text("맥의 '시스템 설정 → 일반 → 공유' 맨 아래 이름 뒤에 .local:8765 를 붙여 넣으세요 (예: http://내맥이름.local:8765). 폰과 맥이 같은 와이파이여야 하고, 맥이 켜져 있어야 '지금' 목록이 떠요. 연결 안 돼도 구조대 확인·현장 조사는 폰에 보관했다가 나중에 보냅니다.")
                 }
                 Section("자료") {
                     LabeledContent("아침 목록", value: "\(model.store?.days.count ?? 0)일 (\(model.store?.days.first ?? "") ~ \(model.store?.days.last ?? ""))")
