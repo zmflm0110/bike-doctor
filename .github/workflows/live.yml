@@ -1,0 +1,12 @@
+# 실시간 경보를 맥 대신 GitHub 에서 (작업 중 — 먼저 서울 API 가 GitHub 서버에서 열리는지 확인)
+name: live
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s -m 30 -w '\nHTTP %{http_code} %{time_total}s\n' "http://openapi.seoul.go.kr:8088/sample/json/tbCycleRentData/1/2/2026-09-26/10" | tail -c 400
