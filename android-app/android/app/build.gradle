@@ -16,8 +16,20 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // 출시용 서명 — 열쇠 파일·비밀번호는 git 밖(환경변수로만). 없으면 서명 없는 release 가 나온다(debug 는 늘 됨)
+    signingConfigs {
+        release {
+            if (System.getenv("HZ_KEYSTORE")) {
+                storeFile file(System.getenv("HZ_KEYSTORE"))
+                storePassword System.getenv("HZ_KEYSTORE_PASS")
+                keyAlias "heotgeoleum"
+                keyPassword System.getenv("HZ_KEYSTORE_PASS")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (System.getenv("HZ_KEYSTORE")) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

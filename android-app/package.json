@@ -5,7 +5,8 @@
   "scripts": {
     "web": "node sync-web.js",
     "sync": "node sync-web.js && npx cap sync android",
-    "apk": "node sync-web.js && npx cap sync android && cd android && ./gradlew assembleDebug"
+    "apk": "node sync-web.js && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "release": "node sync-web.js && npx cap sync android && cd android && HZ_KEYSTORE=$HOME/bike-doctor/data/android/heotgeoleum-release.keystore HZ_KEYSTORE_PASS=$(security find-generic-password -a bike-doctor -s android-keystore -w) ./gradlew assembleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
