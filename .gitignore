@@ -22,3 +22,4 @@ web/data/live.tmp
 data/logs/
 web/data/ops/
 dist/
+submission/   # 학번·연락처가 들어가는 제출 서류 (git 밖)
