@@ -15,6 +15,7 @@ create table if not exists live.rentals (
   primary key (bike, t0)
 );
 create index if not exists rentals_t1 on live.rentals (t1);
+alter table live.rentals set (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.05);   -- 자주 치우기(기본 20%)
 create table if not exists live.hours (hour text primary key, total int, fetched_at timestamptz);
 create table if not exists live.req (id bigint primary key, hour text not null, page int not null, made_at timestamptz not null default now());
 create table if not exists live.stations (id text primary key, name text);
@@ -42,7 +43,10 @@ begin
     order by v->>'BIKE_ID', live.ts(v->>'RENT_DT'), o desc
   )
   insert into live.rentals select * from p where t0 is not null and t1 is not null
-  on conflict (bike, t0) do update set st0 = excluded.st0, t1 = excluded.t1, st1 = excluded.st1, dist_m = excluded.dist_m, who = excluded.who;
+  on conflict (bike, t0) do update set st0 = excluded.st0, t1 = excluded.t1, st1 = excluded.st1, dist_m = excluded.dist_m, who = excluded.who
+    -- 5분마다 같은 시간을 다시 받으니, 바뀐 행만 고쳐 쓴다(다 고쳐 쓰면 죽은 행이 두 시간에 17만 개 쌓였다 — 2026-09-27)
+    where (live.rentals.st0, live.rentals.t1, live.rentals.st1, live.rentals.dist_m, live.rentals.who)
+          is distinct from (excluded.st0, excluded.t1, excluded.st1, excluded.dist_m, excluded.who);
   get diagnostics n = row_count;
   return n;
 end $$;
