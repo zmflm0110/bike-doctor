@@ -11,7 +11,7 @@
   확인: `psql … -c "select status from cron.job_run_details order by start_time desc limit 3"` (접속 문자열은 `tools/supabase_live_load.py` DSN). 파이썬과 맞춰 보기: `tools/supabase_live_load.py --parity`.
 - **GitHub Actions `cloud.yml`**(드문드문): 백업 live.json·`live-data` 가지·충전기 수집·Supabase 깨우기. 저장소 비밀 `SEOUL_OPENAPI_KEY`, `DATAGOKR_KEY`, `LIVE_STATE_KEY`.
 - **맥**: 실시간 서비스는 꺼 둠(사용자 결정 2026-09-26). 안드로이드 APK 는 `cd android-app && npm run release`(자바 = Homebrew openjdk@21).
-- **실시간 채점 (업데이트형)**: 9/27 18:15 첫 100건 넘음 — 108명 중 49명(45%, 95% 36\~55%). 주 1회 숫자 갱신(README·보고서; 사이트는 자동).
+- **실시간 채점 (업데이트형)**: 9/27 10:20 시작(그 전 경보는 늦게 채운 것이라 live_only 에서 빠짐). 18:15 첫 100건 — 108명 중 49명(45%), 19:20 140명 중 54명(39%). 정해진 결과는 `live.alarms.next_dud` 에 적음(`live.settle`, 다음 대여가 7시간 지난 뒤). 주 1회 숫자 갱신(README·보고서; 사이트는 자동).
 - **다음에 할 일**
   1. 사용자: 9/30 참가 신청서(PDF, 서명) · 아이폰 케이블 연결 → 새 앱(아이콘 바뀜) 설치 · 10월 현장 조사 2주.
   2. 시연 영상을 RIDEY 이름·새 로고로 다시 찍기(`tests/web/record_demo.js`) — 사용자 확인 뒤.

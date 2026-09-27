@@ -94,6 +94,8 @@ end $$;
 
 -- 연쇄 표시 (engine/core.py mark 와 같음): since 이후 대여, bikes 가 주어지면 그 자전거만
 create table if not exists live.alarms (bike text not null, at timestamp not null, station text, seen_at timestamp not null, primary key (bike, at));
+-- 채점 결과는 한 번 정해지면 적어 둔다(next_*) — 대여 기록은 9일 뒤 지우지만 채점은 계속 쌓이게(2026-09-27)
+alter table live.alarms add column if not exists next_t0 timestamp, add column if not exists next_dud boolean;
 
 -- bikes 는 조인으로(배열 = any 로 하면 110만 행마다 수천 개와 견줘 시간 초과가 났다 — 2026-09-27)
 create or replace function live.mark_rows(since timestamp, bikes text[], until timestamp default 'infinity')
@@ -120,19 +122,38 @@ create or replace function live.cand(now_ timestamp) returns text[] language sql
   where t1 >= now_ - interval '24 hours' and st0 = st1 and t1 - t0 <= interval '180 seconds' and dist_m < 300 $$;
 
 -- 경보 채점 (server/live.py score 와 같음): 경보 뒤 '다른 사람'(재시도 아님)의 첫 대여도 헛대여였나. 아직 없으면 기다림.
--- live_only: 5분 예약이 15분 안에 알아챈 경보만 (처음 채운 지난 경보는 뺌)
+-- live_only: 5분 예약이 15분 안에 알아챈 경보만 (처음 채운 지난 경보는 뺌). 적어 둔 결과(next_dud)가 있으면 그것, 없으면 지금 기록으로 매김.
 create or replace function live.score(now_ timestamp, live_only boolean default true) returns jsonb language sql stable as $$
 with a as (
-  select bike, at from live.alarms where not live_only or seen_at - at <= interval '15 minutes'
+  select bike, at, next_dud from live.alarms where not live_only or seen_at - at <= interval '15 minutes'
 ), m as (
-  select * from live.mark_rows(now_ - interval '9 days', (select coalesce(array_agg(distinct bike), '{}') from a))
+  select * from live.mark_rows(now_ - interval '9 days', (select coalesce(array_agg(distinct bike), '{}') from a where next_dud is null))
 ), nx as (
-  select a.bike, a.at, (select m.dud from m where m.bike = a.bike and m.t0 > a.at and not m.retry order by m.t0 limit 1) nd from a
+  select a.bike, a.at, coalesce(a.next_dud, (select m.dud from m where m.bike = a.bike and m.t0 > a.at and not m.retry order by m.t0 limit 1)) nd from a
 )
 select jsonb_build_object('alarms', count(*), 'scored', count(nd), 'next_rider_dud', count(*) filter (where nd),
-  'precision_%', round(100.0 * count(*) filter (where nd) / nullif(count(nd), 0), 1), 'waiting', count(*) - count(nd), 'seen_within_min', 15)
+  'precision_%', round(100.0 * count(*) filter (where nd) / nullif(count(nd), 0), 1), 'waiting', count(*) - count(nd), 'seen_within_min', 15,
+  'since', to_char(min(at), 'YYYY-MM-DD'))
 from nx
 $$;
+
+-- 다음 사람이 정해진 경보는 결과를 적어 둔다. 그 대여가 7시간 넘게 지난 뒤에만(2~6시간 전 기록은 30분마다 다시 받으므로, 늦게 온 앞 대여가 끼어들 수 없을 때)
+create or replace function live.settle(now_ timestamp) returns int language plpgsql as $$
+declare n int;
+begin
+  update live.alarms a set next_t0 = x.t0, next_dud = x.dud
+  from (
+    select distinct on (a.bike, a.at) a.bike, a.at, m.t0, m.dud
+    from live.alarms a
+    join live.mark_rows(now_ - interval '9 days', (select coalesce(array_agg(distinct bike), '{}') from live.alarms where next_dud is null)) m
+      on m.bike = a.bike and m.t0 > a.at and not m.retry
+    where a.next_dud is null
+    order by a.bike, a.at, m.t0
+  ) x
+  where a.bike = x.bike and a.at = x.at and x.t0 < now_ - interval '7 hours';
+  get diagnostics n = row_count;
+  return n;
+end $$;
 
 -- 지금 목록 (live.json 과 같은 모양)
 create or replace function live.compute(now_ timestamp default (now() at time zone 'Asia/Seoul')::timestamp) returns jsonb language sql stable as $$
@@ -218,6 +239,7 @@ declare now_ timestamp := (now() at time zone 'Asia/Seoul')::timestamp; k int; h
 begin
   perform live.collect();
   perform live.record_alarms(now_);
+  perform live.settle(now_);
   perform live.morning_job(now_);
   insert into live.snapshot(id, at, body) values (1, now_, live.compute(now_) || jsonb_build_object('score', live.score(now_)))
     on conflict (id) do update set at = excluded.at, body = excluded.body;
@@ -231,7 +253,7 @@ begin
     perform live.request(h); miss := miss + 1;
   end loop;
   delete from live.rentals where t0 < now_ - interval '9 days';
-  delete from live.alarms where at < now_ - interval '10 days';
+  delete from live.alarms where at < now_ - interval '10 days' and next_dud is null;   -- 채점된 경보는 계속 둔다(작음)
 end $$;
 
 -- 앱이 읽는 곳 — 공개 키로 읽기만 (행 자료·생년·성별은 안 보임, 목록 JSON 만)
