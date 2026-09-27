@@ -53,7 +53,7 @@ def releases():
     if in_list:
         body.append("</ul>")
     idx = (S / "index.html").read_text()
-    head = idx[:idx.index("</head>")].replace("<title>RIDEY — 빌리기 전에, 고장 난 따릉이를 먼저 알려 줍니다</title>", "<title>진행 기록 — RIDEY</title>")
+    head = re.sub(r"<title>.*?</title>", "<title>진행 기록 — RIDEY</title>", idx[:idx.index("</head>")], count=1)   # 제목이 바뀌어도 늘 맞게
     header = idx[idx.index('<header class="top"'):idx.index("</header>") + len("</header>")].replace('href="#results"', 'href="./#results"').replace('href="#start"', 'href="./#start"')
     footer = idx[idx.index("<footer>"):idx.index("</footer>") + len("</footer>")]
     theme = """<script>

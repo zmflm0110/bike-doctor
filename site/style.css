@@ -1,31 +1,33 @@
 :root {
-  --canvas: #ffffff; --surface: #f4f6f8; --surface-2: #eceff3; --ink: #171d26; --muted: #596372; --faint: #7d8794; --line: #dce1e7;
-  --accent: #0f766e; --accent-hover: #0b5f58; --on-accent: #ffffff; --accent-soft: #e1f2ef; --focus: #8fd3c9;
+  --canvas: #ffffff; --surface: #F5F7F6; --surface-2: #eaefed; --ink: #17232E; --muted: #55626c; --faint: #7a8690; --line: #dbe3e0;
+  --accent: #167A66; --accent-hover: #11604f; --on-accent: #ffffff; --accent-soft: #e0f3ec; --focus: #35C7A0;
+  --mint: #35C7A0; --teal: #20A68A; --navy: #17232E;   /* 로고 색 (그림에만 — 글자·단추는 대비 때문에 한 단계 진한 --accent) */
+  --font-brand: "Outfit", "Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif;
   --red: #c2410c; --red-soft: #fcebe3; --yellow: #a16207; --yellow-dot: #e0a000; --good: #237032; --good-soft: #e3f3e6;
   --dot: rgba(89, 99, 114, .28); --shadow: 0 1px 2px rgba(23, 29, 38, .04), 0 8px 24px rgba(23, 29, 38, .06);
   --band: linear-gradient(180deg, #eef7f5 0%, #f6f8fb 100%);
-  --grad: linear-gradient(90deg, #0f766e 0%, #1f9d6b 35%, #d69e00 70%, #c2410c 100%);
+  --grad: linear-gradient(90deg, #20A68A 0%, #35C7A0 100%);
   --radius: 24px; --header: 60px; --wrap: 1180px; --block: 136px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --canvas: #0d1014; --surface: #161a20; --surface-2: #1d232b; --ink: #e8ecf1; --muted: #a3adba; --faint: #7f8a98; --line: #2a3139;
-    --accent: #2cc5b1; --accent-hover: #5eead4; --on-accent: #06201d; --accent-soft: #12302c; --focus: #2cc5b1;
+    --canvas: #0B1320; --surface: #121c2a; --surface-2: #182434; --ink: #F5F7F6; --muted: #a6b1bb; --faint: #7f8b96; --line: #24313f;
+    --accent: #35C7A0; --accent-hover: #5fd9b8; --on-accent: #0B1320; --accent-soft: #123229; --focus: #35C7A0;
     --red: #fb8b5d; --red-soft: #3a1f15; --yellow: #f2c14e; --yellow-dot: #f2c14e; --good: #6fd08c; --good-soft: #15301d;
     --dot: rgba(163, 173, 186, .30); --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
     --band: linear-gradient(180deg, #11231f 0%, #141920 100%);
-    --grad: linear-gradient(90deg, #2cc5b1 0%, #6fd08c 35%, #f2c14e 70%, #fb8b5d 100%);
+    --grad: linear-gradient(90deg, #35C7A0 0%, #5fd9b8 100%);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --canvas: #0d1014; --surface: #161a20; --surface-2: #1d232b; --ink: #e8ecf1; --muted: #a3adba; --faint: #7f8a98; --line: #2a3139;
-  --accent: #2cc5b1; --accent-hover: #5eead4; --on-accent: #06201d; --accent-soft: #12302c; --focus: #2cc5b1;
+  --canvas: #0B1320; --surface: #121c2a; --surface-2: #182434; --ink: #F5F7F6; --muted: #a6b1bb; --faint: #7f8b96; --line: #24313f;
+  --accent: #35C7A0; --accent-hover: #5fd9b8; --on-accent: #0B1320; --accent-soft: #123229; --focus: #35C7A0;
   --red: #fb8b5d; --red-soft: #3a1f15; --yellow: #f2c14e; --yellow-dot: #f2c14e; --good: #6fd08c; --good-soft: #15301d;
   --dot: rgba(163, 173, 186, .30); --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
   --band: linear-gradient(180deg, #11231f 0%, #141920 100%);
-  --grad: linear-gradient(90deg, #2cc5b1 0%, #6fd08c 35%, #f2c14e 70%, #fb8b5d 100%);
+  --grad: linear-gradient(90deg, #35C7A0 0%, #5fd9b8 100%);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -48,23 +50,29 @@ header.top .wrap { height: 100%; display: flex; align-items: center; justify-con
 .logo { font-weight: 700; font-size: 21px; letter-spacing: -0.05em; text-decoration: none; white-space: nowrap; }
 .logo i { color: var(--accent); font-style: normal; }
 .logo { display: inline-flex; align-items: center; gap: 8px; }
-.logo img { width: 28px; height: 28px; border-radius: 8px; display: block; }
-/* 첫 화면 제목 — 원래 모양(두 줄, 둘째 줄 무지개, 깜빡이는 커서)에 타자 → 펑(3D) → RIDEY. (index.html brand()) */
-.brand { position: relative; perspective: 900px; perspective-origin: 50% 50%; min-height: calc(2 * 1.16em); cursor: pointer; }
-.brand .lines { display: inline-block; transform-style: preserve-3d; }
-.brand .l2 { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.brand .caret { display: inline-block; width: .06em; height: .9em; margin-left: .04em; vertical-align: -0.08em; background: var(--accent); animation: blink 1s steps(1) infinite; }
-.brand .caret[hidden] { display: none; }
-.brand .ch { display: inline-block; will-change: transform, opacity; }
-.brand .ch.g { -webkit-background-clip: text; background-clip: text; color: transparent; }
-.brand .ridey { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; transform-style: preserve-3d; opacity: 0; pointer-events: none; }
-.brand .ridey.on { opacity: 1; }
-.brand .ridey .word { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }   /* 둘째 줄과 같은 무지개 */
-.brand .ridey .rc { display: inline-block; }
-.brand .ridey .dot { color: var(--accent); }
-.brand.done .ridey .word { opacity: 1; }
-.brand.done .lines { visibility: hidden; }
-.brand .ridey:not(.on) .word { opacity: 0; }
+.logo .mark-sm { width: 44px; height: auto; display: block; }
+.logo .wordmark { font-family: var(--font-brand); font-weight: 800; font-size: 22px; letter-spacing: 0; display: inline-flex; align-items: baseline; color: var(--navy); }
+/* 첫 화면 — 로고(자전거 R + RIDEY, Y 의 민트 체크)가 달려 들어와 만들어진다 (index.html brand()) */
+.mark .ring, .mark-sm .ring { stroke: var(--wheel, #17232E); }
+:root[data-theme="dark"] { --wheel: #F5F7F6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wheel: #F5F7F6; } }
+.brand { position: relative; margin: 8px auto 0; cursor: pointer; font-family: var(--font-brand); font-size: clamp(54px, 10.5vw, 128px); line-height: 1; letter-spacing: 0; }
+.brand .lockup { position: relative; display: inline-flex; align-items: center; gap: .26em; }
+.brand .mark { height: 1.04em; width: auto; overflow: visible; transform-origin: 30% 90%; }
+.brand .mark .spin { transform-box: fill-box; transform-origin: center; opacity: 0; }
+.brand .word { display: inline-flex; align-items: baseline; font-weight: 800; color: var(--navy); }
+:root[data-theme="dark"] .brand .word, :root[data-theme="dark"] .logo .wordmark { color: #F5F7F6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand .word, :root:not([data-theme="light"]) .logo .wordmark { color: #F5F7F6; } }
+.brand .lt { display: inline-block; }
+.brand .ly, .logo .ly { height: .7em; width: .64em; margin-left: .03em; overflow: visible; }
+.brand .ly .tick { transform-box: fill-box; transform-origin: center; }
+.brand .speed { position: absolute; left: -1.1em; top: 18%; width: 1em; height: 60%; display: flex; flex-direction: column; justify-content: space-around; opacity: 0; pointer-events: none; }
+.brand .speed i { display: block; height: max(3px, .045em); border-radius: 99px; background: linear-gradient(90deg, transparent, var(--mint)); }
+.brand .speed i:nth-child(2) { margin-left: .3em; } .brand .speed i:nth-child(3) { margin-left: .12em; }
+.brand .road { display: block; height: max(2px, .02em); width: min(100%, 7.2em); margin: .1em auto 0; border-radius: 99px; background: linear-gradient(90deg, transparent, var(--mint) 20%, var(--teal) 80%, transparent); transform-origin: left center; opacity: .35; }
+.tagline { margin: 22px 0 0; font-family: var(--font-brand); font-weight: 300; font-size: clamp(18px, 2.4vw, 28px); letter-spacing: .22em; color: var(--ink); min-height: 1.4em; }
+.tagline .tcaret { display: inline-block; width: 2px; height: 1.05em; margin-left: 2px; vertical-align: -0.16em; background: var(--accent); animation: blink 1s steps(1) infinite; }
+.tagline .tcaret[hidden] { display: none; }
 .brand .spark { position: absolute; border-radius: 50%; pointer-events: none; z-index: 2; }
 .brand .flash { position: absolute; border-radius: 50%; pointer-events: none; opacity: 0; z-index: 1;
   background: radial-gradient(circle, color-mix(in srgb, #fff 90%, var(--accent)) 0%, color-mix(in srgb, var(--accent) 45%, transparent) 38%, transparent 70%); }
@@ -94,6 +102,7 @@ nav.links a:hover { opacity: 1; color: var(--accent); }
 .hero { text-align: center; padding: 104px 0 0; }
 .eyebrow { font-size: 15px; color: var(--muted); margin: 0 0 18px; }
 h1 { font-size: clamp(42px, 7.2vw, 78px); line-height: 1.16; font-weight: 580; letter-spacing: -0.055em; margin: 0; }
+h1, h2 { font-family: var(--font-brand); }   /* 영어는 로고와 같은 Outfit, 한글은 Pretendard 로 이어짐 */
 h1 .type { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 h1 .caret { display: inline-block; width: .06em; height: .9em; margin-left: .04em; vertical-align: -0.08em; background: var(--accent); animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }

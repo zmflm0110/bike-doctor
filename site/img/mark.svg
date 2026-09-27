@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 92" role="img" aria-label="RIDEY">
+  <!-- RIDEY 마크 — R 이 자전거를 탄 사람 모양 (초안 로고 2026-09-27 을 따라 그림). 바퀴는 남색, R·머리는 민트 그라데이션 -->
+  <defs>
+    <linearGradient id="rg" gradientUnits="userSpaceOnUse" x1="34" y1="8" x2="100" y2="64"><stop offset="0" stop-color="#35C7A0"/><stop offset="1" stop-color="#20A68A"/></linearGradient>
+  </defs>
+  <g class="wheel wheel-back"><circle cx="28" cy="64" r="21" fill="none" stroke="#17232E" stroke-width="12"/><circle cx="28" cy="64" r="4.5" fill="#20A68A"/></g>
+  <g class="wheel wheel-front"><circle cx="102" cy="64" r="21" fill="none" stroke="#17232E" stroke-width="12"/><circle cx="102" cy="64" r="4.5" fill="#20A68A"/></g>
+  <g class="rider" fill="none" stroke="url(#rg)" stroke-linecap="round" stroke-linejoin="round" stroke-width="14">
+    <path d="M42 13 H74 C92 13 94 40 70 40 H60"/>
+    <path d="M52 15 L30 62"/>
+    <path d="M64 40 L100 62"/>
+  </g>
+  <circle class="head" cx="105" cy="13" r="8" fill="#35C7A0"/>
+</svg>
