@@ -88,25 +88,52 @@ begin
   return n;
 end $$;
 
--- 지금 목록 (live.json 과 같은 모양)
-create or replace function live.compute(now_ timestamp default (now() at time zone 'Asia/Seoul')::timestamp) returns jsonb language sql stable as $$
-with cand as (   -- 24시간 안에 헛대여가 있던 자전거만 (목록·오늘 경보는 모두 여기서 나온다)
-  select distinct bike from live.rentals
-  where t1 >= now_ - interval '24 hours' and st0 = st1 and t1 - t0 <= interval '180 seconds' and dist_m < 300
-), r as (
-  select r.*, (r.st0 = r.st1 and r.t1 - r.t0 <= interval '180 seconds' and r.dist_m < 300) dud,
+-- 연쇄 표시 (engine/core.py mark 와 같음): since 이후 대여, bikes 가 주어지면 그 자전거만
+create table if not exists live.alarms (bike text not null, at timestamp not null, station text, seen_at timestamp not null, primary key (bike, at));
+
+-- bikes 는 조인으로(배열 = any 로 하면 110만 행마다 수천 개와 견줘 시간 초과가 났다 — 2026-09-27)
+create or replace function live.mark_rows(since timestamp, bikes text[])
+returns table (bike text, t0 timestamp, t1 timestamp, st1 text, dud boolean, retry boolean, streak int) language sql stable as $$
+with b as materialized (select distinct unnest(bikes) bike), r as (
+  select r.bike, r.t0, r.t1, r.st1, r.who, (r.st0 = r.st1 and r.t1 - r.t0 <= interval '180 seconds' and r.dist_m < 300) dud,
          lag(r.who) over (partition by r.bike order by r.t0) prev_who
-  from live.rentals r join cand using (bike)
-  where r.t0 >= now_ - interval '7 days'
+  from live.rentals r join b using (bike) where r.t0 >= since
 ), r2 as (
   select *, coalesce(who = prev_who, false) retry,
          coalesce(sum(case when dud then 0 else 1 end) over (partition by bike order by t0 rows between unbounded preceding and 1 preceding), 0) g
   from r
 ), r3 as (
   select *, row_number() over (partition by bike, g order by t0) rn from r2
-), m as (   -- streak = 헛대여 줄 안에서, 첫 대여 뒤로 '재시도 아님' 인 대여 수
-  select *, sum(case when rn > 1 and not retry then 1 else 0 end) over (partition by bike, g order by t0 rows between unbounded preceding and current row) streak
-  from r3
+)   -- streak = 헛대여 줄 안에서, 첫 대여 뒤로 '재시도 아님' 인 대여 수
+select bike, t0, t1, st1, dud, retry,
+       (sum(case when rn > 1 and not retry then 1 else 0 end) over (partition by bike, g order by t0 rows between unbounded preceding and current row))::int
+from r3
+$$;
+
+-- 24시간 안에 헛대여가 있던 자전거 (목록·오늘 경보는 모두 여기서 나온다)
+create or replace function live.cand(now_ timestamp) returns text[] language sql stable as $$
+  select coalesce(array_agg(distinct bike), '{}') from live.rentals
+  where t1 >= now_ - interval '24 hours' and st0 = st1 and t1 - t0 <= interval '180 seconds' and dist_m < 300 $$;
+
+-- 경보 채점 (server/live.py score 와 같음): 경보 뒤 '다른 사람'(재시도 아님)의 첫 대여도 헛대여였나. 아직 없으면 기다림.
+-- live_only: 5분 예약이 15분 안에 알아챈 경보만 (처음 채운 지난 경보는 뺌)
+create or replace function live.score(now_ timestamp, live_only boolean default true) returns jsonb language sql stable as $$
+with a as (
+  select bike, at from live.alarms where not live_only or seen_at - at <= interval '15 minutes'
+), m as (
+  select * from live.mark_rows(now_ - interval '9 days', (select coalesce(array_agg(distinct bike), '{}') from a))
+), nx as (
+  select a.bike, a.at, (select m.dud from m where m.bike = a.bike and m.t0 > a.at and not m.retry order by m.t0 limit 1) nd from a
+)
+select jsonb_build_object('alarms', count(*), 'scored', count(nd), 'next_rider_dud', count(*) filter (where nd),
+  'precision_%', round(100.0 * count(*) filter (where nd) / nullif(count(nd), 0), 1), 'waiting', count(*) - count(nd), 'seen_within_min', 15)
+from nx
+$$;
+
+-- 지금 목록 (live.json 과 같은 모양)
+create or replace function live.compute(now_ timestamp default (now() at time zone 'Asia/Seoul')::timestamp) returns jsonb language sql stable as $$
+with m as (
+  select * from live.mark_rows(now_ - interval '7 days', live.cand(now_))
 ), last as (
   select distinct on (bike) bike, t1, st1, case when dud and not retry then streak + 1 when dud then streak else 0 end chain
   from m order by bike, t0 desc
@@ -127,12 +154,25 @@ select jsonb_build_object(
   'latest_return', (select to_char(max(t1), 'YYYY-MM-DD"T"HH24:MI:SS') from live.rentals where t1 <= now_ + interval '5 minutes'))
 $$;
 
+-- 지금 보이는 경보를 적어 둔다 (처음 본 때 = seen_at) — 채점용
+create or replace function live.record_alarms(now_ timestamp) returns int language plpgsql as $$
+declare n int;
+begin
+  insert into live.alarms(bike, at, station, seen_at)
+  select bike, t1, st1, now_ from live.mark_rows(now_ - interval '7 days', live.cand(now_))
+  where dud and not retry and streak = 1 and t1 >= now_ - interval '24 hours'
+  on conflict (bike, at) do nothing;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
 -- 5분마다: 도착한 것 넣기 → 목록 만들기 → 다음 요청 (지금·직전 시간은 매번, 2~6시간 전은 30분마다, 빠진 칸은 몇 개씩)
 create or replace function live.tick() returns void language plpgsql as $$
 declare now_ timestamp := (now() at time zone 'Asia/Seoul')::timestamp; k int; h text; miss int := 0;
 begin
   perform live.collect();
-  insert into live.snapshot(id, at, body) values (1, now_, live.compute(now_))
+  perform live.record_alarms(now_);
+  insert into live.snapshot(id, at, body) values (1, now_, live.compute(now_) || jsonb_build_object('score', live.score(now_)))
     on conflict (id) do update set at = excluded.at, body = excluded.body;
   for k in 0..1 loop perform live.request(to_char(now_ - make_interval(hours => k), 'YYYY-MM-DD/HH24')); end loop;
   if extract(minute from now_)::int % 30 < 5 then
@@ -144,6 +184,7 @@ begin
     perform live.request(h); miss := miss + 1;
   end loop;
   delete from live.rentals where t0 < now_ - interval '9 days';
+  delete from live.alarms where at < now_ - interval '10 days';
 end $$;
 
 -- 앱이 읽는 곳 — 공개 키로 읽기만 (행 자료·생년·성별은 안 보임, 목록 JSON 만)

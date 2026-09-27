@@ -86,7 +86,25 @@ def parity():
     today = int((alarms["t1"] >= now.normalize()).sum())
     print(f"기준 {now} · 파이썬 {len(py)}대 / SQL {len(sq)}대 · 같음 {len(py & sq)} · 파이썬만 {sorted(py - sq)[:5]} · SQL만 {sorted(sq - py)[:5]}")
     print(f"오늘 경보: 파이썬 {today} / SQL {sql['today_alarms']}")
-    return py == sq and today == sql["today_alarms"]
+    # 채점: DB 에 적힌 경보 전부(live_only 아님)를 파이썬으로 다시 매겨 SQL live.score 와 비교
+    sc = json.loads(psql(f"select live.score('{now}'::timestamp, false)"))
+    A = pd.read_csv(io.StringIO(psql("copy (select bike, at from live.alarms) to stdout with csv")), names=["bike", "at"], parse_dates=["at"])
+    out9 = psql(f"copy (select bike, t0, st0, t1, st1, dist_m, who from live.rentals where t0 >= '{now}'::timestamp - interval '9 days' "
+                f"and bike in (select bike from live.alarms)) to stdout with csv")
+    R9 = pd.read_csv(io.StringIO(out9), names=["bike", "t0", "st0", "t1", "st1", "dist_m", "who"], dtype={"st0": str, "st1": str, "who": object})
+    R9["t0"] = pd.to_datetime(R9["t0"]); R9["t1"] = pd.to_datetime(R9["t1"]); R9["who"] = R9["who"].where(R9["who"].notna(), None)
+    from engine.core import mark
+    from engine.morning import RULE
+    M = mark(R9.sort_values(["bike", "t0"], kind="stable").reset_index(drop=True), RULE)
+    g = {k: v for k, v in M.groupby("bike")}
+    hit = scored = 0
+    for a in A.itertuples():
+        b = g.get(a.bike)
+        nxt = b[(b["t0"] > a.at) & ~b["retry"]] if b is not None else None
+        if nxt is not None and not nxt.empty:
+            scored += 1; hit += bool(nxt["dud"].iloc[0])
+    print(f"채점: 파이썬 {hit}/{scored} / SQL {sc['next_rider_dud']}/{sc['scored']} (경보 {len(A)})")
+    return py == sq and today == sql["today_alarms"] and (hit, scored) == (sc["next_rider_dud"], sc["scored"])
 
 
 if __name__ == "__main__":
