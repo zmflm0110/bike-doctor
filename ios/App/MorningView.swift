@@ -46,7 +46,7 @@ struct MorningView: View {
                 }
                 .padding(16)
             }
-            .navigationTitle("헛걸음 제로")
+            .navigationTitle("RIDEY")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { dayPicker }
                 ToolbarItem(placement: .topBarTrailing) { SettingsButton() }

@@ -1,4 +1,4 @@
-/* 헛걸음 제로 — 부드럽고 친근하게: 둥근 카드·고리 테두리·아래 탭 (색은 우리 청록) */
+/* RIDEY — 부드럽고 친근하게: 둥근 카드·고리 테두리·아래 탭 (색은 우리 청록) */
 :root {
   --bg: #ffffff; --card: #ffffff; --soft: #f1f4f3; --fg: #15201e; --muted: #5e6b69; --line: #e2e8e6;
   --blue: #0f766e; --on-blue: #ffffff; --red: #c2410c; --red-soft: #fdeee6; --yellow: #e0a100; --yellow-soft: #fff6db; --good: #237032; --good-soft: #e6f4e8;

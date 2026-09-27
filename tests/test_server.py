@@ -28,7 +28,7 @@ def test_rescue_roundtrip(tmp_path, monkeypatch):
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/rescue") as r:
             assert json.loads(r.read()) == {"SPB-12345": {"타이어": 1, "멀쩡함": 1}}
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/index.html") as r:
-            assert "헛걸음 제로" in r.read().decode()
+            assert "RIDEY" in r.read().decode()
     finally:
         httpd.shutdown()
 

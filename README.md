@@ -1,4 +1,4 @@
-<h1 align="center">헛걸음 제로</h1>
+<h1 align="center">RIDEY</h1>
 
 <p align="center"><b>따릉이 고장 예보</b> — 사람들이 귀찮아서 안 하는 고장 신고를,<br>이미 공개된 <b>'빌리자마자 반납'</b> 기록이 대신한다.</p>
 
@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://zmflm0110.github.io/bike-doctor/"><img src="docs/img/site.png" alt="헛걸음 제로 웹사이트 — 2026년 6월 15일 서울 따릉이 하루를 재생하는 지도" width="820"></a>
+  <a href="https://zmflm0110.github.io/bike-doctor/"><img src="docs/img/site.png" alt="RIDEY 웹사이트 — 2026년 6월 15일 서울 따릉이 하루를 재생하는 지도" width="820"></a>
 </p>
 
 <p align="center">

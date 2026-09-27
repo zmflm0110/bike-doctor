@@ -1,7 +1,7 @@
 // 안드로이드 앱(android-app) 아이콘·시작 화면 — web/icon.svg 하나에서 (Capacitor 기본 로고를 우리 것으로 바꿈)
 //   node tools/make_android_assets.js
 //   아이콘: 예전 모양(ic_launcher·round), 적응형 앞면(ic_launcher_foreground — 108dp 중 가운데 66dp 안에 그림)
-//   시작 화면: res/drawable*/splash.png 크기 그대로, 청록 바탕 가운데 아이콘 + '헛걸음 제로'
+//   시작 화면: res/drawable*/splash.png 크기 그대로, 청록 바탕 가운데 아이콘 + 'RIDEY'
 const fs = require("fs"), path = require("path");
 const { launch } = require("../tests/web/browser");
 const RES = path.resolve(__dirname, "../android-app/android/app/src/main/res");
@@ -33,7 +33,7 @@ const DENS = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
     const icon = Math.round(Math.min(w, h) * 0.28);
     await shot(`<div style="width:${w}px;height:${h}px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:${Math.round(icon * 0.18)}px;background:linear-gradient(135deg,#2bb3a1,#0f766e)">` +
       `${svg.replace("<svg ", `<svg width="${icon}" height="${icon}" `)}` +
-      `<div style="font:800 ${Math.round(icon * 0.26)}px -apple-system,'Apple SD Gothic Neo',sans-serif;color:#fff;letter-spacing:-0.04em">헛걸음 제로</div></div>`, w, h, file);
+      `<div style="font:800 ${Math.round(icon * 0.26)}px -apple-system,'Apple SD Gothic Neo',sans-serif;color:#fff;letter-spacing:-0.04em">RIDEY</div></div>`, w, h, file);
   }
   fs.writeFileSync(path.join(RES, "values/ic_launcher_background.xml"),
     '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#0F766E</color>\n</resources>\n');

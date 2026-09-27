@@ -1,4 +1,4 @@
-// 헛걸음 제로 — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
+// RIDEY — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
 const $ = (s) => document.querySelector(s);
 const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {}, ops: new Set(), sbDays: new Set(), busyDemo: {}, busyOps: null, routeValue: null };
 let here = null;   // 내 위치 (📍 버튼을 눌렀을 때만)

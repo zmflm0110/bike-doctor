@@ -39,7 +39,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
   await cap("따릉이 고장 신고, 귀찮아서 대부분 안 해요.", "고장 자전거는 앱에 '대여 가능' 으로 남아 다음 사람이 또 헛걸음합니다.");
   await wait(3800);
-  await cap(live ? "헛걸음 제로는 서울시 공개 대여기록을 10분마다 읽어요." : "헛걸음 제로는 서울시 공개 대여기록만 봅니다.",
+  await cap(live ? "RIDEY는 서울시 공개 대여기록을 10분마다 읽어요." : "RIDEY는 서울시 공개 대여기록만 봅니다.",
     "서로 다른 사람이 연달아 빌리자마자(3분·300m 안) 반납한 자전거 = 고장 의심. 센서·장비 없이.");
   await wait(4800);
   const gu = await page.$eval("#stories .story:nth-child(2)", (b) => b.dataset.gu);
@@ -94,7 +94,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const n = await page.evaluate(() => ["#c-alarm", "#c-prev", "#c-fault"].map((s) => document.querySelector(s).textContent));
   await cap(`하루 동안 경보 ${n[0]} · 막을 수 있던 헛걸음 ${n[1]}명`, "서울 3개월·대전 2개월, 약 1천만 건으로 검증 · 경보는 고장 신고보다 20~25시간 먼저", true);
   await wait(5000);
-  await cap("신고를 기다리지 말고, 흔적을 읽자 — 헛걸음 제로", "안드로이드·아이폰·웹 · 공개 데이터만 · 10분마다 갱신", true);
+  await cap("신고를 기다리지 말고, 흔적을 읽자 — RIDEY", "안드로이드·아이폰·웹 · 공개 데이터만 · 10분마다 갱신", true);
   await wait(4500);
 
   const video = page.video();

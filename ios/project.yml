@@ -1,4 +1,4 @@
-# 헛걸음 제로 아이폰 앱 — Xcode 프로젝트 정의. HeotgeoleumZero.xcodeproj 는 이 파일로 만든다:
+# RIDEY 아이폰 앱 — Xcode 프로젝트 정의. HeotgeoleumZero.xcodeproj 는 이 파일로 만든다:
 #   xcodegen generate   (맥: brew install xcodegen / 리눅스: docker swift 로 빌드 — ios/README.md)
 name: HeotgeoleumZero
 options:
@@ -38,7 +38,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: 헛걸음 제로
+        CFBundleDisplayName: RIDEY
         CFBundleDevelopmentRegion: ko
         LSRequiresIPhoneOS: true
         UILaunchScreen:

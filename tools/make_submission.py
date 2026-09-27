@@ -9,7 +9,7 @@
 zip 안:
   1_작품설명서/   작품설명서(학교 양식 — submission/작품설명서.* 에 두면 넣음) + 보고서(docs/report.pdf)
   2_시연영상/     docs/demo/*.mp4
-  3_설치파일/     헛걸음제로.apk + 설치방법.txt
+  3_설치파일/     RIDEY.apk + 설치방법.txt
   4_소스/         git 에 있는 파일 전부(원본 대여이력처럼 큰 자료는 빼고, 받는 스크립트 포함)
   5_출처/         라이브러리 원본 꾸러미(받은 그대로) + 라이선스 + 자료·지도 출처 글
   6_발표자료/     docs/slides.pdf (본심용 — 예심 제출에도 넣어 둠)
@@ -91,12 +91,12 @@ def main(argv=None):
         put = lambda src, arc: z.write(src, f"{name}/{arc}")
         if need["작품설명서(학교 양식)"]:
             put(need["작품설명서(학교 양식)"], f"1_작품설명서/{pathlib.Path(need['작품설명서(학교 양식)']).name}")
-        put(need["보고서 PDF"], "1_작품설명서/보고서_헛걸음제로.pdf")
-        put(need["시연 영상"], "2_시연영상/헛걸음제로_시연.mp4")
-        put(need["APK"], "3_설치파일/헛걸음제로.apk")
+        put(need["보고서 PDF"], "1_작품설명서/보고서_RIDEY.pdf")
+        put(need["시연 영상"], "2_시연영상/RIDEY_시연.mp4")
+        put(need["APK"], "3_설치파일/RIDEY.apk")
         z.writestr(f"{name}/3_설치파일/설치방법.txt",
-                   "1. 안드로이드 폰(8.0 이상)에 헛걸음제로.apk 를 옮긴다.\n2. 파일을 누르고 '출처를 알 수 없는 앱 설치' 를 허용한다.\n"
-                   "3. 설치 뒤 '헛걸음 제로' 를 연다. 인터넷이 있으면 '지금 (실시간)' 목록이, 없으면 앱 안의 시연 자료(2026-06-15)가 보인다.\n"
+                   "1. 안드로이드 폰(8.0 이상)에 RIDEY.apk 를 옮긴다.\n2. 파일을 누르고 '출처를 알 수 없는 앱 설치' 를 허용한다.\n"
+                   "3. 설치 뒤 'RIDEY' 를 연다. 인터넷이 있으면 '지금 (실시간)' 목록이, 없으면 앱 안의 시연 자료(2026-06-15)가 보인다.\n"
                    "4. QR 읽기는 카메라, '내 위치에서 출발' 은 위치 권한을 물어본다.\n아이폰 앱은 소스(4_소스/ios)로 Xcode 에서 빌드한다(애플 정책상 설치 파일 배포 불가).\n")
         for f in subprocess.run(["git", "ls-files"], capture_output=True, text=True, cwd=ROOT, check=True).stdout.splitlines():
             if not f.startswith(SKIP_SOURCE) and (ROOT / f).is_file():
@@ -112,9 +112,9 @@ def main(argv=None):
         for fn, text in TEXTS.items():
             z.writestr(f"{name}/5_출처/{fn}", text)
         put(ROOT / "docs/credits.md", "5_출처/출처_목록.md")
-        put(need["발표 PDF"], "6_발표자료/헛걸음제로_발표.pdf")
+        put(need["발표 PDF"], "6_발표자료/RIDEY_발표.pdf")
         z.writestr(f"{name}/읽어보세요.txt",
-                   "헛걸음 제로 — 따릉이 고장을 대여기록으로 먼저 찾는 앱 (2026 디지털콘텐츠개발대회 생활 부문)\n\n"
+                   "RIDEY — 따릉이 고장을 대여기록으로 먼저 찾는 앱 (2026 디지털콘텐츠개발대회 생활 부문)\n\n"
                    "1_작품설명서  작품 설명서·보고서\n2_시연영상  시연 영상\n3_설치파일  안드로이드 APK·설치 방법\n"
                    "4_소스  전체 소스(엔진·서버·웹앱·아이폰·안드로이드). 처음 볼 곳: README.md\n5_출처  라이브러리 원본·라이선스, 지도·자료 출처\n6_발표자료  발표 자료\n")
     print(f"→ {out} ({out.stat().st_size / 1e6:.1f}MB)")

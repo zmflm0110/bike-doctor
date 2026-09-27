@@ -1,6 +1,6 @@
 {
   "appId": "kr.bikedoctor.heotgeoleumzero",
-  "appName": "헛걸음 제로",
+  "appName": "RIDEY",
   "webDir": "www",
   "server": { "androidScheme": "https" },
   "android": { "backgroundColor": "#0f766e" }
