@@ -49,6 +49,21 @@ header.top .wrap { height: 100%; display: flex; align-items: center; justify-con
 .logo i { color: var(--accent); font-style: normal; }
 .logo { display: inline-flex; align-items: center; gap: 8px; }
 .logo img { width: 28px; height: 28px; border-radius: 8px; display: block; }
+/* 첫 화면 제목 — 세 줄이 같은 자리에서 바뀐다 (index.html brand()) */
+.brand { position: relative; height: clamp(150px, 19vw, 230px); margin: 6px 0 0; cursor: pointer; font-size: clamp(36px, 6vw, 66px); font-weight: 680; letter-spacing: -0.05em; line-height: 1.12; }
+.brand > span { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); opacity: 0; transition: opacity .6s ease; }
+.brand > span.on { opacity: 1; }
+.brand .b1 em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand .b2 .x { transition: opacity .45s ease; }
+.brand .b2.thin .x { opacity: 0; }
+.brand .b2 b { font-weight: inherit; display: inline-block; transition: transform .95s cubic-bezier(.2, .8, .2, 1); color: var(--accent); }
+.brand .b2.gone { opacity: 0; transition: opacity .3s ease; }
+.brand .b3 { font-size: 1.95em; font-weight: 800; letter-spacing: -0.045em; }
+.brand .b3 .word { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }   /* 한 단어에 한 번(글자마다 걸면 줄무늬) */
+.brand .b3 b { font-weight: inherit; }
+.brand .b3 i { font-style: normal; color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .brand > span { transition: none; } }
+.hero .motto-ko i { font-weight: 700; color: var(--accent); margin-right: 6px; }
 .hero .motto-ko { margin: 18px 0 0; font-size: clamp(19px, 2.4vw, 24px); font-weight: 600; letter-spacing: -0.03em; color: var(--ink); }
 nav.links { display: flex; align-items: center; gap: 26px; font-size: 14.5px; }
 nav.links a { text-decoration: none; color: var(--ink); opacity: .86; }
