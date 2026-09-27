@@ -12,7 +12,7 @@
   앱 키 = 공개 publishable 키(`web/cloud.js`, `Cloud.swift`). DB 비밀번호는 키체인 `supabase-db`. 조사 기록 내려받기: `server/supabase_export.py`.
   저장소 비밀: `SEOUL_OPENAPI_KEY`, `DATAGOKR_KEY`, `LIVE_STATE_KEY`. 끄기: Actions → live → Disable.
 - **맥**: 실시간(`kr.bikedoctor.live`)·충전기(`ev`) 는 클라우드로 옮겨 끔(사용자 결정 2026-09-26). 웹 서버(8765)·아침 목록(06:10)은 남음(없어도 됨).
-- **확인**: `gh run list -w live -L 5` · 지금 목록 `curl -s https://raw.githubusercontent.com/zmflm0110/bike-doctor/live-data/data/live.json | head -c 300`
+- **확인**: `gh run list -w live -L 5` · 지금 목록 `curl -s https://raw.githubusercontent.com/zmflm0110/ridey/live-data/data/live.json | head -c 300`
 - **다음에 할 일**
   1. 사용자: 아이폰 케이블 연결 → 새 앱 설치(무료 계정이라 7일마다 다시). 목표 대회·마감, 이름·학교, 작품 이름 확정.
   2. 업데이트형(사용자 2026-09-26 "100개 모으는 건 그 뒤 업데이트"): 클라우드가 실시간 채점·아침 목록 채점·충전기 연쇄를 쌓음 → 주 1회 숫자 갱신(보고서·사이트).
@@ -195,7 +195,7 @@
   오른쪽 설명·정의 목록·키 모양 칩, 아이콘 타일, 단계 전환, 한계 띠, 질문 펼치기, 밝은·어두운 화면, 움직임 줄이기 존중). 우리 내용: 6/15 하루 재생 지도(대여소 2,789곳),
   번호 조회(6/15 아침 목록), 규칙 예시, 도시·달별 막대, 실시간 흐름·API 대조표, 공개 자료·개인정보, 셋이 쓰는 법(앱 화면), 한계, 질문 6개.
   헤드리스 검사: 데스크톱·휴대폰·어두운 화면 오류 0, 가로 넘침 0. 공개(GitHub Pages 등)는 사용자 결정.
-- 2026-09-25 웹사이트 공개(사용자 요청): GitHub Pages https://zmflm0110.github.io/bike-doctor/ — `site/` 바뀌면 자동 배포(.github/workflows/pages.yml). 실제 주소에서 지도 재생·번호 조회·오류 0 확인.
+- 2026-09-25 웹사이트 공개(사용자 요청): GitHub Pages https://zmflm0110.github.io/ridey/ — `site/` 바뀌면 자동 배포(.github/workflows/pages.yml). 실제 주소에서 지도 재생·번호 조회·오류 0 확인.
 - 2026-09-25 공간: 캐시(pip·Homebrew·npm·JetBrains·라즈베리파이)·설치 파일 정리(사용자 허락) + 사용자가 굿노트 데이터 18GB 삭제 → 여유 49GB. Xcode 설치 가능.
 - 2026-09-25 웹사이트 2판(사용자 요청 "보내준 대로"): geulguard 의 남은 구성 — 써 보는 방법 3단계(단계 강조+바뀌는 그림), 넓히기 어두운 카드(충전기), 에이전트 문장 복사 띠, 진행 기록 쪽(CHANGELOG.md) — 과 시연용 웹앱 /app/ 공개. 실제 주소에서 세 쪽 오류 0.
 - 2026-09-25 17시 **자료 지연 발견**: 16:06 이후 실시간 경보가 한 건도 늘지 않아 봤더니, API 가 14시부터 한 시간에 382·199·226건(평소 5,700\~12,000건). 비 없음(open-meteo 0mm).

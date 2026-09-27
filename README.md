@@ -1,23 +1,25 @@
+<p align="center"><img src="web/icon-192.png" width="84" alt="RIDEY 아이콘"></p>
 <h1 align="center">RIDEY</h1>
 
+<p align="center"><b><i>Ready before you ride.</i></b> — 타기 전에, 고장 난 따릉이를 먼저 알려 줄게요.</p>
 <p align="center"><b>따릉이 고장 예보</b> — 사람들이 귀찮아서 안 하는 고장 신고를,<br>이미 공개된 <b>'빌리자마자 반납'</b> 기록이 대신한다.</p>
 
 <p align="center">
-  <a href="https://zmflm0110.github.io/bike-doctor/"><img alt="웹사이트" src="https://img.shields.io/badge/웹사이트-zmflm0110.github.io-0f766e"></a>
-  <a href="https://zmflm0110.github.io/bike-doctor/app/"><img alt="웹앱" src="https://img.shields.io/badge/웹앱-써_보기-237032"></a>
-  <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/test.yml"><img alt="검사" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/test.yml/badge.svg"></a>
-  <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/ios.yml"><img alt="아이폰 앱 빌드" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/ios.yml/badge.svg"></a>
-  <a href="https://github.com/zmflm0110/bike-doctor/actions/workflows/cloud.yml"><img alt="실시간 경보" src="https://github.com/zmflm0110/bike-doctor/actions/workflows/cloud.yml/badge.svg"></a>
+  <a href="https://zmflm0110.github.io/ridey/"><img alt="웹사이트" src="https://img.shields.io/badge/웹사이트-zmflm0110.github.io-0f766e"></a>
+  <a href="https://zmflm0110.github.io/ridey/app/"><img alt="웹앱" src="https://img.shields.io/badge/웹앱-써_보기-237032"></a>
+  <a href="https://github.com/zmflm0110/ridey/actions/workflows/test.yml"><img alt="검사" src="https://github.com/zmflm0110/ridey/actions/workflows/test.yml/badge.svg"></a>
+  <a href="https://github.com/zmflm0110/ridey/actions/workflows/ios.yml"><img alt="아이폰 앱 빌드" src="https://github.com/zmflm0110/ridey/actions/workflows/ios.yml/badge.svg"></a>
+  <a href="https://github.com/zmflm0110/ridey/actions/workflows/cloud.yml"><img alt="실시간 경보" src="https://github.com/zmflm0110/ridey/actions/workflows/cloud.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="라이선스 MIT" src="https://img.shields.io/badge/라이선스-MIT-555"></a>
 </p>
 
 <p align="center">
-  <a href="https://zmflm0110.github.io/bike-doctor/"><img src="docs/img/site.png" alt="RIDEY 웹사이트 — 2026년 6월 15일 서울 따릉이 하루를 재생하는 지도" width="820"></a>
+  <a href="https://zmflm0110.github.io/ridey/"><img src="docs/img/site.png" alt="RIDEY 웹사이트 — 2026년 6월 15일 서울 따릉이 하루를 재생하는 지도" width="820"></a>
 </p>
 
 <p align="center">
-  <a href="https://zmflm0110.github.io/bike-doctor/">웹사이트</a> ·
-  <a href="https://zmflm0110.github.io/bike-doctor/app/">웹앱 써 보기</a> ·
+  <a href="https://zmflm0110.github.io/ridey/">웹사이트</a> ·
+  <a href="https://zmflm0110.github.io/ridey/app/">웹앱 써 보기</a> ·
   <a href="docs/report.pdf">보고서 PDF</a> ·
   <a href="docs/slides.pdf">발표 PDF</a> ·
   <a href="docs/demo/demo.mp4">시연 영상 (1분 39초)</a> ·

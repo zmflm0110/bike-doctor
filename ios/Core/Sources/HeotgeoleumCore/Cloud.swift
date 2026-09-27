@@ -7,7 +7,7 @@ import FoundationNetworking
 ///   읽기: 지금 목록은 Supabase 가 5분마다 스스로(supabase/live.sql), 아침 목록·채점은 GitHub(.github/workflows/cloud.yml → live-data 가지)
 ///   쓰기: 구조대 확인·현장 조사 → Supabase (supabase/schema.sql — 누구나 넣기만, 읽기는 자전거별 확인 수만)
 public enum Cloud {
-    public static let data = URL(string: "https://raw.githubusercontent.com/zmflm0110/bike-doctor/live-data/")!
+    public static let data = URL(string: "https://raw.githubusercontent.com/zmflm0110/ridey/live-data/")!
     public static let supabase = URL(string: "https://iqvquwvoljzuvdgtbpnu.supabase.co")!
     /// 공개(publishable) 키 — 앱에 넣는 용도. 비밀 키(sb_secret·service_role)는 절대 여기 두지 않는다
     public static let supabaseKey = "sb_publishable_YFBKlBvyPFAhBpLdS3o8_A_xIeUmTVE"

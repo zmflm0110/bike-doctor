@@ -2,7 +2,7 @@
 //   읽기: 지금 목록은 Supabase 가 5분마다 스스로(supabase/live.sql), 아침 목록·채점은 GitHub(.github/workflows/cloud.yml → live-data 가지)
 //   쓰기: 구조대 확인·현장 조사 → Supabase (supabase/schema.sql — 누구나 넣기만, 읽기는 자전거별 확인 수만)
 const CLOUD = {
-  data: "https://raw.githubusercontent.com/zmflm0110/bike-doctor/live-data/data/",
+  data: "https://raw.githubusercontent.com/zmflm0110/ridey/live-data/data/",
   sb: "https://iqvquwvoljzuvdgtbpnu.supabase.co",
   key: "sb_publishable_YFBKlBvyPFAhBpLdS3o8_A_xIeUmTVE",   // Supabase 공개(publishable) 키 — 앱에 넣는 용도의 공개 키. 비어 있으면 맥 서버로만 보낸다
 };

@@ -1,5 +1,5 @@
 # 작품 소개 웹사이트(site/) + 시연용 웹앱(web/ → app/) + 진행 기록(CHANGELOG.md → releases.html) 을 GitHub Pages 로
-#   https://zmflm0110.github.io/bike-doctor/  ·  /app/  ·  /releases.html
+#   https://zmflm0110.github.io/ridey/  ·  /app/  ·  /releases.html
 name: pages
 on:
   push:
