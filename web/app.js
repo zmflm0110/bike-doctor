@@ -1,6 +1,6 @@
 // 헛걸음 제로 — 아침 목록(어제까지 기록), 자전거 조회, 구조대, 시연.
 const $ = (s) => document.querySelector(s);
-const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {}, ops: new Set(), busyDemo: {}, busyOps: null, routeValue: null };
+const state = { stations: {}, day: null, morning: null, map: null, layer: null, checked: {}, gu: "", scores: {}, ops: new Set(), sbDays: new Set(), busyDemo: {}, busyOps: null, routeValue: null };
 let here = null;   // 내 위치 (📍 버튼을 눌렀을 때만)
 // QR·입력에서 온 글자를 화면에 넣을 때는 반드시 거친다 (QR 에 HTML 을 심어 두는 장난 막기)
 const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -29,7 +29,9 @@ async function loadDay(day) {
   state.day = day;
   clearInterval(liveTimer);
   try {
-    state.morning = day === "live" ? (await getLive()) || state.morning : await getJSON(state.ops.has(day) ? `${state.opsBase}${day}.json` : `data/morning/${day}.json`);
+    state.morning = day === "live" ? (await getLive()) || state.morning
+      : state.sbDays.has(day) ? (await sbOpsList(day).catch(() => null)) || await getJSON(`${state.opsBase}${day}.json`)   // Supabase(06:10) 먼저, 없으면 GitHub
+      : await getJSON(state.ops.has(day) ? `${state.opsBase}${day}.json` : `data/morning/${day}.json`);
     if (!state.morning) throw new Error("no live");
   } catch (e) {   // 인터넷이 끊겨 그날 목록을 못 받으면 시연 자료로 (전에 받아 둔 날짜 목록만 믿고 열다 멈추던 것)
     if (day === DEMO_DAY) throw e;
@@ -517,9 +519,12 @@ function defaultDay(days) {
   state.opsBase = "data/ops/";
   let ops = await getJSON("data/ops/index.json").catch(() => null);
   if (!ops || !ops.length) { ops = await getJSON(`${CLOUD.data}ops/index.json?t=${Date.now()}`).catch(() => []); state.opsBase = `${CLOUD.data}ops/`; }
-  state.ops = new Set(ops);
+  state.sbDays = new Set(await sbOpsDays().catch(() => []));   // Supabase 가 매일 06:10 에 만든 목록
+  state.ops = new Set([...ops, ...state.sbDays]);
+  ops = [...state.ops];
   const days = [...new Set([...(await getJSON("data/morning/index.json")), ...ops])].sort();
   try { state.scores = await getJSON(`${state.opsBase}scores.json`); } catch {}   // 운영 중에만 있음
+  try { Object.assign(state.scores, await sbScores()); } catch {}   // Supabase 채점이 있으면 그것으로
   state.routeValue = await getJSON("data/route_value.json").catch(() => null);   // 정비 동선 값 표
   // 대여소 시간대별 대여 — 시연 날짜는 그때 자료(busy.json, 6/15 앞 7일), 운영(실시간·매일 목록)은 서버가 지난 7일로 쓴 ops/busy.json
   state.busyDemo = await getJSON("data/busy.json").catch(() => ({}));

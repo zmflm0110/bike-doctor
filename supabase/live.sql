@@ -92,12 +92,12 @@ end $$;
 create table if not exists live.alarms (bike text not null, at timestamp not null, station text, seen_at timestamp not null, primary key (bike, at));
 
 -- bikes 는 조인으로(배열 = any 로 하면 110만 행마다 수천 개와 견줘 시간 초과가 났다 — 2026-09-27)
-create or replace function live.mark_rows(since timestamp, bikes text[])
+create or replace function live.mark_rows(since timestamp, bikes text[], until timestamp default 'infinity')
 returns table (bike text, t0 timestamp, t1 timestamp, st1 text, dud boolean, retry boolean, streak int) language sql stable as $$
 with b as materialized (select distinct unnest(bikes) bike), r as (
   select r.bike, r.t0, r.t1, r.st1, r.who, (r.st0 = r.st1 and r.t1 - r.t0 <= interval '180 seconds' and r.dist_m < 300) dud,
          lag(r.who) over (partition by r.bike order by r.t0) prev_who
-  from live.rentals r join b using (bike) where r.t0 >= since
+  from live.rentals r join b using (bike) where r.t0 >= since and r.t0 < until
 ), r2 as (
   select *, coalesce(who = prev_who, false) retry,
          coalesce(sum(case when dud then 0 else 1 end) over (partition by bike order by t0 rows between unbounded preceding and 1 preceding), 0) g
@@ -166,12 +166,55 @@ begin
   return n;
 end $$;
 
+-- 매일 아침 목록 (engine/morning.py morning_lists 와 같음): 어제(d-1) 마지막 대여 기준 연쇄 2+ 인 자전거, 기록은 자정 전 7일
+create table if not exists live.lists (day date primary key, generated timestamp not null, body jsonb not null);
+create table if not exists live.scores (day date primary key, listed int, rode int, first_dud int, scored_at timestamp);
+
+create or replace function live.morning(d date) returns jsonb language sql stable as $$
+with c as (   -- 어제 헛대여가 있던 자전거 (어제 마지막 대여가 헛대여여야 연쇄 2+ 가 된다)
+  select coalesce(array_agg(distinct bike), '{}') b from live.rentals
+  where t0 >= d - 1 and t0 < d and st0 = st1 and t1 - t0 <= interval '180 seconds' and dist_m < 300
+), m as (
+  select * from live.mark_rows((d - 7)::timestamp, (select b from c), d::timestamp)
+), last as (
+  select distinct on (bike) bike, t1, st1, case when dud and not retry then streak + 1 when dud then streak else 0 end chain
+  from m where t0 >= d - 1 order by bike, t0 desc
+)
+select jsonb_build_object('date', to_char(d, 'YYYY-MM-DD'), 'generated', to_char((now() at time zone 'Asia/Seoul'), 'YYYY-MM-DD"T"HH24:MI:SS'), 'source', 'supabase',
+  'rule', '서로 다른 사람이 3분·300m 안 반납을 2번 이상 이어서 한 뒤 아직 정상 이용이 없는 자전거',
+  'bikes', coalesce(jsonb_agg(jsonb_build_object('bike', l.bike, 'station', l.st1, 'station_name', coalesce(s.name, l.st1), 'chain', l.chain,
+      'level', case when l.chain >= 3 then '빨강' else '노랑' end, 'last_dud', to_char(l.t1, 'MM-DD HH24:MI'), 'reported', null)
+      order by l.chain desc, l.st1), '[]'::jsonb))
+from last l left join live.stations s on s.id = l.st1 where l.chain >= 2
+$$;
+
+-- 어제(d) 목록 채점 (server/daily_job.py score 와 같음): 그날 처음 빌린 '다른 사람'(재시도 아님)도 헛대여였나
+create or replace function live.score_day(d date) returns void language sql as $$
+with b as (select jsonb_array_elements(body->'bikes')->>'bike' bike from live.lists where day = d),
+m as (select * from live.mark_rows((d - 7)::timestamp, (select coalesce(array_agg(bike), '{}') from b), (d + 1)::timestamp)),
+f as (select distinct on (bike) bike, dud from m where t0 >= d and not retry order by bike, t0)
+insert into live.scores(day, listed, rode, first_dud, scored_at)
+select d, (select count(*) from b), (select count(*) from f), (select count(*) from f where dud), (now() at time zone 'Asia/Seoul')
+where exists (select 1 from b)
+on conflict (day) do update set listed = excluded.listed, rode = excluded.rode, first_dud = excluded.first_dud, scored_at = excluded.scored_at
+$$;
+
+-- 06:10: 오늘 목록 + 어제 목록 채점. 5분 예약 안에서 부르므로 06:10 이 지나 오늘 것이 없으면 만든다(늦게 켜져도)
+create or replace function live.morning_job(now_ timestamp) returns void language plpgsql as $$
+begin
+  if now_::time >= '06:10' and not exists (select 1 from live.lists where day = now_::date) then
+    insert into live.lists(day, generated, body) values (now_::date, now_, live.morning(now_::date));
+    perform live.score_day(now_::date - 1);
+  end if;
+end $$;
+
 -- 5분마다: 도착한 것 넣기 → 목록 만들기 → 다음 요청 (지금·직전 시간은 매번, 2~6시간 전은 30분마다, 빠진 칸은 몇 개씩)
 create or replace function live.tick() returns void language plpgsql as $$
 declare now_ timestamp := (now() at time zone 'Asia/Seoul')::timestamp; k int; h text; miss int := 0;
 begin
   perform live.collect();
   perform live.record_alarms(now_);
+  perform live.morning_job(now_);
   insert into live.snapshot(id, at, body) values (1, now_, live.compute(now_) || jsonb_build_object('score', live.score(now_)))
     on conflict (id) do update set at = excluded.at, body = excluded.body;
   for k in 0..1 loop perform live.request(to_char(now_ - make_interval(hours => k), 'YYYY-MM-DD/HH24')); end loop;
@@ -189,7 +232,9 @@ end $$;
 
 -- 앱이 읽는 곳 — 공개 키로 읽기만 (행 자료·생년·성별은 안 보임, 목록 JSON 만)
 create or replace view public.live_snapshot as select at, body from live.snapshot;
-grant select on public.live_snapshot to anon, authenticated;
+create or replace view public.ops_lists as select day, body from live.lists;
+create or replace view public.ops_scores as select day, listed, rode, first_dud from live.scores;
+grant select on public.live_snapshot, public.ops_lists, public.ops_scores to anon, authenticated;
 revoke all on all tables in schema live from anon, authenticated;
 
 -- 예약 (5분마다). 다시 적용해도 하나만

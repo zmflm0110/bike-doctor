@@ -72,8 +72,14 @@ final class AppModel {
         return f.string(from: Date())
     }
 
-    /// GitHub 의 최근 아침 목록 받기 (없거나 밖이 아니어도 조용히 넘어감)
+    /// 최근 아침 목록 받기 — Supabase(06:10 에 스스로) 먼저, 빠진 날은 GitHub 에서 (없어도 조용히 넘어감)
     func refreshCloudDays() async {
+        if let lists = try? await SupabaseClient().opsLists() {
+            for (day, var m) in lists {
+                for i in m.bikes.indices { m.bikes[i].stationName = m.bikes[i].stationName.trimmingCharacters(in: .whitespaces) }
+                cloudLists[day] = m
+            }
+        }
         guard let d = try? await cloud.send("data/ops/index.json"), let days = try? JSONDecoder().decode([String].self, from: d) else { return }
         for day in days.suffix(7) where cloudLists[day] == nil {
             if let data = try? await cloud.send("data/ops/\(day).json"), var m = try? JSONDecoder().decode(MorningList.self, from: data) {

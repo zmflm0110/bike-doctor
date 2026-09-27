@@ -37,6 +37,19 @@ async function sbLive() {
   const x = (await r.json())[0];
   return x && x.body;
 }
+// 매일 아침 목록·채점 — Supabase 가 06:10 에 스스로 만든 것 (live.morning_job)
+async function sbGet(path) {
+  const r = await fetch(`${CLOUD.sb}/rest/v1/${path}`, { headers: sbHeaders() });
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+const sbOpsDays = async () => (await sbGet("ops_lists?select=day&order=day.desc&limit=14")).map((x) => x.day).reverse();
+const sbOpsList = async (day) => ((await sbGet(`ops_lists?select=body&day=eq.${day}`))[0] || {}).body;
+async function sbScores() {
+  const out = {};
+  for (const x of await sbGet("ops_scores?select=day,listed,rode,first_dud")) out[x.day] = { listed: x.listed, rode: x.rode, first_dud: x.first_dud };
+  return out;
+}
 // 사진(data:image/jpeg;base64,…) → 비공개 저장소, 이름(16자 hex.jpg) 돌려줌
 async function sbPhoto(dataUrl) {
   const bin = atob(dataUrl.split(",")[1]);

@@ -62,6 +62,13 @@ public struct SupabaseClient: RecordSink {
 
     public func checked() async throws -> Checked { try await checked(bike: nil) }
 
+    /// 매일 아침 목록 — Supabase 가 06:10 에 스스로 만든 것 (최근 14일, 오래된 것부터)
+    public func opsLists() async throws -> [String: MorningList] {
+        struct Row: Decodable { let day: String; let body: MorningList }
+        let rows = try JSONDecoder().decode([Row].self, from: try await call("rest/v1/ops_lists", query: "select=day,body&order=day.desc&limit=14"))
+        return Dictionary(uniqueKeysWithValues: rows.map { ($0.day, $0.body) })
+    }
+
     /// 지금 목록 — Supabase 가 5분마다 스스로 만든 것 (supabase/live.sql, pg_cron)
     public func live() async throws -> MorningList {
         struct Row: Decodable { let body: MorningList }

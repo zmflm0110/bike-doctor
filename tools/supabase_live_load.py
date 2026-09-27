@@ -107,15 +107,33 @@ def parity():
     return py == sq and today == sql["today_alarms"] and (hit, scored) == (sc["next_rider_dud"], sc["scored"])
 
 
+def parity_morning(day):
+    """오늘(day) 아침 목록: SQL live.morning = 파이썬 engine/morning.py morning_lists (같은 행, 자정 전 7일)."""
+    from engine.morning import morning_lists
+    d = pd.Timestamp(day)
+    sql = json.loads(psql(f"select live.morning('{day}'::date)"))
+    out = psql(f"copy (select bike, t0, st0, t1, st1, dist_m, who from live.rentals where t0 >= '{day}'::date - 7 and t0 < '{day}'::date) to stdout with csv")
+    R = pd.read_csv(io.StringIO(out), names=["bike", "t0", "st0", "t1", "st1", "dist_m", "who"], dtype={"st0": str, "st1": str, "who": object})
+    R["t0"] = pd.to_datetime(R["t0"]); R["t1"] = pd.to_datetime(R["t1"]); R["who"] = R["who"].where(R["who"].notna(), None)
+    items = morning_lists(R.sort_values(["bike", "t0"], kind="stable").reset_index(drop=True), None, with_truth=False).get(day, [])
+    py = {(x["bike"], x["chain"], x["station"]) for x in items}
+    sq = {(x["bike"], x["chain"], x["station"]) for x in sql["bikes"]}
+    print(f"아침 목록 {day}: 파이썬 {len(py)}대 / SQL {len(sq)}대 · 같음 {len(py & sq)} · 파이썬만 {sorted(py - sq)[:3]} · SQL만 {sorted(sq - py)[:3]}")
+    return py == sq
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--stations", action="store_true")
     ap.add_argument("--backfill", type=int)
     ap.add_argument("--parity", action="store_true")
+    ap.add_argument("--parity-morning", metavar="YYYY-MM-DD")
     a = ap.parse_args()
     if a.stations:
         stations()
     if a.backfill:
         backfill(a.backfill)
+    if a.parity_morning:
+        sys.exit(0 if parity_morning(a.parity_morning) else 1)
     if a.parity:
         sys.exit(0 if parity() else 1)
