@@ -54,9 +54,13 @@ header.top .wrap { height: 100%; display: flex; align-items: center; justify-con
 .brand > span { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); opacity: 0; transition: opacity .6s ease; }
 .brand > span.on { opacity: 1; }
 .brand .b1 em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.brand .b2 .x { transition: opacity .45s ease; }
-.brand .b2.thin .x { opacity: 0; }
-.brand .b2 b { font-weight: inherit; display: inline-block; transition: transform .95s cubic-bezier(.2, .8, .2, 1); color: var(--accent); }
+.brand .b2 b { font-weight: inherit; display: inline-block; color: var(--accent); }
+.brand .b2 .x { display: inline-block; }
+.brand .spark { position: absolute; border-radius: 50%; pointer-events: none; z-index: 2; }
+.brand .flash { position: absolute; border-radius: 50%; pointer-events: none; opacity: 0; z-index: 1;
+  background: radial-gradient(circle, color-mix(in srgb, #fff 90%, var(--accent)) 0%, color-mix(in srgb, var(--accent) 45%, transparent) 38%, transparent 70%); }
+.brand .shock { position: absolute; border-radius: 50%; border: 3px solid var(--accent); pointer-events: none; opacity: 0; box-shadow: 0 0 40px 4px color-mix(in srgb, var(--accent) 35%, transparent); }
+.hero { overflow-x: clip; }   /* 튀어나간 불꽃이 가로 스크롤을 만들지 않게 */
 .brand .b2.gone { opacity: 0; transition: opacity .3s ease; }
 .brand .b3 { font-size: 1.95em; font-weight: 800; letter-spacing: -0.045em; }
 .brand .b3 .word { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }   /* 한 단어에 한 번(글자마다 걸면 줄무늬) */
