@@ -38,9 +38,8 @@
     <div class="wrap">
       <p class="eyebrow">따릉이 고장 예보</p>
       <h1 class="brand" id="brand" aria-label="빌리기 전에, 준비. Ready before you ride. RIDEY." title="다시 보기">
-        <span class="b1" id="b1" lang="ko" aria-hidden="true">빌리기 전에, <em>준비.</em></span>
-        <span class="b2" id="b2" lang="en" aria-hidden="true">Ready before you ride.</span>
-        <span class="b3" id="b3" lang="en" aria-hidden="true">RIDEY.</span>
+        <span class="lines" aria-hidden="true"><span class="l1" id="l1"></span><br><span class="l2" id="l2"></span><span class="caret" id="caret"></span></span>
+        <span class="ridey" id="ridey" lang="en" aria-hidden="true"></span>
       </h1>
       <p class="motto-ko"><i lang="en">Ready before you ride.</i> 타기 전에, 고장 난 따릉이를 먼저 알려 줄게요.</p>
       <p class="lede">고장 난 따릉이를 빌렸다가 바로 반납한 적 있나요?<br><b>RIDEY</b>는 앞사람들의 '빌리자마자 반납' 기록으로, 아무도 신고하지 않은 고장을 먼저 찾습니다.</p>
@@ -415,86 +414,92 @@
   });
   addEventListener("scroll", () => $("#top").classList.toggle("scrolled", scrollY > 8), { passive: true });
 
-  // 첫 화면 제목: '빌리기 전에, 준비.' → 'Ready before you ride.' → 남은 글자(ride 의 r·i·d·e, you 의 y, 마침표)가 모여 'RIDEY.'
-  const b2 = $("#b2"), b3 = $("#b3");
-  const keep = { 17: "R", 18: "I", 19: "D", 20: "E", 13: "Y", 21: "dot" };   // 'Ready before you ride.' 글자 자리 → RIDEY. 의 글자
-  b2.innerHTML = [...b2.textContent].map((ch, i) => keep[i] ? `<b data-to="${keep[i]}">${ch}</b>` : `<span class="x">${ch === " " ? "&nbsp;" : ch}</span>`).join("");
-  b3.innerHTML = '<span class="word">' + [..."RIDEY"].map((ch) => `<b data-k="${ch}">${ch}</b>`).join("") + '</span><i data-k="dot">.</i>';
+  // 첫 화면 제목 — 타자: '빌리기 전에, / 준비.' → 지우고 → 'Ready before / you ride.' → 펑: 글자가 화면 앞으로 튀어나오며 흩어지고,
+  // 깊은 안쪽에서 RIDEY. 가 앞으로 날아와 한 번 넘치고 자리 잡는다 (Web Animations API + CSS 3D, 라이브러리 없음)
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  // 스프링(튕기며 멈춤) — linear() 가 되는 브라우저는 진짜 스프링 곡선, 아니면 살짝 넘치는 베지어
-  const SPRING = CSS.supports && CSS.supports("animation-timing-function", "linear(0, 1)")
-    ? "linear(0, 0.013 0.6%, 0.05 1.2%, 0.2 2.5%, 0.64 5.8%, 0.92 8.4%, 1.05 10.2%, 1.14 12%, 1.18 13.9%, 1.17 15.5%, 1.12 17.9%, 1.03 21.6%, 0.98 25.3%, 0.97 28%, 0.98 31.6%, 1.005 38.8%, 1.01 45%, 1 60%, 1)"
-    : "cubic-bezier(.34, 1.56, .64, 1)";
   const SPARK = ["#0f766e", "#1f9d6b", "#2cc5b1", "#d69e00", "#f2c14e", "#c2410c"];
-  function burst(box, x, y, n, dist, size = 7) {   // 불꽃 조각을 한 점에서 사방으로 (CSS-Tricks 'Playing With Particles Using the WAAPI' 방식)
+  const L1 = $("#l1"), L2 = $("#l2"), CARET = $("#caret"), RIDEY = $("#ridey"), BOX = $("#brand");
+  function fx(cls, x, y, w, frames, opt) {   // 번쩍임·파동 한 번
+    const e = document.createElement("i"); e.className = cls;
+    Object.assign(e.style, { left: x + "px", top: y + "px", width: w + "px", height: w + "px" });
+    BOX.appendChild(e); e.animate(frames, opt).onfinish = () => e.remove();
+  }
+  function sparks(x, y, n, dist) {   // 불꽃 조각 — 3D 로 앞쪽까지 튄다
     for (let i = 0; i < n; i++) {
       const d = document.createElement("i"); d.className = "spark";
-      const s = size * (0.5 + Math.random());
+      const s = 5 + Math.random() * 9, ang = Math.random() * Math.PI * 2, r = dist * (0.3 + Math.random());
       Object.assign(d.style, { left: x + "px", top: y + "px", width: s + "px", height: s + "px", background: SPARK[i % SPARK.length] });
-      box.appendChild(d);
-      const ang = Math.random() * Math.PI * 2, r = dist * (0.35 + Math.random() * 0.9);
-      d.animate([{ transform: "translate(-50%, -50%) scale(1)", opacity: 1 },
-                 { transform: `translate(calc(-50% + ${Math.cos(ang) * r}px), calc(-50% + ${Math.sin(ang) * r}px)) scale(0)`, opacity: 0 }],
-        { duration: 650 + Math.random() * 550, easing: "cubic-bezier(.12, .75, .3, 1)" }).onfinish = () => d.remove();
+      BOX.appendChild(d);
+      d.animate([{ transform: "translate3d(-50%, -50%, 0) scale(1)", opacity: 1 },
+                 { transform: `translate3d(calc(-50% + ${Math.cos(ang) * r}px), calc(-50% + ${Math.sin(ang) * r}px), ${200 + Math.random() * 500}px) scale(0)`, opacity: 0 }],
+        { duration: 700 + Math.random() * 600, easing: "cubic-bezier(.12, .75, .3, 1)" }).onfinish = () => d.remove();
     }
   }
-  function flash(box, x, y, w) {   // 펑 순간의 번쩍임 — 가운데서 퍼졌다 사라지는 빛
-    const f = document.createElement("i"); f.className = "flash"; Object.assign(f.style, { left: x + "px", top: y + "px", width: w + "px", height: w + "px" });
-    box.appendChild(f);
-    f.animate([{ transform: "translate(-50%, -50%) scale(.1)", opacity: 0 }, { transform: "translate(-50%, -50%) scale(.6)", opacity: .85, offset: .25 }, { transform: "translate(-50%, -50%) scale(1)", opacity: 0 }],
-      { duration: 520, easing: "ease-out" }).onfinish = () => f.remove();
+  // 글자마다 한 칸 — 이어진 그라데이션을 글자마다 나눠 칠해 흩어질 때도 무지개가 끊기지 않게
+  function split(el, grad) {
+    const w = el.getBoundingClientRect().width, left = el.getBoundingClientRect().left;
+    const text = el.textContent; el.textContent = "";
+    const out = [...text].map((ch) => { const c = document.createElement("span"); c.className = "ch"; c.textContent = ch === " " ? " " : ch; el.appendChild(c); return c; });
+    if (grad) out.forEach((c) => { const r = c.getBoundingClientRect(); Object.assign(c.style, { backgroundImage: "var(--grad)", backgroundSize: w + "px 100%", backgroundPosition: `${left - r.left}px 0` }); c.classList.add("g"); });
+    return out;
   }
-  function ring(box, x, y, w) {   // 펑 — 퍼지는 둥근 파동
-    const r = document.createElement("i"); r.className = "shock"; Object.assign(r.style, { left: x + "px", top: y + "px", width: w + "px", height: w + "px" });
-    box.appendChild(r);
-    r.animate([{ transform: "translate(-50%, -50%) scale(.05)", opacity: .9 }, { transform: "translate(-50%, -50%) scale(1)", opacity: 0 }],
-      { duration: 750, easing: "cubic-bezier(.1, .7, .3, 1)" }).onfinish = () => r.remove();
-  }
+  async function type(el, text, ms) { for (const ch of text) { el.textContent += ch; await wait(ms * (0.75 + Math.random() * 0.5)); } }
+  async function erase(el, ms) { while (el.textContent) { el.textContent = el.textContent.slice(0, -1); await wait(ms); } }
   let run = 0;
   async function brand() {
     const me = ++run, alive = () => me === run;
-    const box = $("#brand"), [s1, s2, s3] = ["#b1", "#b2", "#b3"].map((q) => $(q));
-    box.querySelectorAll(".spark, .shock").forEach((e) => e.remove());
-    [s1, s2, s3, ...s2.querySelectorAll("b, .x")].forEach((e) => e.getAnimations().forEach((an) => an.cancel()));
-    [s1, s2, s3].forEach((x) => x.classList.remove("on", "thin", "gone"));
-    if (reduce) { s3.classList.add("on"); return; }
-    s1.classList.add("on"); await wait(1800); if (!alive()) return;
-    s1.classList.remove("on"); s2.classList.add("on"); await wait(1900); if (!alive()) return;
-    // 1) 힘 모으기 — 살짝 떨림
-    await s2.animate([{ transform: "translateY(-50%) scale(1)" }, { transform: "translateY(-50%) scale(1.035) translateX(-2px)" }, { transform: "translateY(-50%) scale(1.035) translateX(2px)" },
-                      { transform: "translateY(-50%) scale(1.02) translateX(-1px)" }, { transform: "translateY(-50%) scale(1)" }], { duration: 380, easing: "ease-in-out" }).finished;
+    BOX.querySelectorAll(".spark, .flash, .shock").forEach((e) => e.remove());
+    RIDEY.getAnimations({ subtree: true }).forEach((a) => a.cancel());
+    L1.textContent = ""; L2.textContent = ""; RIDEY.textContent = ""; RIDEY.classList.remove("on"); BOX.classList.remove("done"); CARET.hidden = false;
+    if (reduce) { RIDEY.textContent = "RIDEY."; RIDEY.classList.add("on"); BOX.classList.add("done"); return; }
+    await wait(400);
+    await type(L1, "빌리기 전에,", 120); if (!alive()) return;
+    await type(L2, "준비.", 160); if (!alive()) return;
+    await wait(1100); if (!alive()) return;
+    await erase(L2, 55); await erase(L1, 40); if (!alive()) return;
+    await wait(250);
+    await type(L1, "Ready before", 85); if (!alive()) return;
+    await type(L2, "you ride.", 110); if (!alive()) return;
+    await wait(1000); if (!alive()) return;
+    // 힘 모으기 — 살짝 떨림
+    CARET.hidden = true;
+    await BOX.querySelector(".lines").animate([{ transform: "none" }, { transform: "scale(1.03) translateX(-3px)" }, { transform: "scale(1.04) translateX(3px)" }, { transform: "scale(1.02) translateX(-2px)" }, { transform: "none" }],
+      { duration: 360, easing: "ease-in-out" }).finished;
     if (!alive()) return;
-    // 2) 펑 — 파동·불꽃, 남지 않는 글자는 사방으로 튀며 사라짐
-    const bx = box.getBoundingClientRect(), sr = s2.getBoundingClientRect();
-    const cx = sr.left + sr.width / 2 - bx.left, cy = sr.top + sr.height / 2 - bx.top;
-    flash(box, cx, cy, Math.max(sr.width * 1.2, 360));
-    ring(box, cx, cy, Math.max(bx.width, 520) * 1.1);
-    setTimeout(() => ring(box, cx, cy, Math.max(bx.width, 520) * 0.7), 90);
-    burst(box, cx, cy, 80, Math.max(bx.width * 0.6, 300), 10);
-    s2.querySelectorAll(".x").forEach((e) => {
-      const r = e.getBoundingClientRect(), ex = r.left + r.width / 2 - bx.left, ey = r.top + r.height / 2 - bx.top;
-      const ang = Math.atan2(ey - cy, ex - cx) + (Math.random() - 0.5) * 0.9, d = 260 + Math.random() * 380;
-      e.animate([{ transform: "none", opacity: 1 },
-                 { transform: `translate(${Math.cos(ang) * d * .55}px, ${Math.sin(ang) * d * .55 - 40}px) rotate(${(Math.random() - 0.5) * 300}deg) scale(1.1)`, opacity: 1, offset: .35 },
-                 { transform: `translate(${Math.cos(ang) * d}px, ${Math.sin(ang) * d + 60}px) rotate(${(Math.random() - 0.5) * 720}deg) scale(.5)`, opacity: 0 }],
-        { duration: 1000 + Math.random() * 400, easing: "cubic-bezier(.2, .6, .35, 1)", fill: "forwards" });
+    // 펑 — 글자가 화면 앞으로 튀어나오며 흩어진다
+    const bx = BOX.getBoundingClientRect(), cx = bx.width / 2, cy = bx.height / 2;
+    const chars = [...split(L1, false), ...split(L2, true)];
+    fx("flash", cx, cy, Math.max(bx.width * 0.6, 380), [{ transform: "translate(-50%, -50%) scale(.1)", opacity: 0 }, { transform: "translate(-50%, -50%) scale(.6)", opacity: .9, offset: .25 }, { transform: "translate(-50%, -50%) scale(1)", opacity: 0 }], { duration: 560, easing: "ease-out" });
+    fx("shock", cx, cy, Math.max(bx.width, 560) * 1.15, [{ transform: "translate(-50%, -50%) scale(.05)", opacity: .9 }, { transform: "translate(-50%, -50%) scale(1)", opacity: 0 }], { duration: 800, easing: "cubic-bezier(.1, .7, .3, 1)" });
+    sparks(cx, cy, 70, Math.max(bx.width * 0.55, 280));
+    chars.forEach((c) => {
+      const r = c.getBoundingClientRect(), x = r.left + r.width / 2 - bx.left - cx, y = r.top + r.height / 2 - bx.top - cy;
+      const z = 500 + Math.random() * 700;   // 앞으로 (보는 사람 쪽)
+      const tx = x * 1.6 + (Math.random() - 0.5) * 220, ty = y * 2.2 + (Math.random() - 0.5) * 160, rx = (Math.random() - 0.5) * 220, ry = (Math.random() - 0.5) * 260;
+      c.animate([{ transform: "translate3d(0, 0, 0)", opacity: 1, filter: "blur(0)" },
+                 { transform: `translate3d(${tx * .45}px, ${ty * .45}px, ${z * .5}px) rotateX(${rx * .4}deg) rotateY(${ry * .4}deg)`, opacity: 1, filter: "blur(0)", offset: .45 },   // 절반은 또렷하게 — 앞으로 튀어나오는 게 보이게
+                 { transform: `translate3d(${tx}px, ${ty}px, ${z}px) rotateX(${rx}deg) rotateY(${ry}deg)`, opacity: 0, filter: "blur(4px)" }],
+        { duration: 900 + Math.random() * 300, easing: "cubic-bezier(.22, .6, .3, 1)", fill: "forwards" });
     });
-    // 3) 남은 글자(r·i·d·e, y, 마침표)는 튕기며 RIDEY. 자리로 — 하나씩 조금 늦게
-    const dst = Object.fromEntries([...s3.querySelectorAll("[data-k]")].map((e) => [e.dataset.k, e.getBoundingClientRect()]));
-    const order = ["R", "I", "D", "E", "Y", "dot"];
-    const moves = [...s2.querySelectorAll("[data-to]")].map((e) => {
-      const a = e.getBoundingClientRect(), b = dst[e.dataset.to], k = b.height / a.height;
-      const dx = b.left + b.width / 2 - a.left - a.width / 2, dy = b.top + b.height / 2 - a.top - a.height / 2;
-      return e.animate([{ transform: "none" }, { transform: `translate(${dx}px, ${dy}px) scale(${k})` }],
-        { duration: 1000, delay: 120 + order.indexOf(e.dataset.to) * 70, easing: SPRING, fill: "forwards" }).finished;
-    });
-    await Promise.all(moves); if (!alive()) return;
-    // 4) 한 번 더 펑 — 진짜 RIDEY. 가 튀어나오며 자리 잡기
-    s2.classList.add("gone"); s3.classList.add("on");
-    const wr = s3.getBoundingClientRect();
-    burst(box, wr.left + wr.width / 2 - bx.left, wr.top + wr.height / 2 - bx.top, 30, Math.max(wr.width * 0.75, 200), 6);
-    s3.animate([{ transform: "translateY(-50%) scale(.92)" }, { transform: "translateY(-50%) scale(1.07)", offset: .45 }, { transform: "translateY(-50%) scale(1)" }],
-      { duration: 650, easing: "cubic-bezier(.2, .8, .2, 1)" });
+    await wait(260); if (!alive()) return;
+    // RIDEY. — 깊은 안쪽에서 앞으로 날아와 한 번 넘치고 자리 잡는다
+    RIDEY.innerHTML = [..."RIDEY"].map((ch) => `<span class="rc">${ch}</span>`).join("") + '<span class="rc dot">.</span>';
+    RIDEY.classList.add("on");
+    const rw = RIDEY.getBoundingClientRect(), rl = rw.left;
+    const letters = [...RIDEY.querySelectorAll(".rc")];
+    letters.forEach((c) => { if (!c.classList.contains("dot")) { const r = c.getBoundingClientRect(); Object.assign(c.style, { backgroundImage: "var(--grad)", backgroundSize: rw.width + "px 100%", backgroundPosition: `${rl - r.left}px 0` }); } });
+    const flights = letters.map((c, i) => c.animate([
+      { transform: `translate3d(${(i - 2.5) * 40}px, 20px, -1600px) rotateY(${(i - 2.5) * 26}deg) rotateX(40deg)`, opacity: 0 },
+      { opacity: 1, offset: .35 },
+      { transform: "translate3d(0, 0, 180px) rotateY(0) rotateX(0)", opacity: 1, offset: .72 },
+      { transform: "translate3d(0, 0, 0)", opacity: 1 }],
+      { duration: 1150, delay: i * 75, easing: "cubic-bezier(.2, .8, .25, 1)", fill: "both" }).finished);
+    await Promise.all(flights); if (!alive()) return;
+    L1.textContent = ""; L2.textContent = "";
+    BOX.classList.add("done");
+    const rr = RIDEY.getBoundingClientRect();
+    sparks(rr.left + rr.width / 2 - bx.left, rr.top + rr.height / 2 - bx.top, 26, Math.max(rr.width * 0.7, 200));
+    RIDEY.animate([{ transform: "translate(-50%, -50%) scale(1)" }, { transform: "translate(-50%, -50%) scale(1.06)", offset: .4 }, { transform: "translate(-50%, -50%) scale(1)" }], { duration: 520, easing: "cubic-bezier(.2, .8, .2, 1)" });
   }
   brand();
   $("#brand").addEventListener("click", brand);

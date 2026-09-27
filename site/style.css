@@ -49,24 +49,25 @@ header.top .wrap { height: 100%; display: flex; align-items: center; justify-con
 .logo i { color: var(--accent); font-style: normal; }
 .logo { display: inline-flex; align-items: center; gap: 8px; }
 .logo img { width: 28px; height: 28px; border-radius: 8px; display: block; }
-/* 첫 화면 제목 — 세 줄이 같은 자리에서 바뀐다 (index.html brand()) */
-.brand { position: relative; height: clamp(150px, 19vw, 230px); margin: 6px 0 0; cursor: pointer; font-size: clamp(36px, 6vw, 66px); font-weight: 680; letter-spacing: -0.05em; line-height: 1.12; }
-.brand > span { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); opacity: 0; transition: opacity .6s ease; }
-.brand > span.on { opacity: 1; }
-.brand .b1 em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.brand .b2 b { font-weight: inherit; display: inline-block; color: var(--accent); }
-.brand .b2 .x { display: inline-block; }
+/* 첫 화면 제목 — 원래 모양(두 줄, 둘째 줄 무지개, 깜빡이는 커서)에 타자 → 펑(3D) → RIDEY. (index.html brand()) */
+.brand { position: relative; perspective: 900px; perspective-origin: 50% 50%; min-height: calc(2 * 1.16em); cursor: pointer; }
+.brand .lines { display: inline-block; transform-style: preserve-3d; }
+.brand .l2 { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand .caret { display: inline-block; width: .06em; height: .9em; margin-left: .04em; vertical-align: -0.08em; background: var(--accent); animation: blink 1s steps(1) infinite; }
+.brand .caret[hidden] { display: none; }
+.brand .ch { display: inline-block; will-change: transform, opacity; }
+.brand .ch.g { -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand .ridey { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; font-size: 1.75em; font-weight: 800; letter-spacing: -0.045em;
+  transform-style: preserve-3d; opacity: 0; pointer-events: none; }
+.brand .ridey.on { opacity: 1; }
+.brand .rc { display: inline-block; -webkit-background-clip: text; background-clip: text; color: transparent; will-change: transform, opacity; }
+.brand .rc.dot { color: var(--accent); background: none; }
+.brand.done .lines { visibility: hidden; }
 .brand .spark { position: absolute; border-radius: 50%; pointer-events: none; z-index: 2; }
 .brand .flash { position: absolute; border-radius: 50%; pointer-events: none; opacity: 0; z-index: 1;
   background: radial-gradient(circle, color-mix(in srgb, #fff 90%, var(--accent)) 0%, color-mix(in srgb, var(--accent) 45%, transparent) 38%, transparent 70%); }
 .brand .shock { position: absolute; border-radius: 50%; border: 3px solid var(--accent); pointer-events: none; opacity: 0; box-shadow: 0 0 40px 4px color-mix(in srgb, var(--accent) 35%, transparent); }
-.hero { overflow-x: clip; }   /* 튀어나간 불꽃이 가로 스크롤을 만들지 않게 */
-.brand .b2.gone { opacity: 0; transition: opacity .3s ease; }
-.brand .b3 { font-size: 1.95em; font-weight: 800; letter-spacing: -0.045em; }
-.brand .b3 .word { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }   /* 한 단어에 한 번(글자마다 걸면 줄무늬) */
-.brand .b3 b { font-weight: inherit; }
-.brand .b3 i { font-style: normal; color: var(--accent); }
-@media (prefers-reduced-motion: reduce) { .brand > span { transition: none; } }
+.hero { overflow-x: clip; }   /* 튀어나간 글자·불꽃이 가로 스크롤을 만들지 않게 */
 .hero .motto-ko i { font-weight: 700; color: var(--accent); margin-right: 6px; }
 .hero .motto-ko { margin: 18px 0 0; font-size: clamp(19px, 2.4vw, 24px); font-weight: 600; letter-spacing: -0.03em; color: var(--ink); }
 nav.links { display: flex; align-items: center; gap: 26px; font-size: 14.5px; }
