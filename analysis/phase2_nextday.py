@@ -21,8 +21,7 @@ def run(ym):
     # 각 대여 뒤의 연쇄 상태 = 이번 대여까지 반영한 연쇄 (다음 사람 입장의 streak)
     b = R["bike"].to_numpy()
     nxt_same = np.r_[b[1:] == b[:-1], False]
-    after = np.where(R["dud"].to_numpy() & ~R["retry"].to_numpy(), R["streak"].to_numpy() + 1,
-                     np.where(R["dud"].to_numpy(), R["streak"].to_numpy(), 0))
+    after = np.where(R["dud"].to_numpy(), R["streak"].to_numpy() + 1, 0)
     R["chain_after"] = after
     # 자전거별 하루의 마지막 대여 → 자정 시점 연쇄
     last = R.groupby(["bike", "day"]).tail(1)

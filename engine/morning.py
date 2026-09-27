@@ -14,7 +14,7 @@ def morning_lists(R, F=None, rule=RULE, station_name=None, with_truth=True):
     R = mark(R, rule)
     R["day"] = R["t0"].dt.normalize()
     d, retry, streak = R["dud"].to_numpy(), R["retry"].to_numpy(), R["streak"].to_numpy()
-    R["chain_after"] = np.where(d & ~retry, streak + 1, np.where(d, streak, 0))
+    R["chain_after"] = np.where(d, streak + 1, 0)   # 헛대여면 이 사람까지 (재시도여도 이 사람은 이미 한 명 — 2026-09-27 고침: 재시도면 1 줄던 것)
     last = R.groupby(["bike", "day"]).tail(1)
     flagged = last[last["chain_after"] >= rule.alarm_k]
     fault_t = F.groupby("bike")["t"].apply(lambda s: np.sort(s.to_numpy())).to_dict() if F is not None else {}

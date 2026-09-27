@@ -34,6 +34,18 @@ def test_live_state_and_score(tmp_path):
     assert live.score(c, now, live_only=False)["alarms"] == 2
 
 
+def test_retry_keeps_chain():
+    """두 사람이 헛대여한 뒤 둘째 사람이 다시 빌려 또 헛대여 → 연쇄는 여전히 2 (예전엔 1 로 줄어 목록에서 빠졌다, 2026-09-27)."""
+    from engine.morning import morning_lists
+    now = pd.Timestamp("2026-09-25 12:00")
+    R = _finish(pd.DataFrame([ride("A", "2026-09-25 09:00", 30, "1990F"), ride("A", "2026-09-25 10:00", 20, "2001M"),
+                              ride("A", "2026-09-25 10:01", 25, "2001M")]))   # 둘째 사람 재시도
+    bikes, _ = live.live_state(R, now)
+    assert [(b["bike"], b["chain"]) for b in bikes] == [("A", 2)]
+    lists = morning_lists(R, with_truth=False)
+    assert [(x["bike"], x["chain"]) for x in lists["2026-09-26"]] == [("A", 2)]
+
+
 def test_prune_keeps_recent_only(tmp_path):
     c = live.db(tmp_path / "p.sqlite")
     with c:

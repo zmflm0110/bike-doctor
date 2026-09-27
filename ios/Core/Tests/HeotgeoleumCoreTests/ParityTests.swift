@@ -57,8 +57,8 @@ final class ParityTests: XCTestCase {
     }
 
     func testRetroNumbersInReport() throws {
-        let r = Morning.retro(try Self.store.morning("2026-06-15").bikes)   // 보고서·발표의 "77명 중 29명"
-        XCTAssertEqual([r.known, r.hit], [77, 29])
+        let r = Morning.retro(try Self.store.morning("2026-06-15").bikes)   // 보고서·발표의 "79명 중 30명" (재시도 연쇄 고친 뒤, 2026-09-27)
+        XCTAssertEqual([r.known, r.hit], [79, 30])
     }
 
     func testLookupMatchesWebApp() {

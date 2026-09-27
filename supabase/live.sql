@@ -160,7 +160,7 @@ create or replace function live.compute(now_ timestamp default (now() at time zo
 with m as (
   select * from live.mark_rows(now_ - interval '7 days', live.cand(now_))
 ), last as (
-  select distinct on (bike) bike, t1, st1, case when dud and not retry then streak + 1 when dud then streak else 0 end chain
+  select distinct on (bike) bike, t1, st1, case when dud then streak + 1 else 0 end chain
   from m order by bike, t0 desc
 ), fresh as (
   select l.*, s.name from last l left join live.stations s on s.id = l.st1
@@ -202,7 +202,7 @@ with c as (   -- 어제 헛대여가 있던 자전거 (어제 마지막 대여�
 ), m as (
   select * from live.mark_rows((d - 7)::timestamp, (select b from c), d::timestamp)
 ), last as (
-  select distinct on (bike) bike, t1, st1, case when dud and not retry then streak + 1 when dud then streak else 0 end chain
+  select distinct on (bike) bike, t1, st1, case when dud then streak + 1 else 0 end chain
   from m where t0 >= d - 1 order by bike, t0 desc
 )
 select jsonb_build_object('date', to_char(d, 'YYYY-MM-DD'), 'generated', to_char((now() at time zone 'Asia/Seoul'), 'YYYY-MM-DD"T"HH24:MI:SS'), 'source', 'supabase',

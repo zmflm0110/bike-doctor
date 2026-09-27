@@ -161,7 +161,7 @@ def live_state(R, now, station_name=None, rule=RULE):
     station_name = station_name or {}
     M = mark(R, rule)
     d, retry, streak = M["dud"].to_numpy(), M["retry"].to_numpy(), M["streak"].to_numpy()
-    M["chain_after"] = np.where(d & ~retry, streak + 1, np.where(d, streak, 0))
+    M["chain_after"] = np.where(d, streak + 1, 0)   # engine/morning.py 와 같음 (재시도여도 이 사람까지)
     last = M.groupby("bike").tail(1)
     fresh = last[(last["chain_after"] >= rule.alarm_k) & (last["t1"] >= now - pd.Timedelta(hours=FRESH_HOURS))]
     bikes = [{"bike": r.bike, "station": r.st1, "station_name": station_name.get(r.st1, r.st1), "chain": int(r.chain_after),
