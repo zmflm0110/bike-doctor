@@ -57,12 +57,14 @@ header.top .wrap { height: 100%; display: flex; align-items: center; justify-con
 .brand .caret[hidden] { display: none; }
 .brand .ch { display: inline-block; will-change: transform, opacity; }
 .brand .ch.g { -webkit-background-clip: text; background-clip: text; color: transparent; }
-.brand .ridey { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; font-size: 1.75em; font-weight: 800; letter-spacing: -0.045em;
-  transform-style: preserve-3d; opacity: 0; pointer-events: none; }
+.brand .ridey { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; transform-style: preserve-3d; opacity: 0; pointer-events: none; }
 .brand .ridey.on { opacity: 1; }
-.brand .rc { display: inline-block; -webkit-background-clip: text; background-clip: text; color: transparent; will-change: transform, opacity; }
-.brand .rc.dot { color: var(--accent); background: none; }
+.brand .ridey .word { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }   /* 둘째 줄과 같은 무지개 */
+.brand .ridey .rc { display: inline-block; }
+.brand .ridey .dot { color: var(--accent); }
+.brand.done .ridey .word { opacity: 1; }
 .brand.done .lines { visibility: hidden; }
+.brand .ridey:not(.on) .word { opacity: 0; }
 .brand .spark { position: absolute; border-radius: 50%; pointer-events: none; z-index: 2; }
 .brand .flash { position: absolute; border-radius: 50%; pointer-events: none; opacity: 0; z-index: 1;
   background: radial-gradient(circle, color-mix(in srgb, #fff 90%, var(--accent)) 0%, color-mix(in srgb, var(--accent) 45%, transparent) 38%, transparent 70%); }
