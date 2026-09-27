@@ -40,8 +40,8 @@ public struct MorningList: Codable, Sendable {
     // 실시간 목록(맥 서버의 data/live.json)에만
     public let at: String?
     public let todayAlarms: Int?
-    public let score: LiveScore?
-    public let feed: FeedStatus?
+    public var score: LiveScore?
+    public var feed: FeedStatus?
     enum CodingKeys: String, CodingKey { case date, rule, bikes, at, score, feed, todayAlarms = "today_alarms" }
 }
 

@@ -24,10 +24,19 @@ document.querySelectorAll("#tabs button").forEach((b) =>
 
 // ── 아침 목록
 let liveTimer = null;
+const DEMO_DAY = "2026-06-15";   // 앱 안(오프라인 캐시)에 늘 있는 시연 날
 async function loadDay(day) {
   state.day = day;
   clearInterval(liveTimer);
-  state.morning = day === "live" ? (await getLive()) || state.morning : await getJSON(state.ops.has(day) ? `${state.opsBase}${day}.json` : `data/morning/${day}.json`);
+  try {
+    state.morning = day === "live" ? (await getLive()) || state.morning : await getJSON(state.ops.has(day) ? `${state.opsBase}${day}.json` : `data/morning/${day}.json`);
+    if (!state.morning) throw new Error("no live");
+  } catch (e) {   // 인터넷이 끊겨 그날 목록을 못 받으면 시연 자료로 (전에 받아 둔 날짜 목록만 믿고 열다 멈추던 것)
+    if (day === DEMO_DAY) throw e;
+    toast("인터넷이 안 돼서 앱 안의 시연 자료(6월 15일)를 보여 줄게요.");
+    $("#day").value = DEMO_DAY;
+    return loadDay(DEMO_DAY);
+  }
   if (day === "live") liveTimer = setInterval(() => state.day === "live" && refreshLive(), 60e3);
   state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
   guOptions();
@@ -36,12 +45,19 @@ async function loadDay(day) {
   loadChecked();
 }
 
-// 실시간: 맥의 server/live.py(1분마다, 같은 와이파이) 와 GitHub(10분마다, 어디서든) 중 더 새 것
+// 실시간: 맥 server/live.py(1분, 같은 와이파이) · Supabase(5분, DB 가 스스로) · GitHub(예약이 드묾) 중 가장 새 것.
+// 채점·자료 지연 표시는 GitHub 쪽에만 있어 가장 새 목록에 빌려 붙인다.
 async function getLive() {
-  const got = await Promise.allSettled([getJSON(`data/live.json?t=${Date.now()}`), getJSON(`${CLOUD.data}live.json?t=${Date.now()}`)]);
-  const ok = got.map((g, i) => g.status === "fulfilled" && g.value && g.value.at ? { ...g.value, source: i ? "cloud" : "mac" } : null).filter(Boolean)
-    .filter((m) => minsAgo(m.at) <= (m.source === "cloud" ? 180 : 20));   // GitHub 은 붐비면 예약을 건너뛴다 — 3시간 안이면 늦었다고 알리고 보여 줌(6월 시연 자료보다 낫다)
-  return ok.sort((a, b) => b.at.localeCompare(a.at))[0] || null;
+  const src = [["mac", getJSON(`data/live.json?t=${Date.now()}`)], ["supabase", sbLive()], ["cloud", getJSON(`${CLOUD.data}live.json?t=${Date.now()}`)]];
+  const got = await Promise.allSettled(src.map(([, p]) => p));
+  const all = got.map((g, i) => g.status === "fulfilled" && g.value && g.value.at ? { ...g.value, source: src[i][0] } : null).filter(Boolean);
+  const ok = all.filter((m) => minsAgo(m.at) <= (m.source === "mac" ? 20 : 180));   // 3시간 안이면 늦었다고 알리고 보여 줌(6월 시연 자료보다 낫다)
+  const best = ok.sort((a, b) => b.at.localeCompare(a.at))[0];
+  if (!best) return null;
+  const gh = all.find((m) => m.source === "cloud");
+  if (gh && !best.score) best.score = gh.score;
+  if (gh && !best.feed) best.feed = gh.feed;
+  return best;
 }
 async function refreshLive() {
   const m = await getLive();
@@ -84,7 +100,7 @@ function renderMorning() {
     const sc = state.morning.score || {};
     $("#morning-summary").innerHTML =
       `<b>지금</b> <b>${bikes.length}</b>대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 ${red}대). ` +
-      `<span class="muted">${minsAgo(state.morning.at)}분 전 갱신${state.morning.source === "cloud" ? "(10분마다)" : ""} · 오늘 켜진 경보 ${state.morning.today_alarms}번</span>` +
+      `<span class="muted">${minsAgo(state.morning.at)}분 전 갱신${state.morning.source === "supabase" ? "(5분마다)" : ""} · 오늘 켜진 경보 ${state.morning.today_alarms}번</span>` +
       (sc.scored >= 20 ? `<br>실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 ${sc.scored}명 중 <b class="confirmed">${sc.next_rider_dud}명(${sc["precision_%"]}%)</b>이 또 바로 반납 (평소 약 2.5%)`
         : sc.scored ? `<br><span class="muted">실시간 경보 채점을 모으는 중 (${sc.scored}건 — 20건부터 보여 줘요)</span>` : "");   // 몇 건으로 낸 % 는 오해를 부른다
     if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);

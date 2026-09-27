@@ -15,7 +15,7 @@ const URL = `http://localhost:${PORT}/index.html`;
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   let page = await ctx.newPage();
   const errors = [];
-  page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
+  page.on("pageerror", (e) => errors.push("pageerror: " + e.message + " @ " + String(e.stack || "").split("\n").slice(0, 4).join(" | ")));
   page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text().slice(0, 120)); });
   await page.goto(URL, { waitUntil: "networkidle" });
   await page.evaluate(() => navigator.serviceWorker.ready);
@@ -33,7 +33,7 @@ const URL = `http://localhost:${PORT}/index.html`;
   await ctx.setOffline(true);
   await page.close();
   page = await ctx.newPage();                      // 새 탭: 이전 탭의 메모리 속 그림이 섞이지 않게
-  page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
+  page.on("pageerror", (e) => errors.push("pageerror: " + e.message + " @ " + String(e.stack || "").split("\n").slice(0, 4).join(" | ")));
   page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text().slice(0, 120)); });
   await page.goto(URL, { waitUntil: "load" }).catch((e) => console.log("열기 실패:", e.message));
   await page.waitForTimeout(1500);

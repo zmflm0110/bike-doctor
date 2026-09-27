@@ -12,6 +12,8 @@ final class CloudLiveTests: XCTestCase {
         try await sb.survey(SurveyRecord(station: "00102", bike: "spb 99996", status: "체인·기어", note: "앱 연결 시험(곧 지움)", lat: 37.55, lon: 126.91))
         let checked = try await sb.checked()
         XCTAssertGreaterThanOrEqual(checked["SPB-99996"]?.values.reduce(0, +) ?? 0, 2)
+        let db = try await sb.live()   // Supabase 가 5분마다 만든 지금 목록
+        XCTAssertEqual(db.date, "live"); XCTAssertNotNil(db.at)
         let live = try await ServerClient(base: Cloud.data).live()
         XCTAssertNotNil(live.at)
         XCTAssertFalse(live.bikes.isEmpty)

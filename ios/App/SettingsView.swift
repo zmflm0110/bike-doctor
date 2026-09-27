@@ -20,7 +20,7 @@ struct SettingsView: View {
                     .disabled(checking)
                     if let s = model.serverStatus { Text(s).font(.footnote) }
                 } footer: {
-                    Text("없어도 됩니다 — 앱은 어디서든 클라우드(10분마다 갱신)로 돌고, 구조대 확인·현장 조사는 클라우드 DB 로 바로 갑니다(인터넷이 없으면 폰에 보관했다가 나중에). 집 와이파이에서 맥 서버를 켜 두면 1분마다 갱신되는 목록을 먼저 씁니다: 맥의 '시스템 설정 → 일반 → 공유' 맨 아래 이름 뒤에 .local:8765 (예: http://내맥이름.local:8765).")
+                    Text("없어도 됩니다 — 앱은 어디서든 클라우드(5분마다 갱신)로 돌고, 구조대 확인·현장 조사는 클라우드 DB 로 바로 갑니다(인터넷이 없으면 폰에 보관했다가 나중에). 집 와이파이에서 맥 서버를 켜 두면 1분마다 갱신되는 목록을 먼저 씁니다: 맥의 '시스템 설정 → 일반 → 공유' 맨 아래 이름 뒤에 .local:8765 (예: http://내맥이름.local:8765).")
                 }
                 Section("자료") {
                     LabeledContent("지금 목록", value: model.live == nil ? "못 받음" : "\(model.liveSource) · \(AppModel.minutesAgo(model.live?.at ?? ""))분 전")

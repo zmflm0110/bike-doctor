@@ -4,7 +4,7 @@ import FoundationNetworking
 #endif
 
 /// 어디서든 — 맥 없이도 앱이 진짜 앱처럼. 웹앱 web/cloud.js 와 같은 값.
-///   읽기: GitHub 가 10분마다 만드는 실시간·아침 목록 (.github/workflows/cloud.yml → live-data 가지)
+///   읽기: 지금 목록은 Supabase 가 5분마다 스스로(supabase/live.sql), 아침 목록·채점은 GitHub(.github/workflows/cloud.yml → live-data 가지)
 ///   쓰기: 구조대 확인·현장 조사 → Supabase (supabase/schema.sql — 누구나 넣기만, 읽기는 자전거별 확인 수만)
 public enum Cloud {
     public static let data = URL(string: "https://raw.githubusercontent.com/zmflm0110/bike-doctor/live-data/")!
@@ -61,6 +61,14 @@ public struct SupabaseClient: RecordSink {
     }
 
     public func checked() async throws -> Checked { try await checked(bike: nil) }
+
+    /// 지금 목록 — Supabase 가 5분마다 스스로 만든 것 (supabase/live.sql, pg_cron)
+    public func live() async throws -> MorningList {
+        struct Row: Decodable { let body: MorningList }
+        let rows = try JSONDecoder().decode([Row].self, from: try await call("rest/v1/live_snapshot", query: "select=body"))
+        guard let m = rows.first?.body else { throw ServerClient.Failure.server(404) }
+        return m
+    }
 
     func checked(bike: String?) async throws -> Checked {
         struct Row: Decodable { let bike: String; let verdict: String; let n: Int }

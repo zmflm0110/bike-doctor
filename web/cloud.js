@@ -1,5 +1,5 @@
 // 어디서든 쓰는 자료 — 맥 서버에 못 닿을 때(밖·GitHub Pages)도 앱이 진짜 앱처럼 돌게.
-//   읽기: GitHub 가 10분마다 만드는 실시간 목록·아침 목록 (.github/workflows/cloud.yml → live-data 가지)
+//   읽기: 지금 목록은 Supabase 가 5분마다 스스로(supabase/live.sql), 아침 목록·채점은 GitHub(.github/workflows/cloud.yml → live-data 가지)
 //   쓰기: 구조대 확인·현장 조사 → Supabase (supabase/schema.sql — 누구나 넣기만, 읽기는 자전거별 확인 수만)
 const CLOUD = {
   data: "https://raw.githubusercontent.com/zmflm0110/bike-doctor/live-data/data/",
@@ -29,6 +29,13 @@ async function sbChecked(bike) {
   const out = {};
   for (const x of await r.json()) (out[x.bike] = out[x.bike] || {})[x.verdict] = x.n;
   return out;
+}
+// 지금 목록 — Supabase 가 5분마다 스스로 만든 것 (supabase/live.sql, pg_cron). [{at, body}] → body
+async function sbLive() {
+  const r = await fetch(`${CLOUD.sb}/rest/v1/live_snapshot?select=at,body`, { headers: sbHeaders() });
+  if (!r.ok) throw new Error(r.status);
+  const x = (await r.json())[0];
+  return x && x.body;
 }
 // 사진(data:image/jpeg;base64,…) → 비공개 저장소, 이름(16자 hex.jpg) 돌려줌
 async function sbPhoto(dataUrl) {

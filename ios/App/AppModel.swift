@@ -90,9 +90,10 @@ final class AppModel {
     func refreshLive() async {
         let (mc, cc) = (client, cloud)   // 메인 액터 밖에서 동시에 받으려고 값으로 꺼냄
         async let mac: MorningList? = { guard let mc else { return nil }; return try? await mc.live() }()
-        async let web: MorningList? = try? await cc.live()
-        let (m, w) = await (mac, web)
-        let fresh = [(m, 20, "집 맥"), (w, 180, "클라우드")].compactMap { x, limit, name -> (MorningList, Int, String)? in
+        async let db: MorningList? = try? await SupabaseClient().live()   // 5분마다 DB 가 스스로
+        async let web: MorningList? = try? await cc.live()                 // GitHub (예약이 드묾, 채점·자료 지연은 여기에만)
+        let (m, d, w) = await (mac, db, web)
+        let fresh = [(m, 20, "집 맥"), (d, 180, "클라우드"), (w, 180, "클라우드")].compactMap { x, limit, name -> (MorningList, Int, String)? in
             guard let x, let at = x.at else { return nil }
             let ago = Self.minutesAgo(at)
             return ago <= limit ? (x, ago, name) : nil
@@ -104,9 +105,12 @@ final class AppModel {
             return
         }
         serverStatus = "연결됨 · \(name) · 지금 의심 \(best.bikes.count)대 (\(ago)분 전 갱신)"
-        live = best
+        var merged = best
+        if merged.score == nil, let s = w?.score { merged.score = s }   // 채점·자료 지연은 GitHub 쪽에서 빌려 옴
+        if merged.feed == nil, let f = w?.feed { merged.feed = f }
+        live = merged
         liveSource = name
-        if day == Self.liveDay { morning = best }
+        if day == Self.liveDay { morning = merged }
     }
     /// 지금 목록이 어디서 왔나 — "집 맥" (1분마다) / "클라우드" (10분마다)
     var liveSource = ""

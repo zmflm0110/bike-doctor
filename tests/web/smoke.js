@@ -175,6 +175,27 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     await page.waitForFunction(() => document.querySelector("#morning-summary").textContent.includes("지금"));
     check(/늦어지고 있어요\(마지막 9\d분 전\)/.test(await page.textContent("#morning-summary")), "90분 묵은 클라우드 목록도 보여 주되 늦었다고 알림");
     await page.unroute(/data\/live\.json/);
+    console.log("지금 목록 — Supabase(5분) 가 GitHub(드묾) 보다 새로우면 그것을, 채점은 GitHub 쪽에서 빌려");
+    {
+      const sctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "ko-KR", serviceWorkers: "block" });
+      await sctx.route(/tile\.openstreetmap\.org/, (r) => r.abort());
+      const now = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 19), old = new Date(Date.now() + 9 * 3600e3 - 100 * 60e3).toISOString().slice(0, 19);
+      const b1 = { bike: "SPB-11111", station: st.id, station_name: st.name, chain: 2, level: "노랑", last_dud: "09-27 10:00", minutes_ago: 3, reported: null };
+      // 나중에 등록한 규칙이 먼저 걸린다 — 넓은 규칙(막기)을 먼저, 좁은 규칙(흉내)을 나중에
+      await sctx.route(/raw\.githubusercontent\.com/, (r) => r.abort());
+      await sctx.route(/supabase\.co/, (r) => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+      await sctx.route(/raw\.githubusercontent\.com.*live\.json/, (r) => r.fulfill({ contentType: "application/json",
+        body: JSON.stringify({ date: "live", at: old, bikes: [b1], today_alarms: 1, score: { scored: 25, next_rider_dud: 8, "precision_%": 32.0 }, feed: { ok: true } }) }));
+      await sctx.route(/supabase\.co\/rest\/v1\/live_snapshot/, (r) => r.fulfill({ contentType: "application/json",
+        body: JSON.stringify([{ at: now, body: { date: "live", source: "supabase", at: now, bikes: [b1, { ...b1, bike: "SPB-22222" }], today_alarms: 2 } }]) }));
+      const sp = await sctx.newPage();
+      await sp.goto(URL, { waitUntil: "networkidle" });
+      await sp.waitForFunction(() => document.querySelector("#morning-summary").textContent.includes("지금"));
+      const t = (await sp.textContent("#morning-summary")).replace(/\s+/g, " ");
+      check(/지금 2대/.test(t) && /5분마다/.test(t), "Supabase 목록(더 새것)을 씀: " + t.slice(0, 40));
+      check(/25명 중 8명\(32%\)/.test(t), "채점은 GitHub 쪽에서 빌려 옴");
+      await sctx.close();
+    }
     console.log("클라우드 DB (Supabase 흉내) — 밖에서 현장 조사");
     const cctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "ko-KR", serviceWorkers: "block" });
     await cctx.route(/tile\.openstreetmap\.org|raw\.githubusercontent\.com/, (r) => r.abort());

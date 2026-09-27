@@ -30,7 +30,7 @@
 
 - **서로 다른 두 사람**이 연달아 빌리자마자 반납한 자전거는, 다음 사람도 **35\~44%** 가 바로 반납한다. 평소엔 2.5% — 약 14배.
 - 이 경보는 고장 신고보다 **20\~25시간 먼저** 울리고, 끝내 **신고되지 않을 고장(49\~61%)** 까지 찾는다.
-- 서울 대여이력 API 는 자전거별 기록을 **반납하자마자** 준다. 그래서 지금 **10분마다 실시간 경보**를 낸다 — 맥 없이 GitHub 에서 돌고, 앱은 **어디서든** 받는다(2026년 9월 26일부터).
+- 서울 대여이력 API 는 자전거별 기록을 **반납하자마자** 준다. 그래서 지금 **5분마다 실시간 경보**를 낸다 — 맥 없이 클라우드 DB(Supabase) 안에서 돌고, 앱은 **어디서든** 받는다(2026년 9월 27일부터).
 - 서울 3개월·대전 2개월, **약 1천만 건**으로 검증했다. 기준은 1월 기록으로만 정하고 다른 달·도시에 그대로 적용했다.
 
 ## 왜 만들었나
@@ -44,7 +44,7 @@
 ```mermaid
 flowchart LR
   A[누군가 반납] --> B[서울 대여이력 API<br/>반납 즉시 공개]
-  B --> C[GitHub 가 10분마다<br/>최근 7일 기록 읽기]
+  B --> C[클라우드 DB 가 5분마다<br/>최근 7일 기록 읽기]
   C --> D{헛대여?<br/>3분·300m 안<br/>같은 곳에 반납}
   D -->|서로 다른 사람<br/>2명 연속| E[경보]
   E --> F[이용자<br/>번호 확인]
@@ -56,7 +56,8 @@ flowchart LR
 
 | 어디서 | 무엇을 |
 |---|---|
-| GitHub Actions (`.github/workflows/cloud.yml`, 10분마다) | 서울 API → DB(SQLite, **암호화해** Actions 캐시에) → 경보·채점·06:10 아침 목록·충전기 상태 → `live-data` 가지에 JSON |
+| **Supabase 안** (`supabase/live.sql`, pg_cron 5분마다) | 서울 API(pg_net) → `live.rentals` → SQL 로 연쇄·경보 → 지금 목록(`live_snapshot`). 파이썬 엔진과 같은 결과인지 `tools/supabase_live_load.py --parity` 로 확인(9/27: 90대·오늘 경보 56 모두 같음) |
+| GitHub Actions (`.github/workflows/cloud.yml`, 예약이 드물게 돎) | 서울 API → DB(SQLite, **암호화해** Actions 캐시에) → 채점·06:10 아침 목록·충전기 상태 → `live-data` 가지에 JSON |
 | 앱·웹앱 | `live-data` 의 목록을 **어디서든** 읽는다. 같은 와이파이에 맥 서버가 있으면 1분마다 갱신되는 그쪽을 먼저 |
 | Supabase (`supabase/schema.sql`) | 구조대 확인·현장 조사·사진. 앱의 공개 키로는 **넣기만** 되고, 읽기는 자전거별 확인 수(집계)만. 위치·메모·사진은 우리만 본다 |
 
@@ -142,7 +143,7 @@ security add-generic-password -a bike-doctor -s datagokr -w           # 공공�
 ```
 앱은 집 맥(20분 안)·클라우드(45분 안) 목록 중 더 새 것을 '지금 (실시간)' 으로, 없으면 오늘 아침 목록 → 시연 날짜(6/15) 순으로 먼저 보여 준다.
 
-**클라우드로 돌리기** (맥 없이) — 저장소 비밀 `SEOUL_OPENAPI_KEY`·`DATAGOKR_KEY`·`LIVE_STATE_KEY`(DB 암호, 아무 긴 글자) 를 넣으면 `cloud.yml` 이 10분마다 돈다.
+**클라우드로 돌리기** (맥 없이) — 저장소 비밀 `SEOUL_OPENAPI_KEY`·`DATAGOKR_KEY`·`LIVE_STATE_KEY`(DB 암호, 아무 긴 글자) 를 넣으면 `cloud.yml` 이 돈다(GitHub 예약은 몇 시간씩 건너뛸 수 있어 지금 목록은 Supabase 가 맡음). Supabase: `supabase/live.sql` 적용, Vault 에 `seoul_openapi`, 처음 채우기 `tools/supabase_live_load.py --stations --backfill 8`.
 쓰기 DB 는 Supabase 프로젝트에 `supabase/schema.sql` 을 한 번 적용하고, 공개(publishable) 키를 `web/cloud.js`·`ios/Core/Sources/HeotgeoleumCore/Cloud.swift` 에.
 모인 조사 기록은 `server/supabase_export.py` → `data/survey.csv` (DB 비밀번호는 키체인 `supabase-db`).
 </details>
