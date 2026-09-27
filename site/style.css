@@ -424,3 +424,10 @@ footer p { margin: 0; font-size: 13.5px; color: var(--muted); }
 .phone img { border-radius: 35px; }
 .agent, .band { border-radius: 32px; }
 @media (max-width: 600px) { .story-nav { justify-content: flex-start; gap: 12px; margin-top: 30px; } .story-nav a { width: 68px; } .story-nav .ring { width: 58px; height: 58px; } }
+
+/* 실시간 채점 카드 */
+.livescore { margin-top: 16px; }
+.livescore .big { display: flex; align-items: baseline; gap: 14px; margin: 12px 0 0; flex-wrap: wrap; }
+.livescore .big > b { font-family: var(--font-brand); font-size: 52px; font-weight: 800; line-height: 1; background: var(--wgrad); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; }
+.livescore .big span { color: var(--muted); font-size: 15.5px; }
+.livescore .big span b { color: var(--ink); }

@@ -5,18 +5,17 @@
 근거(초안 단계, `~/ideas/drafts/04-bike-doctor`): 서로 다른 두 사람이 연달아 빌리자마자 반납한 자전거는 다음 사람도 34% 가 헛걸음(평소 2.5%, 약 14배).
 서울 1·3·6월 + 대전 타슈 5·10월 재현, 경보가 고장 신고보다 중앙값 20시간 먼저, 그 사이 평균 4.4명 헛걸음, 서울 하루 84\~223명 예방 가능.
 
-## 다시 시작할 때 (2026-09-26 17시 기준 — 맥 없이 도는 구조로 바꿈)
-- **돌고 있는 것 — 클라우드(맥 꺼져도 됨)**: GitHub Actions `cloud.yml` 10분마다 — 서울 API → DB(SQLite, `LIVE_STATE_KEY` 로 암호화해 Actions 캐시) → 경보·채점·06:10 아침 목록·충전기 상태
-  → `live-data` 가지(`data/live.json`, `data/ops/*.json`, `data/ev_validation.md`). 앱·웹앱은 여기를 **어디서든** 읽는다.
-  쓰기 DB = **Supabase** 프로젝트 `iqvquwvoljzuvdgtbpnu`(ap-southeast-1): `supabase/schema.sql` 적용됨 — rescue·survey 표(누구나 넣기만), checked 뷰(자전거별 확인 수만), 비공개 사진 저장소.
-  앱 키 = 공개 publishable 키(`web/cloud.js`, `Cloud.swift`). DB 비밀번호는 키체인 `supabase-db`. 조사 기록 내려받기: `server/supabase_export.py`.
-  저장소 비밀: `SEOUL_OPENAPI_KEY`, `DATAGOKR_KEY`, `LIVE_STATE_KEY`. 끄기: Actions → live → Disable.
-- **맥**: 실시간(`kr.bikedoctor.live`)·충전기(`ev`) 는 클라우드로 옮겨 끔(사용자 결정 2026-09-26). 웹 서버(8765)·아침 목록(06:10)은 남음(없어도 됨).
-- **확인**: `gh run list -w live -L 5` · 지금 목록 `curl -s https://raw.githubusercontent.com/zmflm0110/ridey/live-data/data/live.json | head -c 300`
+## 다시 시작할 때 (2026-09-27 18시 기준 — 핵심은 클라우드 DB 안에서 돈다)
+- **돌고 있는 것 — Supabase(맥·GitHub 없이)**: 프로젝트 `iqvquwvoljzuvdgtbpnu`(ap-southeast-1), `supabase/live.sql`. pg_cron `live-tick` 5분마다 — 서울 API(pg_net) → `live.rentals` → 지금 목록·경보·실시간 채점(`live.snapshot`), 06:10 뒤 아침 목록·어제 채점.
+  공개 뷰 `live_snapshot`·`ops_lists`·`ops_scores`(앱·웹앱·사이트가 publishable 키로 읽음). 쓰기 표 rescue·survey·사진(`supabase/schema.sql`). 서울 키는 Supabase Vault `seoul_openapi`. DB 비밀번호는 키체인 `supabase-db`.
+  확인: `psql … -c "select status from cron.job_run_details order by start_time desc limit 3"` (접속 문자열은 `tools/supabase_live_load.py` DSN). 파이썬과 맞춰 보기: `tools/supabase_live_load.py --parity`.
+- **GitHub Actions `cloud.yml`**(드문드문): 백업 live.json·`live-data` 가지·충전기 수집·Supabase 깨우기. 저장소 비밀 `SEOUL_OPENAPI_KEY`, `DATAGOKR_KEY`, `LIVE_STATE_KEY`.
+- **맥**: 실시간 서비스는 꺼 둠(사용자 결정 2026-09-26). 안드로이드 APK 는 `cd android-app && npm run release`(자바 = Homebrew openjdk@21).
+- **실시간 채점 (업데이트형)**: 9/27 18:15 첫 100건 넘음 — 108명 중 49명(45%, 95% 36\~55%). 주 1회 숫자 갱신(README·보고서; 사이트는 자동).
 - **다음에 할 일**
-  1. 사용자: 아이폰 케이블 연결 → 새 앱 설치(무료 계정이라 7일마다 다시). 목표 대회·마감, 이름·학교, 작품 이름 확정.
-  2. 업데이트형(사용자 2026-09-26 "100개 모으는 건 그 뒤 업데이트"): 클라우드가 실시간 채점·아침 목록 채점·충전기 연쇄를 쌓음 → 주 1회 숫자 갱신(보고서·사이트).
-  3. 사용자: 현장 조사 2주(앱 '현장 조사' → Supabase → `server/supabase_export.py` → `analysis/field_validation.py data/survey.csv live`).
+  1. 사용자: 9/30 참가 신청서(PDF, 서명) · 아이폰 케이블 연결 → 새 앱(아이콘 바뀜) 설치 · 10월 현장 조사 2주.
+  2. 시연 영상을 RIDEY 이름·새 로고로 다시 찍기(`tests/web/record_demo.js`) — 사용자 확인 뒤.
+  3. 사용자: 현장 조사(앱 '현장 조사' → Supabase → `server/supabase_export.py` → `analysis/field_validation.py data/survey.csv live`).
 
 ## 목표 대회 — 2026 디지털콘텐츠개발대회 (교내, 생활 부문) — 2026-09-26 확정
 - 심사(생활): **기획 25 · 개발 45 · 디자인 20 · 시연·발표 10**. 개인 또는 팀 1\~5인(팀원 변경 불가).
