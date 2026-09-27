@@ -62,14 +62,14 @@ struct RootView: View {
     }
 }
 
-/// 부드럽고 친근하게 — 우리 청록, 고리 테두리는 청록 그라데이션. 어두운 화면에선 밝은 색 (웹앱 web/style.css 와 같은 값)
+/// 부드럽고 친근하게 — 로고 색(민트·청록·남색), 고리 테두리는 민트 그라데이션. 어두운 화면에선 밝은 색 (웹앱 web/style.css 와 같은 값)
 enum Palette {
     static func dyn(_ light: UInt32, _ dark: UInt32) -> Color {
         func c(_ h: UInt32) -> UIColor { UIColor(red: CGFloat((h >> 16) & 255) / 255, green: CGFloat((h >> 8) & 255) / 255, blue: CGFloat(h & 255) / 255, alpha: 1) }
         return Color(UIColor { $0.userInterfaceStyle == .dark ? c(dark) : c(light) })
     }
-    static let accent = dyn(0x0f766e, 0x2cc5b1)     // 청록
-    static let onAccent = dyn(0xffffff, 0x06201d)
+    static let accent = dyn(0x167A66, 0x35C7A0)     // 청록(글자 대비) / 어두운 화면 민트
+    static let onAccent = dyn(0xffffff, 0x0B1320)
     static let red = dyn(0xc2410c, 0xfb8b5d)
     static let redSoft = dyn(0xfdeee6, 0x3a1f15)
     static let yellow = dyn(0xe0a100, 0xf2c14e)
@@ -77,7 +77,7 @@ enum Palette {
     static let good = dyn(0x237032, 0x6fd08c)
     static let goodSoft = dyn(0xe6f4e8, 0x15301d)
     static let onRed = dyn(0xffffff, 0x2a0e04)
-    static let ring = LinearGradient(colors: [0x7ee0cf, 0x2bb3a1, 0x0f766e].map { h in
+    static let ring = LinearGradient(colors: [0x7fe0c4, 0x35C7A0, 0x167A66].map { h in
         Color(red: Double((h >> 16) & 255) / 255, green: Double((h >> 8) & 255) / 255, blue: Double(h & 255) / 255) },
         startPoint: .topLeading, endPoint: .bottomTrailing)
     static func level(_ red: Bool) -> Color { red ? Palette.red : Palette.yellow }

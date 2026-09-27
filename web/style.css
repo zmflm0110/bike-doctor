@@ -1,16 +1,16 @@
-/* RIDEY — 부드럽고 친근하게: 둥근 카드·고리 테두리·아래 탭 (색은 우리 청록) */
+/* RIDEY — 부드럽고 친근하게: 둥근 카드·고리 테두리·아래 탭 (색은 로고: 민트 #35C7A0·청록 #20A68A·남색 #17232E, 글자·단추는 대비 위해 #167A66) */
 :root {
-  --bg: #ffffff; --card: #ffffff; --soft: #f1f4f3; --fg: #15201e; --muted: #5e6b69; --line: #e2e8e6;
-  --blue: #0f766e; --on-blue: #ffffff; --red: #c2410c; --red-soft: #fdeee6; --yellow: #e0a100; --yellow-soft: #fff6db; --good: #237032; --good-soft: #e6f4e8;
-  --ring: linear-gradient(135deg, #7ee0cf 0%, #2bb3a1 45%, #0f766e 100%);
+  --bg: #ffffff; --card: #ffffff; --soft: #f1f4f3; --fg: #17232E; --muted: #5e6b69; --line: #e2e8e6;
+  --blue: #167A66; --on-blue: #ffffff; --red: #c2410c; --red-soft: #fdeee6; --yellow: #e0a100; --yellow-soft: #fff6db; --good: #237032; --good-soft: #e6f4e8;
+  --ring: linear-gradient(135deg, #7fe0c4 0%, #35C7A0 45%, #167A66 100%);
   --shadow: 0 1px 2px rgba(20, 40, 36, .04), 0 6px 20px rgba(20, 40, 36, .06);
   --tabbar: 62px; --glass: rgba(255, 255, 255, 0.94); --on-red: #ffffff; --on-good: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #0d1014; --card: #161a20; --soft: #1b2027; --fg: #e8ecf1; --muted: #a3adba; --line: #2a3139;
-          --blue: #2cc5b1; --on-blue: #06201d; --red: #fb8b5d; --red-soft: #3a1f15; --yellow: #f2c14e; --yellow-soft: #3a300c; --good: #6fd08c; --good-soft: #15301d;
-          --ring: linear-gradient(135deg, #5eead4 0%, #2cc5b1 50%, #14746a 100%);
-          --shadow: none; --glass: rgba(13, 16, 20, 0.92); --on-red: #2a0e04; --on-good: #06200f; }
+  :root { --bg: #0B1320; --card: #121c2a; --soft: #182434; --fg: #F5F7F6; --muted: #a6b1bb; --line: #24313f;
+          --blue: #35C7A0; --on-blue: #0B1320; --red: #fb8b5d; --red-soft: #3a1f15; --yellow: #f2c14e; --yellow-soft: #3a300c; --good: #6fd08c; --good-soft: #15301d;
+          --ring: linear-gradient(135deg, #7fe0c4 0%, #35C7A0 50%, #167A66 100%);
+          --shadow: none; --glass: rgba(11, 19, 32, 0.92); --on-red: #2a0e04; --on-good: #06200f; }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { -webkit-text-size-adjust: 100%; }
@@ -154,7 +154,7 @@ video { width: calc(100% - 32px); margin: 10px 16px 0; border-radius: 18px; }
   color: #fff; text-shadow: 0 2px 12px rgba(0, 0, 0, .55); pointer-events: none; }
 .legend { font-size: 12.5px; color: var(--muted); margin: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-.dot.r { background: #d9480f; } .dot.g { background: #2b8a3e; } .dot.b { background: #0f766e; }
+.dot.r { background: #d9480f; } .dot.g { background: #2b8a3e; } .dot.b { background: #167A66; }
 .counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 16px; }
 .counters div { background: var(--soft); border-radius: 16px; padding: 10px 6px; text-align: center; }
 .counters b { display: block; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
