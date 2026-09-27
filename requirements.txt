@@ -4,3 +4,4 @@ openpyxl
 matplotlib
 tabulate
 pytest
+scikit-learn   # analysis/ml_compare.py (규칙 vs 머신러닝 비교)
