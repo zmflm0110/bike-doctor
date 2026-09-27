@@ -62,7 +62,8 @@ def from_rows(rows):
     """API 응답 행(딕셔너리 목록) → 통일된 표. 필수 열(자전거·대여/반납 시각·대여소)을 못 찾으면 받은 열 이름을 보여 주며 멈춘다."""
     if not rows:
         return _finish(pd.DataFrame(columns=["bike", "t0", "st0", "t1", "st1", "dist_m", "who"]))
-    have = list(rows[0].keys())
+    have = list(dict.fromkeys(k for r in rows for k in r))   # 모든 행의 열 — 서울 API 는 성별(SEX_CD)이 일부 행에만 있다(9/27 08시 3,330행 중 2,558).
+    # 첫 행만 보면 받을 때마다 성별을 넣었다 뺐다 해서, 같은 사람이 '1990M'·'1990?' 로 갈려 재시도를 못 거를 수 있었다.
     pick = {}
     for col, names in FIELDS.items():
         hit = next((n for n in names if n in have), None) or next((h for h in have if h.lower() in {n.lower() for n in names}), None)

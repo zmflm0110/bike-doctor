@@ -142,3 +142,14 @@ def test_backfill_limit_takes_newest_first(tmp_path, monkeypatch):
     monkeypatch.setattr(seoul_api, "fetch", lambda svc, root, hour, **k: asked.append(hour) or [])
     live.backfill(c, dt.datetime(2026, 9, 26, 16, 22), max_hours=3)
     assert sorted(asked) == ["2026-09-26/07", "2026-09-26/08", "2026-09-26/09"]   # 여러 개 동시에 받으니 순서는 섞일 수 있음
+
+
+def test_from_rows_uses_columns_from_all_rows():
+    """성별이 일부 행에만 있어도, 첫 행에 없더라도 성별을 읽는다 — 받을 때마다 같은 사람 표시가 같아야 한다."""
+    from engine.core import from_rows
+    base = {"BIKE_ID": "SPB-1", "RENT_ID": "00101", "RTN_ID": "00101", "USE_DST": "0", "BIRTH_YEAR": "1990"}
+    rows = [dict(base, RENT_DT="2026-09-27 08:00:00", RTN_DT="2026-09-27 08:00:30"),                   # 성별 없음(첫 행)
+            dict(base, RENT_DT="2026-09-27 08:05:00", RTN_DT="2026-09-27 08:05:20", SEX_CD="m")]         # 성별 있음(소문자)
+    R = from_rows(rows)
+    assert list(R["who"]) == ["1990?", "1990M"]
+    assert list(from_rows(rows[::-1]).sort_values("t0")["who"]) == ["1990?", "1990M"]   # 순서를 바꿔도 같게
