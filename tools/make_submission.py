@@ -33,11 +33,12 @@ TEXTS = {
     "공공데이터.txt": "서울 열린데이터광장(https://data.seoul.go.kr): 따릉이 대여이력 OA-15182(실시간 API tbCycleRentData), 고장신고 OA-15644, 대여소 정보 — 공공누리 제1유형(출처 표시)\n"
                      "공공데이터포털(https://www.data.go.kr): 대전 타슈 대여이력, 한국환경공단 전기자동차 충전소 정보 — 공공누리 제1유형\n"
                      "앱 안(web/data)에는 가공 결과(자전거 번호·대여소·시각)만 있고 이용자 정보(생년·성별)는 없다.\n",
-    "클라우드.txt": "GitHub Actions(무료, 공개 저장소) — 10분마다 서울 API 로 경보 계산 (.github/workflows/cloud.yml)\n"
-                   "Supabase(무료 요금제) — 구조대 확인·현장 조사 저장 (supabase/schema.sql)\n",
+    "클라우드.txt": "Supabase(무료 요금제) — 5분마다 서울 API 로 대여이력을 받아 경보 계산·채점(pg_cron, supabase/live.sql), 구조대 확인·현장 조사 저장 (supabase/schema.sql)\n"
+                   "GitHub Actions(무료, 공개 저장소) — 백업·전기차 충전기 자료 모으기 (.github/workflows/cloud.yml)\n",
     "직접만든것.txt": "앱 아이콘·시작 화면·색·화면 디자인, 엔진·서버·분석 코드는 모두 직접 만들었다.\n"
                     "아이콘 원본: web/icon.svg → tools/make_icons.js, tools/make_android_assets.js 로 PNG.\n"
-                    "글꼴: 기기 기본 글꼴만 사용(따로 넣은 글꼴 없음).\n상용 엔진: 사용하지 않음.\n",
+                    "로고(자전거 R 마크·RIDEY 글자)는 팀이 그린 초안을 SVG 로 옮김: site/img/mark.svg\n"
+                    "글꼴: 앱은 기기 기본 글꼴만 사용(따로 넣은 글꼴 없음). 소개 웹사이트만 Outfit·Pretendard(둘 다 SIL OFL 1.1)를 인터넷으로 불러옴.\n상용 엔진: 사용하지 않음.\n",
 }
 SKIP_SOURCE = ("docs/demo/", "ios/shots/", "docs/shots/")   # 큰 파일은 다른 폴더에 이미 들어감
 
