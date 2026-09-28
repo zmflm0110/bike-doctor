@@ -81,7 +81,7 @@ struct LookupView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Label("\(b.bike) 는 피하세요", systemImage: "exclamationmark.triangle.fill").font(.title3.bold()).foregroundStyle(Palette.red)
                 md("\(until) **서로 다른 \(b.chain)명**이 이 자전거를 빌리자마자 반납했어요 (마지막 \(b.lastDud), \(b.stationName)).")
-                Text("이런 자전거는 다음 사람도 \(b.isRed ? "약 70%" : "약 35~55%")가 바로 반납했어요. 옆 자전거를 고르세요.")
+                Text("이런 자전거는 다음 사람도 \(b.isRed ? "절반 넘게(55% 이상)" : "약 35~44%")가 바로 반납했어요(평소 2.5%). 옆 자전거를 고르세요.")
                 VerdictButtons(bike: b.bike)
                 pastNote
             }

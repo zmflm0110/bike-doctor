@@ -355,7 +355,7 @@ function lookup(raw) {
   if (hit) {
     out.innerHTML = `<div class="result warn"><h3>⚠︎ ${id} 는 피하세요</h3>` +
       `${state.day === "live" ? "최근" : isPast() ? `${koDay(state.day)} 아침 목록에서` : "어제까지"} <b>서로 다른 ${hit.chain}명</b>이 이 자전거를 빌리자마자 반납했어요 (마지막 ${hit.last_dud}, ${hit.station_name}).<br>` +
-      `이런 자전거는 다음 사람도 ${hit.level === "빨강" ? "약 70%" : "약 35~55%"}가 바로 반납했어요. 옆 자전거를 고르세요.` +
+      `이런 자전거는 다음 사람도 ${hit.level === "빨강" ? "절반 넘게(55% 이상)" : "약 35~44%"}가 바로 반납했어요(평소 2.5%). 옆 자전거를 고르세요.` +
       `<div class="choices"><button onclick="rescueSave('${id}','체인·기어')">체인·기어 문제</button><button onclick="rescueSave('${id}','타이어')">타이어</button>` +
       `<button onclick="rescueSave('${id}','안장·핸들')">안장·핸들</button><button class="fine" onclick="rescueSave('${id}','멀쩡함')">멀쩡해 보여요</button></div>${pastNote()}</div>`;
   } else {
