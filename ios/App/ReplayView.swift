@@ -26,14 +26,10 @@ struct ReplayView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("2026년 6월 15일 서울 따릉이 실제 기록을 빠르게 다시 돌립니다.").font(.subheadline).foregroundStyle(.secondary)
-                    HStack {
-                        Button(running ? "■ 멈춤" : (player?.finished == true ? "▶ 다시" : "▶ 재생")) { toggle() }
-                            .buttonStyle(.borderedProminent)
-                        Picker("속도", selection: $speed) {
-                            Text("10분/초").tag(600.0); Text("30분/초").tag(1800.0); Text("1시간/초").tag(3600.0); Text("4시간/초").tag(14400.0)
-                        }.pickerStyle(.menu)
-                    }
+                    Text("2026년 6월 15일,\n서울의 하루를 다시 봐요")
+                        .font(.system(size: 26, weight: .bold)).foregroundStyle(Palette.ink)
+                        .padding(.horizontal, 4).padding(.top, 8)
+                    Text("실제 대여기록을 빠르게 돌려요. 경보가 켜진 자전거를 누가 또 빌렸는지 보세요.").font(.body).foregroundStyle(Palette.sub).padding(.horizontal, 4)
                     Map(position: $camera) {
                         ForEach(flashes) { f in
                             Annotation("", coordinate: f.coordinate, anchor: .center) {
@@ -45,29 +41,56 @@ struct ReplayView: View {
                     }
                     .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll))
                     .environment(\.colorScheme, .dark)
-                    .frame(height: 380)
+                    .frame(height: 340)
                     .overlay(alignment: .topLeading) {
-                        Text(player?.clockText ?? "00:00").font(.system(size: 40, weight: .heavy, design: .rounded)).monospacedDigit()
-                            .foregroundStyle(.white).shadow(color: .black.opacity(0.55), radius: 8).padding(16)
+                        Text(player?.clockText ?? "00:00").font(.system(size: 36, weight: .bold)).monospacedDigit()
+                            .foregroundStyle(.white).shadow(color: .black.opacity(0.5), radius: 6).padding(18)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 22))
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .padding(.top, 8)
                     .accessibilityLabel("하루 재생 지도 (아래 숫자·기록과 같은 내용)")
-                    HStack(spacing: 12) {
-                        legend(Palette.red, "경보"); legend(Palette.good, "막을 수 있던 헛걸음"); legend(Palette.accent, "뒤늦은 고장 신고")
-                    }.font(.caption)
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                        counter(player?.dudTotal ?? 0, "헛대여")
-                        counter(player?.counts[.alarm] ?? 0, "경보")
-                        counter(player?.counts[.prevented] ?? 0, "막을 수 있던 헛걸음", Palette.good)
-                        counter(player?.counts[.fault] ?? 0, "뒤늦은 고장 신고")
+                    VStack(spacing: 14) {
+                        counter(Palette.sub, "헛대여", player?.dudTotal ?? 0)
+                        counter(Palette.red, "경보", player?.counts[.alarm] ?? 0)
+                        counter(Palette.good, "막을 수 있던 헛걸음", player?.counts[.prevented] ?? 0)
+                        counter(Palette.accent, "뒤늦은 고장 신고", player?.counts[.fault] ?? 0)
                     }
-                    ForEach(Array(feed.prefix(30).enumerated()), id: \.offset) { _, e in
-                        Text(line(e)).font(.caption).foregroundStyle(e.type == .alarm ? Palette.red : e.type == .prevented ? Palette.good : Palette.accent)
+                    .card()
+                    if !feed.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(Array(feed.prefix(6).enumerated()), id: \.offset) { _, e in
+                                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                    Circle().fill(color(e.type)).frame(width: 7, height: 7)
+                                    Text(line(e)).font(.subheadline).foregroundStyle(Palette.body).lineLimit(2)
+                                }
+                            }
+                        }
+                        .card()
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16).padding(.bottom, 24)
             }
-            .navigationTitle("시연")
+            .screenBackground()
+            .safeAreaInset(edge: .bottom) {   // 아래 큰 단추 하나 + 속도
+                HStack(spacing: 8) {
+                    Button { toggle() } label: {
+                        Label(running ? "멈추기" : (player?.finished == true ? "처음부터 다시" : "재생하기"),
+                              systemImage: running ? "pause.fill" : (player?.finished == true ? "arrow.counterclockwise" : "play.fill"))
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    Menu {
+                        Picker("속도", selection: $speed) {
+                            Text("10분/초").tag(600.0); Text("30분/초").tag(1800.0); Text("1시간/초").tag(3600.0); Text("4시간/초").tag(14400.0)
+                        }
+                    } label: {
+                        Text(speedText).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.body)
+                            .frame(width: 96, height: 54).background(Palette.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(Palette.bg.opacity(0.96))
+            }
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsButton() } }
             .onReceive(tick) { _ in step() }
             .onAppear {   // 실행 인자 `-autoplay YES` 면 바로 1시간/초로 재생 (화면 사진·시연용)
@@ -109,10 +132,13 @@ struct ReplayView: View {
         }
     }
     private func color(_ k: ReplayEvent.Kind) -> Color { k == .alarm ? Palette.red : k == .prevented ? Palette.good : Palette.accent }
-    private func legend(_ c: Color, _ t: String) -> some View { HStack(spacing: 4) { Circle().fill(c).frame(width: 8, height: 8); Text(t) } }
-    private func counter(_ n: Int, _ label: String, _ c: Color = .primary) -> some View {
-        VStack { Text("\(n)").font(.title2.bold()).foregroundStyle(c).monospacedDigit(); Text(label).font(.caption).foregroundStyle(.secondary) }
-            .frame(maxWidth: .infinity).padding(8)
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+    private func counter(_ c: Color, _ label: String, _ n: Int) -> some View {
+        HStack {
+            Circle().fill(c).frame(width: 9, height: 9)
+            Text(label).font(.body).foregroundStyle(Palette.body)
+            Spacer()
+            Text(n.formatted()).font(.title3.weight(.bold)).monospacedDigit().foregroundStyle(Palette.ink).contentTransition(.numericText())
+        }
     }
+    private var speedText: String { [600.0: "10분/초", 1800: "30분/초", 3600: "1시간/초", 14400: "4시간/초"][speed] ?? "속도" }
 }

@@ -9,44 +9,67 @@ struct RescueView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("근처 의심 자전거를 3초만 봐 주세요. 확인 결과는 정비로 이어집니다.")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                    Button { Task { await model.locate() } } label: {
-                        Label("가까운 순서로", systemImage: "location").frame(maxWidth: .infinity)
-                    }.buttonStyle(.bordered)
+                    Text("근처 의심 자전거,\n3초만 봐 주세요")
+                        .font(.system(size: 26, weight: .bold)).foregroundStyle(Palette.ink)
+                        .padding(.horizontal, 4).padding(.top, 8)
+                    Text("확인 결과는 바로 정비 순위에 반영돼요.").font(.body).foregroundStyle(Palette.sub).padding(.horizontal, 4)
 
                     if let next = todo.first {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("\(next.stationName)의 \(next.bike)\(away(next))").font(.title3.bold()).foregroundStyle(Palette.red)
-                            Text("서로 다른 \(next.chain)명이 바로 반납했어요. 가까이 있다면 3초만 봐 주세요.")
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack {
+                                LevelTag(text: next.level, red: next.isRed)
+                                Spacer()
+                                if let d = awayText(next) { Text("\(d) 거리").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.accent) }
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(next.bike).font(.system(size: 28, weight: .bold)).monospacedDigit().foregroundStyle(Palette.ink)
+                                Text("\(next.stationName) · 서로 다른 \(next.chain)명이 바로 반납").font(.body).foregroundStyle(Palette.body)
+                            }
                             VerdictButtons(bike: next.bike)
                         }
-                        .padding(18)
-                        .background(Palette.redSoft, in: RoundedRectangle(cornerRadius: 20))
+                        .card(padding: 22)
+                        .padding(.top, 8)
                         if todo.count > 1 {
-                            Text("그다음: " + todo.dropFirst().prefix(3).map { "\($0.stationName) \($0.bike)\(away($0))" }.joined(separator: " · "))
-                                .font(.caption).foregroundStyle(.secondary)
+                            SectionTitle(title: "그다음")
+                            VStack(spacing: 0) {
+                                ForEach(Array(todo.dropFirst().prefix(3)), id: \.bike) { b in
+                                    ListRow(icon: "bicycle", tint: Palette.levelText(b.isRed), soft: Palette.levelSoft(b.isRed), title: b.bike, subtitle: b.stationName) {
+                                        if let d = awayText(b) { Text(d).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub) }
+                                    }
+                                }
+                            }
+                            .card(padding: 14)
                         }
                     } else {
-                        Label("오늘 목록을 다 확인했어요!", systemImage: "checkmark.seal.fill").foregroundStyle(Palette.good)
-                    }
-
-                    Text("내 구조 기록").font(.headline).padding(.top, 8)
-                    ForEach(model.rescueLog.prefix(20)) { x in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(x.bike).bold()
-                                Text(x.at.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            LevelTag(text: x.verdict, red: x.verdict != "멀쩡함")
+                        VStack(alignment: .leading, spacing: 10) {
+                            Image(systemName: "checkmark.seal.fill").font(.system(size: 36)).foregroundStyle(Palette.good)
+                            Text("오늘 목록을 다 확인했어요!").font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
                         }
-                        .padding(.vertical, 8)
+                        .card(padding: 22)
+                    }
+                    Button { Task { await model.locate() } } label: { Label(model.here == nil ? "가까운 순서로 보기" : "내 위치 다시 잡기", systemImage: "location.fill") }
+                        .buttonStyle(SoftButtonStyle(tint: Palette.accent))
+
+                    SectionTitle(title: "내 확인 기록")
+                    if model.rescueLog.isEmpty {
+                        Text("아직 없어요. 위에서 한 번 눌러 보세요.").font(.subheadline).foregroundStyle(Palette.sub).padding(.horizontal, 4)
+                    } else {
+                        VStack(spacing: 0) {
+                            ForEach(Array(model.rescueLog.prefix(20))) { x in
+                                let fine = x.verdict == "멀쩡함"
+                                ListRow(icon: fine ? "checkmark" : "wrench.fill", tint: fine ? Palette.good : Palette.red, soft: fine ? Palette.goodSoft : Palette.redSoft,
+                                        title: x.bike, subtitle: x.at.formatted(date: .abbreviated, time: .shortened)) {
+                                    Text(x.verdict).font(.subheadline.weight(.semibold)).foregroundStyle(fine ? Palette.good : Palette.red)
+                                }
+                            }
+                        }
+                        .card(padding: 14)
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16).padding(.bottom, 32)
             }
-            .navigationTitle("구조대")
+            .screenBackground()
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsButton() } }
         }
     }
@@ -69,8 +92,8 @@ struct RescueView: View {
         guard let here = model.here, let s = model.station(b.station) else { return nil }
         return Geo.meters(here, s.point)
     }
-    private func away(_ b: SuspectBike) -> String {
-        guard let d = distance(b) else { return "" }
-        return d < 1000 ? " · \(Int(d.rounded()))m" : String(format: " · %.1fkm", d / 1000)
+    private func awayText(_ b: SuspectBike) -> String? {
+        guard let d = distance(b) else { return nil }
+        return d < 1000 ? "\(Int(d.rounded()))m" : String(format: "%.1fkm", d / 1000)
     }
 }

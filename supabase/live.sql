@@ -180,11 +180,12 @@ select jsonb_build_object(
 $$;
 
 -- 지금 보이는 경보를 적어 둔다 (처음 본 때 = seen_at) — 채점용
+-- 후보 자전거를 먼저 변수로 — 인자 자리에서 부르면 plpgsql 계획이 나빠 9~21초 걸렸다(변수면 1초, 2026-09-30)
 create or replace function live.record_alarms(now_ timestamp) returns int language plpgsql as $$
-declare n int;
+declare n int; b text[] := live.cand(now_);
 begin
   insert into live.alarms(bike, at, station, seen_at)
-  select bike, t1, st1, now_ from live.mark_rows(now_ - interval '7 days', live.cand(now_))
+  select bike, t1, st1, now_ from live.mark_rows(now_ - interval '7 days', b)
   where dud and not retry and streak = 1 and t1 >= now_ - interval '24 hours'
   on conflict (bike, at) do nothing;
   get diagnostics n = row_count;

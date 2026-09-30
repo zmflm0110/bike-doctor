@@ -3,211 +3,210 @@ import MapKit
 import UniformTypeIdentifiers
 import HeotgeoleumCore
 
+/// 홈 — 토스처럼 한 화면에 하나씩: 큰 문장(몇 대) → 구 고르기 → 맞았나 → 지도 → 먼저 볼 곳 → 의심 자전거 몇 대
 struct MorningView: View {
     @Environment(AppModel.self) private var model
     @State private var camera: MapCameraPosition = .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 37.55, longitude: 126.99),
                                                                               span: MKCoordinateSpan(latitudeDelta: 0.28, longitudeDelta: 0.36)))
     @State private var picked: StationGroup?
-    @State private var shift = 90.0   // 정비 동선 근무 시간(분)
+    @State private var showRoute = false
+    @State private var showAll = false
+    @State private var allStations = false
 
     var body: some View {
         let groups = model.groups
-        let route = valueRoute(groups)
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    stories
-                    filters
-                    summary
-                    retro
-                    StationMap(groups: groups, route: route?.stops.map(\.station) ?? [], here: model.here, camera: $camera, picked: $picked)
-                        .frame(height: 300)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 12) {
+                    hero
+                    guChips
+                    score
+                    StationMap(groups: groups, route: [], here: model.here, camera: $camera, picked: $picked)
+                        .frame(height: 240)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                         .accessibilityLabel("의심 자전거가 있는 대여소 지도 (아래 목록과 같은 내용)")
 
-                    Text("정비 먼저 볼 곳").font(.headline)
-                    ForEach(Array(groups.prefix(10))) { g in rankRow(g) }
-
-                    HStack {
-                        Text("정비 동선").font(.headline)
-                        Text("(근무 시간 안에 헛걸음을 가장 많이 막는 순서)").font(.caption).foregroundStyle(.secondary)
+                    SectionTitle(title: "정비 먼저 볼 곳", sub: "헛걸음이 많이 쌓인 대여소부터")
+                    VStack(spacing: 0) {
+                        let top = Array(groups.prefix(allStations ? 10 : 5))
+                        ForEach(Array(top.enumerated()), id: \.element.id) { i, g in rankRow(i, g) }
+                        if groups.count > 5 {
+                            Button { withAnimation { allStations.toggle() } } label: {
+                                Text(allStations ? "접기" : "10곳까지 보기").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub)
+                                    .frame(maxWidth: .infinity, minHeight: 40)
+                            }
+                        }
                     }
-                    HStack {
-                        Picker("근무 시간", selection: $shift) {
-                            Text("1시간").tag(60.0); Text("1시간 30분").tag(90.0); Text("3시간").tag(180.0)
-                        }.pickerStyle(.segmented)
-                        Button { Task { await model.locate() } } label: { Label("내 위치", systemImage: "location") }
-                            .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                    .card(padding: 14)
+                    Button { showRoute = true } label: {
+                        ListRow(icon: "point.topleft.down.to.point.bottomright.curvepath", title: "정비 동선 짜기", subtitle: "근무 시간 안에 헛걸음을 가장 많이 막는 순서") {
+                            Image(systemName: "chevron.right").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub)
+                        }
                     }
-                    if let route { routeList(route) }
+                    .buttonStyle(.plain)
+                    .card(padding: 14)
 
-                    Text("의심 자전거").font(.headline)
-                    ForEach(Array(model.shown.prefix(80))) { b in PostView(bike: b) }
+                    SectionTitle(title: "의심 자전거", sub: "서로 다른 사람들이 연달아 빌리자마자 반납했어요")
+                    VStack(spacing: 0) {
+                        ForEach(Array(model.shown.prefix(5))) { b in BikeListRow(bike: b) }
+                        if model.shown.count > 5 {
+                            Button { showAll = true } label: {
+                                Text("\(model.shown.count)대 모두 보기").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub)
+                                    .frame(maxWidth: .infinity, minHeight: 40)
+                            }
+                        }
+                    }
+                    .card(padding: 14)
                 }
-                .padding(16)
+                .padding(.horizontal, 16).padding(.bottom, 32)
             }
-            .navigationTitle("RIDEY")
+            .screenBackground()
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { dayPicker }
-                ToolbarItem(placement: .topBarTrailing) { SettingsButton() }
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    ShareLink(item: model.csv, preview: SharePreview("아침 목록 CSV")) { Image(systemName: "square.and.arrow.up") }
+                        .tint(Palette.sub).accessibilityLabel("이 목록을 엑셀용 CSV 로 보내기")
+                    SettingsButton()
+                }
             }
             .refreshable { await model.refreshChecked() }
-            .sheet(item: $picked) { g in StationSheet(group: g).presentationDetents([.medium]) }
+            .sheet(item: $picked) { g in StationSheet(group: g).presentationDetents([.medium, .large]) }
+            .sheet(isPresented: $showRoute) { RouteSheet().presentationDetents([.large]) }
+            .sheet(isPresented: $showAll) { AllBikesSheet() }
             .onChange(of: model.gu) { fit(groups: model.groups) }
         }
     }
 
-    /// 스토리 — 구 고르기. 의심 자전거가 많은 구부터, 고른 구는 테두리
-    private var stories: some View {
-        let total = model.morning?.bikes.count ?? 0
-        let items = [("", "전체", total)] + model.guCounts.sorted { $0.1 > $1.1 }.map { ($0.0, $0.0, $0.1) }
+    // MARK: 맨 위 — 큰 문장 하나
+
+    private var hero: some View {
+        let bikes = model.shown
+        let red = bikes.filter(\.isRed).count
+        let live = model.day == AppModel.liveDay ? model.morning : nil
+        let place = model.gu.isEmpty ? "서울에" : "\(model.gu)에"
+        let when = live != nil ? "지금 " : model.isPastData ? "\(AppModel.koDay(model.day)) 아침, " : "오늘 아침, "
+        return VStack(alignment: .leading, spacing: 12) {
+            BrandTitle().padding(.bottom, 6)
+            dayMenu
+            (Text("\(when)\(place)\n고장 의심 따릉이가\n") + Text("\(bikes.count)대").foregroundColor(Palette.accent) + Text(model.isPastData ? " 있었어요" : " 있어요"))
+                .font(.system(size: 28, weight: .bold)).foregroundStyle(Palette.ink).lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("빨강 \(red)대 · 노랑 \(bikes.count - red)대\(live?.todayAlarms.map { " · 오늘 경보 \($0)번" } ?? "")")
+                .font(.subheadline).foregroundStyle(Palette.sub)
+            ForEach(notes, id: \.self) { n in
+                Label(n, systemImage: "hourglass").font(.footnote).foregroundStyle(Palette.yellowText)
+            }
+        }
+        .padding(.horizontal, 4).padding(.top, 8).padding(.bottom, 4)
+    }
+
+    /// 기준일 — 작은 회색 글씨 단추 (지금 · 5분 전 ▾)
+    private var dayMenu: some View {
+        Menu {
+            Picker("기준일", selection: Binding(get: { model.day }, set: { model.select(day: $0) })) {
+                if model.live != nil { Text("지금 (실시간)").tag(AppModel.liveDay) }
+                ForEach(model.cloudDays.reversed(), id: \.self) { Text($0 == AppModel.today ? "오늘 아침" : "\(AppModel.koDay($0)) 아침").tag($0) }
+                ForEach(model.store?.days ?? [], id: \.self) { Text("\(AppModel.koDay($0)) (시연)").tag($0) }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                if model.day == AppModel.liveDay {
+                    Circle().fill(Palette.mint).frame(width: 7, height: 7)
+                    Text("실시간 · \(AppModel.minutesAgo(model.morning?.at ?? ""))분 전")
+                } else {
+                    Text(model.day == AppModel.today ? "오늘 아침 목록" : "\(AppModel.koDay(model.day)) 자료\(model.cloudLists[model.day] == nil ? " (시연)" : "")")
+                }
+                Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+            }
+            .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub)
+        }
+    }
+
+    /// 자료가 늦거나 적게 올 때 알림
+    private var notes: [String] {
+        guard model.day == AppModel.liveDay, let m = model.morning else { return [] }
+        var out: [String] = []
+        if let f = m.feed?.note { out.append(f) }
+        let ago = AppModel.minutesAgo(m.at ?? "")
+        if ago > 30 { out.append("목록 갱신이 늦어지고 있어요(마지막 \(ago)분 전).") }
+        return out
+    }
+
+    /// 구 고르기 — 알약 (많은 구부터)
+    private var guChips: some View {
+        let items = [("", "전체", model.morning?.bikes.count ?? 0)] + model.guCounts.sorted { $0.1 > $1.1 }.map { ($0.0, String($0.0.dropLast($0.0.hasSuffix("구") ? 1 : 0)), $0.1) }
         return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 14) {
+            HStack(spacing: 8) {
                 ForEach(items, id: \.0) { value, name, count in
-                    Button { withAnimation { model.gu = value } } label: {
-                        VStack(spacing: 6) {
-                            StoryRing(size: 64, selected: model.gu == value) {
-                                if value.isEmpty { Text("🚲").font(.title2) } else { Text("\(count)").font(.title3.weight(.heavy)) }
-                            }
-                            Text(value.isEmpty ? name : String(name.dropLast(name.hasSuffix("구") ? 1 : 0))).font(.caption).lineLimit(1)
-                        }
-                        .frame(width: 70)
+                    let on = model.gu == value
+                    Button { withAnimation(.snappy) { model.gu = value } } label: {
+                        Text("\(name) \(count)")
+                            .font(.subheadline.weight(.semibold)).monospacedDigit()
+                            .foregroundStyle(on ? Palette.card : Palette.body)
+                            .padding(.horizontal, 14).padding(.vertical, 9)
+                            .background(on ? Palette.ink : Palette.card, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(name) \(count)대")
+                    .accessibilityLabel("\(value.isEmpty ? "서울 전체" : value) \(count)대")
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.horizontal, 4)
         }
     }
 
-    private var filters: some View {
-        @Bindable var model = model
-        return HStack {
-            Picker("구", selection: $model.gu) {
-                Text("서울 전체 (\(model.morning?.bikes.count ?? 0)대)").tag("")
-                ForEach(model.guCounts, id: \.0) { g, n in Text("\(g) (\(n)대)").tag(g) }
-            }
-            Spacer()
-            ShareLink(item: model.csv, preview: SharePreview("아침 목록 CSV")) { Label("CSV", systemImage: "square.and.arrow.up") }
-                .accessibilityLabel("이 목록을 엑셀용 CSV 로 보내기")
-        }
-        .pickerStyle(.menu)
-        .lineLimit(1)
-    }
+    // MARK: 맞았나 — 큰 % 하나 + 막대
 
-    private var dayPicker: some View {
-        Picker("기준일", selection: Binding(get: { model.day }, set: { model.select(day: $0) })) {
-            if model.live != nil { Text("지금 (실시간)").tag(AppModel.liveDay) }
-            ForEach(model.cloudDays.reversed(), id: \.self) { Text($0 == AppModel.today ? "오늘 아침" : "\(AppModel.koDay($0)) 아침").tag($0) }
-            ForEach(model.store?.days ?? [], id: \.self) { Text("\($0) (시연)").tag($0) }
-        }
-        .pickerStyle(.menu)
-        .lineLimit(1)
-        .fixedSize()
-    }
-
-    private var summary: some View {
-        let bikes = model.shown
-        let red = bikes.filter(\.isRed).count, unrep = bikes.filter { $0.reported == false }.count, known = bikes.contains { $0.reported != nil }
-        if model.day == AppModel.liveDay, let m = model.morning {
-            let sc = m.score
-            let n = sc?.scored ?? 0   // 몇 건으로 낸 % 는 오해를 부른다 — 20건부터
-            let scored = n >= 20 ? "\n실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 \(n)명 중 **\(sc?.nextRiderDud ?? 0)명**(\(Int((sc?.precision ?? 0).rounded()))%)이 또 바로 반납 (평소 약 2.5%)"
-                : n > 0 ? "\n실시간 경보 채점을 모으는 중 (\(n)건 — 20건부터 보여 줘요)" : ""
-            let late = AppModel.minutesAgo(m.at ?? "") > 30 ? "\n\n⏳ 목록 갱신이 늦어지고 있어요(마지막 \(AppModel.minutesAgo(m.at ?? ""))분 전). 그사이 새로 생긴 경보는 아직 안 보일 수 있어요." : ""
-            let feed = (m.feed?.note.map { "\n\n⏳ \($0)" } ?? "") + late
-            return md("\(model.gu.isEmpty ? "" : model.gu + " — ")**지금 \(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 \(red)대). \(AppModel.minutesAgo(m.at ?? ""))분 전 갱신 · 오늘 켜진 경보 \(m.todayAlarms ?? 0)번\(scored)\(feed)")
-                .font(.subheadline)
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 18))
-        }
-        let lead = model.gu.isEmpty ? "" : model.gu + " — "
-        let body = model.isPastData
-            ? "\(AppModel.koDay(model.day)) 아침, **\(bikes.count)**대가 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있었어요 (빨강 \(red)대)."
-            : "오늘 아침, **\(bikes.count)**대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 (빨강 \(red)대)."
-        let tail = model.isPastData ? "\n\n📅 지난 자료예요\(model.cloudLists[model.day] == nil ? "(시연용)" : ""). 지금 목록은 맨 위 날짜에서 '지금 (실시간)' 을 고르세요." : ""
-        return md(lead + body + (known ? " 이 중 **\(unrep)**대는 아직 아무도 고장 신고를 안 했어요." : "") + tail)
-            .font(.subheadline)
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 18))
-    }
-
-    @ViewBuilder private var retro: some View {
+    @ViewBuilder private var score: some View {
         let r = Morning.retro(model.shown)
-        if r.known > 0 {
-            card("**이 목록은 맞았을까?** (지난 기록이라 채점할 수 있어요) 목록이 나온 뒤 처음 빌린 사람 **\(r.known)**명 중 **\(r.hit)명**(\(Int((100 * Double(r.hit) / Double(r.known)).rounded()))%)이 또 바로 반납했어요. 평소엔 약 2.5% 예요.")
-        } else if model.gu.isEmpty, let sc = model.store?.scores[model.day] {
-            card("**이 목록은 맞았을까?** 다음 날 아침 채점: 목록 \(sc.listed)대 중 그날 누가 빌린 \(sc.rode)대, 첫 이용자 **\(sc.firstDud)명**이 또 바로 반납했어요. 평소엔 약 2.5% 예요.")
+        if model.day == AppModel.liveDay, let sc = model.morning?.score, let n = sc.scored, n >= 20 {   // 몇 건으로 낸 % 는 오해를 부른다 — 20건부터
+            scoreCard(title: "실시간 경보, 얼마나 맞았을까요?", hit: sc.nextRiderDud ?? 0, of: n, what: "경보 뒤 처음 빌린 다른 사람")
+        } else if r.known > 0 {
+            scoreCard(title: "이 목록, 얼마나 맞았을까요?", hit: r.hit, of: r.known, what: "목록이 나온 뒤 처음 빌린 사람")
+        } else if model.gu.isEmpty, let sc = model.store?.scores[model.day], sc.rode > 0 {
+            scoreCard(title: "이 목록, 얼마나 맞았을까요?", hit: sc.firstDud, of: sc.rode, what: "다음 날 첫 이용자")
         }
     }
 
-    private func card(_ text: String) -> some View {
-        md(text)
-            .font(.subheadline)
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 18))
+    private func scoreCard(title: String, hit: Int, of n: Int, what: String) -> some View {
+        let p = Double(hit) / Double(max(1, n))
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub)
+            (Text("\(Int((100 * p).rounded()))%").font(.system(size: 34, weight: .bold)).foregroundColor(Palette.ink).monospacedDigit()
+             + Text("가 또 바로 반납했어요").font(.body.weight(.semibold)).foregroundColor(Palette.body))
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Palette.fill)
+                    Capsule().fill(Palette.accent).frame(width: max(10, g.size.width * p))
+                }
+            }
+            .frame(height: 10)
+            Text("\(what) \(n.formatted())명 중 \(hit.formatted())명 · 평소 자전거는 2.5%").font(.footnote).foregroundStyle(Palette.sub)
+        }
+        .card()
     }
 
-    /// 문자열 속 **굵게** 를 바로 해석 (숫자를 끼워 넣어도 되게)
-    private func rankRow(_ g: StationGroup) -> some View {
+    // MARK: 먼저 볼 곳 한 줄
+
+    private func rankRow(_ i: Int, _ g: StationGroup) -> some View {
         let s = model.station(g.id)
         let broken = g.brokenCount(model.checked)
         return Button { picked = g } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(s?.name ?? g.id).bold()
-                    Text("\(s?.gu ?? "") · 의심 \(g.bikes.count)대 · 헛걸음 \(g.sumChain)명 누적 (최대 \(g.maxChain)명 연속)")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if broken > 0 { Text("구조대 확인 고장 \(broken)대").font(.caption.bold()).foregroundStyle(Palette.red) }
+            HStack(spacing: 14) {
+                Text("\(i + 1)").font(.headline).monospacedDigit()
+                    .foregroundStyle(i < 3 ? Palette.accent : Palette.sub)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(s?.name ?? g.id).font(.body.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(1)
+                    Text(broken > 0 ? "사람이 확인한 고장 \(broken)대 · \(s?.gu ?? "")" : "\(s?.gu ?? "") · 헛걸음 \(g.sumChain)명 쌓임")
+                        .font(.subheadline).foregroundStyle(broken > 0 ? Palette.red : Palette.sub).lineLimit(1)
                 }
-                Spacer()
-                LevelTag(text: "\(g.bikes.count)", red: g.hasRed)
+                Spacer(minLength: 8)
+                Text("\(g.bikes.count)대").font(.body.weight(.bold)).monospacedDigit().foregroundStyle(Palette.levelText(g.hasRed))
             }
+            .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(10)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
-    }
-
-    typealias PlannedRoute = ValueRoute.Planned
-
-    /// 막는 동선 (웹앱 renderRoute 와 같은 규칙): 오늘·실시간이면 지금부터, 지난 날(시연)이면 9시부터
-    private func valueRoute(_ groups: [StationGroup]) -> PlannedRoute? {
-        guard let store = model.store else { return nil }
-        let f = DateFormatter(); f.timeZone = TimeZone(identifier: "Asia/Seoul"); f.dateFormat = "yyyy-MM-dd"
-        let live = model.day == AppModel.liveDay || model.day == f.string(from: Date())
-        let now = Calendar.current.dateComponents(in: TimeZone(identifier: "Asia/Seoul")!, from: Date())
-        let t0 = live ? Double((now.hour ?? 9) * 60 + (now.minute ?? 0)) : 540
-        return ValueRoute.planGroups(groups, stations: store.stations, busy: store.busy, table: store.routeValue,
-                                     here: model.here, minutes: shift, t0: t0)
-    }
-
-    private func routeList(_ route: PlannedRoute) -> some View {
-        func hhmm(_ m: Double) -> String { String(format: "%02d:%02d", Int(m / 60) % 24, Int(m.truncatingRemainder(dividingBy: 60))) }
-        return VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(route.stops.enumerated()), id: \.element.group.id) { i, s in
-                HStack(spacing: 12) {
-                    Text("\(i + 1)").font(.subheadline.weight(.heavy)).foregroundStyle(.white)
-                        .frame(width: 30, height: 30).background(Palette.accent, in: Circle())
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(s.station.name).bold()
-                        Text("도착 약 \(hhmm(route.arrivals[i])) · 의심 \(s.group.bikes.count)대 · 막을 헛걸음 예상 \(String(format: "%.1f", route.values[i]))명")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    LevelTag(text: "\(s.group.bikes.count)", red: s.group.hasRed)
-                }
-            }
-            (Text("\(model.here == nil ? "" : "내 위치에서 ")\(route.stops.count)곳 · 약 \(Int(route.used.rounded()))분 · 막을 헛걸음 예상 ")
-             + Text("\(String(format: "%.1f", route.total))명").bold()
-             + Text(route.total > route.rankTotal + 0.05 ? " (순위대로 돌 때보다 \(String(format: "%.1f", route.total - route.rankTotal))명 더)" : ""))
-                .font(.caption).foregroundStyle(.secondary)
-        }
     }
 
     private func fit(groups: [StationGroup]) {
@@ -217,6 +216,117 @@ struct MorningView: View {
         withAnimation {
             camera = .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2),
                                                 span: MKCoordinateSpan(latitudeDelta: max(0.02, (maxLat - minLat) * 1.4), longitudeDelta: max(0.02, (maxLon - minLon) * 1.4))))
+        }
+    }
+}
+
+/// 의심 자전거 한 줄 — 누르면 조회 탭에서 자세히(판정 단추도 거기)
+struct BikeListRow: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let bike: SuspectBike
+    var body: some View {
+        Button {
+            model.lookupQuery = bike.bike; model.tab = "lookup"; dismiss()
+        } label: {
+            ListRow(icon: "bicycle", tint: Palette.levelText(bike.isRed), soft: Palette.levelSoft(bike.isRed),
+                    title: bike.bike, subtitle: [bike.stationName, when].compactMap { $0 }.joined(separator: " · ")) {
+                Text("\(bike.chain)명").font(.body.weight(.bold)).monospacedDigit().foregroundStyle(Palette.levelText(bike.isRed))
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("서로 다른 \(bike.chain)명이 바로 반납. 누르면 자세히")
+    }
+    private var when: String? {
+        guard let m = bike.minutesAgo else { return nil }
+        return m < 60 ? "\(m)분 전" : m < 1440 ? "\(m / 60)시간 전" : "\(m / 1440)일 전"
+    }
+}
+
+/// 의심 자전거 전부
+struct AllBikesSheet: View {
+    @Environment(AppModel.self) private var model
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 0) { ForEach(model.shown) { b in BikeListRow(bike: b) } }
+                    .card(padding: 14)
+                    .padding(16)
+            }
+            .screenBackground()
+            .navigationTitle("의심 자전거 \(model.shown.count)대")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
+/// 정비 동선 — 근무 시간을 고르면 막을 헛걸음이 가장 많은 순서 (웹앱 renderRoute 와 같은 규칙)
+struct RouteSheet: View {
+    @Environment(AppModel.self) private var model
+    @State private var shift = 90.0
+    @State private var camera: MapCameraPosition = .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 37.55, longitude: 126.99),
+                                                                              span: MKCoordinateSpan(latitudeDelta: 0.28, longitudeDelta: 0.36)))
+    @State private var picked: StationGroup?
+
+    var body: some View {
+        let route = plan(model.groups)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Picker("근무 시간", selection: $shift) {
+                        Text("1시간").tag(60.0); Text("1시간 30분").tag(90.0); Text("3시간").tag(180.0)
+                    }
+                    .pickerStyle(.segmented)
+                    if let route {
+                        (Text("\(route.stops.count)곳을 돌면 헛걸음을\n") + Text("약 \(String(format: "%.1f", route.total))명").foregroundColor(Palette.accent) + Text(" 막아요"))
+                            .font(.system(size: 24, weight: .bold)).foregroundStyle(Palette.ink)
+                            .padding(.horizontal, 4).padding(.top, 8)
+                        Text("약 \(Int(route.used.rounded()))분\(route.total > route.rankTotal + 0.05 ? " · 순위대로 돌 때보다 \(String(format: "%.1f", route.total - route.rankTotal))명 더" : "")")
+                            .font(.subheadline).foregroundStyle(Palette.sub).padding(.horizontal, 4)
+                        StationMap(groups: model.groups, route: route.stops.map(\.station), here: model.here, camera: $camera, picked: $picked)
+                            .frame(height: 220)
+                            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        stops(route).card(padding: 14)
+                    }
+                    Button { Task { await model.locate() } } label: { Label(model.here == nil ? "내 위치에서 출발하기" : "내 위치 다시 잡기", systemImage: "location.fill") }
+                        .buttonStyle(SoftButtonStyle(tint: Palette.accent))
+                }
+                .padding(16)
+            }
+            .screenBackground()
+            .navigationTitle("정비 동선")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    typealias PlannedRoute = ValueRoute.Planned
+
+    /// 오늘·실시간이면 지금부터, 지난 날(시연)이면 9시부터
+    private func plan(_ groups: [StationGroup]) -> PlannedRoute? {
+        guard let store = model.store else { return nil }
+        let live = model.day == AppModel.liveDay || model.day == AppModel.today
+        let now = Calendar.current.dateComponents(in: TimeZone(identifier: "Asia/Seoul")!, from: Date())
+        let t0 = live ? Double((now.hour ?? 9) * 60 + (now.minute ?? 0)) : 540
+        return ValueRoute.planGroups(groups, stations: store.stations, busy: store.busy, table: store.routeValue,
+                                     here: model.here, minutes: shift, t0: t0)
+    }
+
+    private func stops(_ route: PlannedRoute) -> some View {
+        func hhmm(_ m: Double) -> String { String(format: "%02d:%02d", Int(m / 60) % 24, Int(m.truncatingRemainder(dividingBy: 60))) }
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(route.stops.enumerated()), id: \.element.group.id) { i, s in
+                HStack(spacing: 14) {
+                    Text("\(i + 1)").font(.subheadline.weight(.bold)).foregroundStyle(Palette.onAccent)
+                        .frame(width: 26, height: 26).background(Palette.accent, in: Circle())
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(s.station.name).font(.body.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(1)
+                        Text("\(hhmm(route.arrivals[i])) 도착 · 의심 \(s.group.bikes.count)대").font(.subheadline).foregroundStyle(Palette.sub)
+                    }
+                    Spacer(minLength: 8)
+                    Text("\(String(format: "%.1f", route.values[i]))명").font(.body.weight(.bold)).monospacedDigit().foregroundStyle(Palette.accent)
+                }
+                .padding(.vertical, 10)
+            }
         }
     }
 }
@@ -261,39 +371,37 @@ struct StationMap: View {
     }
 }
 
+/// 대여소를 누르면 — 그 대여소의 의심 자전거
 struct StationSheet: View {
     @Environment(AppModel.self) private var model
     let group: StationGroup
     var body: some View {
         NavigationStack {
-            List(group.bikes) { b in BikeRow(bike: b) }
-                .navigationTitle(model.station(group.id)?.name ?? group.id)
-                .navigationBarTitleDisplayMode(.inline)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) { ForEach(group.bikes) { b in BikeRow(bike: b) } }
+                    .card(padding: 14)
+                    .padding(16)
+            }
+            .screenBackground()
+            .navigationTitle(model.station(group.id)?.name ?? group.id)
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
 
+/// 대여소 안 자전거 한 줄 — 사람 확인·신고 여부까지
 struct BikeRow: View {
     @Environment(AppModel.self) private var model
     let bike: SuspectBike
     var body: some View {
         let c = checkSummary(model.checked, bike: bike.bike)
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack { Text(bike.bike).bold(); Text(bike.stationName).font(.caption).foregroundStyle(.secondary) }
-                Group {
-                    Text("서로 다른 \(bike.chain)명 연속 · 마지막 \(bike.lastDud)") + Text(bike.minutesAgo.map { $0 < 60 ? " (\($0)분 전)" : " (\($0 / 60)시간 전)" } ?? "")
-                        + Text(bike.reported.map { $0 ? " · 신고됨" : " · 미신고" } ?? "").bold()
-                        + Text(c.total == 0 ? "" : c.broken > 0 ? " · 사람 확인: 고장 \(c.broken)/\(c.total)" : " · 사람 확인: 멀쩡함 \(c.total)")
-                        + Text(bike.truthFirstRiderDud == true ? " · 다음 사람도 반납" : bike.truthFirstRiderDud == false ? " · 다음 사람은 탐" : "")
-                }
-                .font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
+        let facts = ["서로 다른 \(bike.chain)명 연속", bike.reported.map { $0 ? "신고됨" : "미신고" },
+                     c.total == 0 ? nil : c.broken > 0 ? "사람 확인: 고장 \(c.broken)/\(c.total)" : "사람 확인: 멀쩡함 \(c.total)",
+                     bike.truthFirstRiderDud.map { $0 ? "다음 사람도 반납" : "다음 사람은 탐" }].compactMap { $0 }
+        ListRow(icon: "bicycle", tint: Palette.levelText(bike.isRed), soft: Palette.levelSoft(bike.isRed),
+                title: bike.bike, subtitle: facts.joined(separator: " · ")) {
             LevelTag(text: bike.level, red: bike.isRed)
         }
-        .padding(10)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -311,54 +419,5 @@ struct CSVFile: Transferable {
             try f.text.write(to: url, atomically: true, encoding: .utf8)
             return SentTransferredFile(url)
         }
-    }
-}
-
-
-/// 의심 자전거 하나 = 게시물 하나 (웹앱 bikeRow 와 같은 구성)
-struct PostView: View {
-    @Environment(AppModel.self) private var model
-    let bike: SuspectBike
-    var body: some View {
-        let c = checkSummary(model.checked, bike: bike.bike)
-        let gu = model.station(bike.station)?.gu
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                StoryRing(size: 40) { Text("🚲").font(.body) }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(bike.bike).font(.subheadline.bold())
-                    Text([bike.stationName, gu, when].compactMap { $0 }.joined(separator: " · "))
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                }
-                Spacer()
-                LevelTag(text: bike.level, red: bike.isRed)
-            }
-            HStack(spacing: 16) {
-                Text("\(bike.chain)").font(.system(size: 46, weight: .heavy, design: .rounded)).monospacedDigit()
-                    .foregroundStyle(bike.isRed ? Palette.red : Color.primary)
-                Text("명이 연달아\n빌리자마자 반납했어요").font(.headline)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 20).padding(.vertical, 18)
-            .background(Palette.levelSoft(bike.isRed), in: RoundedRectangle(cornerRadius: 20))
-            HStack(spacing: 8) {
-                Button { model.focusBike = bike.bike; model.tab = "rescue" } label: { Text("🙋 3초 확인").bold() }
-                    .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).tint(Palette.accent)
-                Button { model.lookupQuery = bike.bike; model.tab = "lookup" } label: { Text("🔎 자세히").bold() }
-                    .buttonStyle(.bordered).buttonBorderShape(.capsule).tint(.primary)
-            }
-            (Text("서로 다른 \(bike.chain)명 연속 · 마지막 \(bike.lastDud)").foregroundStyle(.secondary)
-             + Text(bike.reported.map { $0 ? " · 신고됨" : " · 아직 아무도 신고 안 함" } ?? "").bold()
-             + Text(c.total == 0 ? "" : c.broken > 0 ? " · 사람 확인: 고장 \(c.broken)/\(c.total)" : " · 사람 확인: 멀쩡함 \(c.total)")
-             + Text(bike.truthFirstRiderDud == true ? " · 다음 사람도 반납" : bike.truthFirstRiderDud == false ? " · 다음 사람은 탐" : ""))
-                .font(.footnote)
-        }
-        .padding(.vertical, 12)
-        .overlay(alignment: .bottom) { Divider() }
-    }
-
-    private var when: String? {
-        guard let m = bike.minutesAgo else { return nil }
-        return m < 60 ? "\(m)분 전" : m < 1440 ? "\(m / 60)시간 전" : "\(m / 1440)일 전"
     }
 }

@@ -48,9 +48,8 @@ struct SurveyView: View {
                 Section {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                         ForEach(ServerClient.surveyStatuses, id: \.self) { st in
-                            Button { Task { await save(st) } } label: { Text(st).frame(maxWidth: .infinity, minHeight: 40) }
-                                .buttonStyle(.bordered)
-                                .tint(st == "멀쩡함" ? Palette.good : Palette.red)
+                            Button { Task { await save(st) } } label: { Text(st) }
+                                .buttonStyle(SoftButtonStyle(tint: st == "멀쩡함" ? Palette.good : Palette.ink))
                         }
                     }
                 } header: {
@@ -59,6 +58,8 @@ struct SurveyView: View {
                     Text("이 기기로 \(count)대 기록\(model.queued > 0 ? " · 서버에 못 보낸 \(model.queued)건은 폰에 보관 중" : "")\n번호판·사람 얼굴이 사진에 안 나오게 해 주세요. 절차: docs/field_protocol.md")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .screenBackground()
             .navigationTitle("현장 조사")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsButton() } }
             .onChange(of: pickerItem) {
