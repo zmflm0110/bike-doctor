@@ -183,7 +183,7 @@ video { width: 100%; margin: 10px 0 0; border-radius: 18px; }
 .counters span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .counters b { grid-column: 1 / -1; font-size: 30px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
 .counters .good b { color: var(--good); }
-.controls { position: sticky; bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 8px); z-index: 900; display: flex; gap: 8px; margin-top: 12px; }
+.controls { position: sticky; bottom: calc(var(--tabbar) + env(safe-area-inset-bottom)); z-index: 900; display: flex; gap: 8px; margin: 12px -16px 0; padding: 10px 16px; background: var(--bg); }
 .controls #play { flex: 1; min-height: 54px; font-size: 17px; }
 .controls select { width: 104px; border: 0; background: var(--card); font-weight: 600; color: var(--body); border-radius: 16px; }
 .controls label { display: contents; font-size: 0; }

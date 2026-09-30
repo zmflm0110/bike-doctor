@@ -22,7 +22,7 @@
   <a href="https://zmflm0110.github.io/ridey/app/">웹앱 써 보기</a> ·
   <a href="docs/report.pdf">보고서 PDF</a> ·
   <a href="docs/slides.pdf">발표 PDF</a> ·
-  <a href="docs/demo/demo.mp4">시연 영상 (1분 51초)</a> ·
+  <a href="docs/demo/demo.mp4">시연 영상 (1분 44초)</a> ·
   <a href="CHANGELOG.md">진행 기록</a>
 </p>
 
