@@ -49,13 +49,12 @@ struct ReplayView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .padding(.top, 8)
                     .accessibilityLabel("하루 재생 지도 (아래 숫자·기록과 같은 내용)")
-                    VStack(spacing: 14) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                         counter(Palette.sub, "헛대여", player?.dudTotal ?? 0)
                         counter(Palette.red, "경보", player?.counts[.alarm] ?? 0)
                         counter(Palette.good, "막을 수 있던 헛걸음", player?.counts[.prevented] ?? 0)
                         counter(Palette.accent, "뒤늦은 고장 신고", player?.counts[.fault] ?? 0)
                     }
-                    .card()
                     if !feed.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(Array(feed.prefix(6).enumerated()), id: \.offset) { _, e in
@@ -133,12 +132,12 @@ struct ReplayView: View {
     }
     private func color(_ k: ReplayEvent.Kind) -> Color { k == .alarm ? Palette.red : k == .prevented ? Palette.good : Palette.accent }
     private func counter(_ c: Color, _ label: String, _ n: Int) -> some View {
-        HStack {
-            Circle().fill(c).frame(width: 9, height: 9)
-            Text(label).font(.body).foregroundStyle(Palette.body)
-            Spacer()
-            Text(n.formatted()).font(.title3.weight(.bold)).monospacedDigit().foregroundStyle(Palette.ink).contentTransition(.numericText())
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) { Circle().fill(c).frame(width: 8, height: 8); Text(label).font(.subheadline).foregroundStyle(Palette.sub).lineLimit(1) }
+            Text(n.formatted()).font(.system(size: 30, weight: .heavy, design: .rounded)).monospacedDigit()
+                .foregroundStyle(c == Palette.sub ? Palette.ink : c).contentTransition(.numericText())
         }
+        .card(padding: 16)
     }
     private var speedText: String { [600.0: "10분/초", 1800: "30분/초", 3600: "1시간/초", 14400: "4시간/초"][speed] ?? "속도" }
 }

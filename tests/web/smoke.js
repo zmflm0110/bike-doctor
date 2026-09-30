@@ -42,7 +42,7 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     await page.goto(URL + "?day=2026-06-15", { waitUntil: "networkidle" });   // 시연 날짜로 고정 (실시간 서버가 도는 맥에선 기본이 '지금' 이 됨)
     console.log("아침 목록");
     await page.waitForSelector("#bike-list li");
-    check(/6월 15일 아침, <b>\d+<\/b>대가/.test(await page.innerHTML("#morning-summary")) && !!(await page.$("#morning-summary .past-note")), "요약 문장 (지난 자료라고 분명히)");
+    check(/6월 15일 아침, 서울에[\s\S]*<b>\d+<\/b>대 있었어요/.test(await page.innerHTML("#morning-summary")) && !!(await page.$("#morning-summary .past-note")), "요약 문장 (지난 자료라고 분명히)");
     check((await page.$$("#station-rank li")).length === 10, "정비 순위 10곳");
     check((await page.$$("#map path.leaflet-interactive")).length > 5, "지도에 의심 대여소 표시");
     const retro = await page.textContent("#morning-retro");
@@ -62,18 +62,18 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     check(true, "내 위치에서 출발");
     await page.evaluate(() => window.scrollTo(0, 0));
     // 구 고르기 + 정비 담당용 CSV
-    const opt = await page.$$eval("#gu option", (o) => o.map((x) => [x.value, x.textContent]));
-    const [gu, label] = opt.slice(1).sort((a, b) => +b[1].match(/\((\d+)대/)[1] - +a[1].match(/\((\d+)대/)[1])[0];
-    const nGu = +label.match(/\((\d+)대/)[1];
-    await page.selectOption("#gu", gu);
+    const opt = await page.$$eval("#stories .story", (o) => o.map((x) => [x.dataset.gu, x.getAttribute("aria-label")]));
+    const [gu, label] = opt.slice(1).sort((a, b) => +b[1].match(/(\d+)대/)[1] - +a[1].match(/(\d+)대/)[1])[0];
+    const nGu = +label.match(/(\d+)대/)[1];
+    await page.click(`#stories .story[data-gu="${gu}"]`);
     const inList = await page.$$eval("#bike-list li", (li) => li.length);
-    check(inList === Math.min(nGu, 80) && (await page.textContent("#morning-summary")).startsWith(gu), `${gu} 만 보기 (${nGu}대)`);
+    check(inList === Math.min(nGu, 80) && (await page.textContent("#morning-summary")).includes(gu), `${gu} 만 보기 (${nGu}대)`);
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#csv-btn")]);
     const csvText = fs.readFileSync(await dl.path(), "utf8");
     const lines = csvText.replace(/^\ufeff/, "").trim().split("\r\n");
     check(csvText.startsWith("\ufeff") && lines.length === nGu + 1 && lines.slice(1).every((l) => l.includes(`"${gu}"`)) && /^morning_2026-\d\d-\d\d_[a-z]+\.csv$/.test(dl.suggestedFilename()),
       `CSV ${dl.suggestedFilename()} (${lines.length - 1}줄, 엑셀용 BOM)`);
-    await page.selectOption("#gu", "");
+    await page.click('#stories .story[data-gu=""]');
     // 아이폰: 입력칸 글자가 16px 보다 작으면 누를 때 화면이 확대된다, 홈 화면 아이콘은 PNG 여야 한다
     const small = await page.$$eval("input,select", (els) => els.filter((e) => e.type !== "file" && parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => e.id));
     check(small.length === 0, "입력칸 글자 16px 이상 (아이폰 확대 방지)" + (small.length ? ": " + small : ""));
@@ -86,11 +86,11 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     await tab("lookup");
     await page.fill("#bike-input", first.toLowerCase().replace("-", " "));
     await page.press("#bike-input", "Enter");
-    check((await page.textContent("#lookup-result")).includes("피하세요"), `의심 자전거 경고 (${first}, 소문자·빈칸 입력)`);
+    check((await page.textContent("#lookup-result")).includes("타지 마세요"), `의심 자전거 경고 (${first}, 소문자·빈칸 입력)`);
     await shot("2_lookup");
     await page.fill("#bike-input", "SPB-00001");
     await page.press("#bike-input", "Enter");
-    check((await page.textContent("#lookup-result")).includes("6월 15일 자료에는 이 자전거가 없어요") && !(await page.$("#lookup-result .result.ok")),
+    check((await page.textContent("#lookup-result")).includes("6월 15일 자료에 없어요") && !(await page.$("#lookup-result .result.ok")),
       "지난(시연) 자료에 없는 자전거 — '괜찮다' 가 아니라 '그 날 자료에 없음'");
     await page.fill("#bike-input", '<img src=x onerror=alert(1)>');
     await page.press("#bike-input", "Enter");
@@ -109,8 +109,8 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
     check((await page.textContent("#rescue-log")).includes(target), "내 구조 기록");
     await shot("3_rescue");
     await tab("morning");
-    await page.waitForFunction(() => document.querySelector("#station-rank").textContent.includes("구조대 확인 고장"));
-    check((await page.textContent("#station-rank li")).includes("구조대 확인 고장 1대"), "확인된 곳이 정비 순위 맨 위로");
+    await page.waitForFunction(() => document.querySelector("#station-rank").textContent.includes("사람이 확인한 고장"));
+    check((await page.textContent("#station-rank li")).includes("사람이 확인한 고장 1대"), "확인된 곳이 정비 순위 맨 위로");
     check((await page.textContent("#bike-list")).includes(`사람 확인: 고장 1/1`), "의심 자전거에 사람 확인 표시");
 
     console.log("시연");
@@ -191,8 +191,8 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
       const sp = await sctx.newPage();
       await sp.goto(URL, { waitUntil: "networkidle" });
       await sp.waitForFunction(() => document.querySelector("#morning-summary").textContent.includes("지금"));
-      const t = (await sp.textContent("#morning-summary")).replace(/\s+/g, " ");
-      check(/지금 2대/.test(t) && /5분마다/.test(t), "Supabase 목록(더 새것)을 씀: " + t.slice(0, 40));
+      const t = ((await sp.textContent("#morning-summary")) + " " + (await sp.textContent("#morning-retro"))).replace(/\s+/g, " ");
+      check(/지금 서울에.*2대 있어요/.test(t) && /5분마다/.test(t), "Supabase 목록(더 새것)을 씀: " + t.slice(0, 40));
       check(/25명 중 8명\(32%\)/.test(t), "채점은 GitHub 쪽에서 빌려 옴");
       await sctx.close();
     }

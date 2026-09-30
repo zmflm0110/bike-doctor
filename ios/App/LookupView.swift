@@ -95,6 +95,7 @@ struct LookupView: View {
         case .suspect(let b):
             VStack(alignment: .leading, spacing: 16) {
                 Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 36)).foregroundStyle(Palette.red)
+                    .symbolEffect(.bounce, value: b.bike)
                 (Text(b.bike).monospacedDigit() + Text("는\n타지 마세요"))
                     .font(.system(size: 26, weight: .bold)).foregroundStyle(Palette.ink)
                 md("\(until) **서로 다른 \(b.chain)명**이 빌리자마자 반납했어요. 옆 자전거를 골라 주세요.")
@@ -111,7 +112,8 @@ struct LookupView: View {
                 VerdictButtons(bike: b.bike)
                 pastNote
             }
-            .card(padding: 22)
+            .card(padding: 22, tint: Palette.redSoft)
+            .sensoryFeedback(.warning, trigger: b.bike)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
         case .clean(let id) where model.isPastData:
             // 지난 자료에 없다는 건 '괜찮다' 가 아니다 — 초록 체크 대신 모른다고
@@ -124,11 +126,13 @@ struct LookupView: View {
         case .clean(let id):
             VStack(alignment: .leading, spacing: 12) {
                 Image(systemName: "checkmark.circle.fill").font(.system(size: 36)).foregroundStyle(Palette.good)
+                    .symbolEffect(.bounce, value: id)
                 (Text(id).monospacedDigit() + Text("는\n타도 괜찮아요")).font(.system(size: 26, weight: .bold)).foregroundStyle(Palette.ink)
                 Text("\(until) 기록에 빌리자마자 반납한 연쇄가 없어요.").font(.body).foregroundStyle(Palette.body)
                 if let note = model.morning?.feed?.note { Label(note, systemImage: "hourglass").font(.footnote).foregroundStyle(Palette.yellowText) }
             }
-            .card(padding: 22)
+            .card(padding: 22, tint: Palette.goodSoft)
+            .sensoryFeedback(.success, trigger: id)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
         case .notABike(let raw):
             // QR 속 글자는 Text 로만 보여 준다(해석하지 않음)
@@ -146,11 +150,13 @@ struct LookupView: View {
 /// 판정 네 가지 (조회·확인 탭이 같이 씀) — 회색 단추, 멀쩡하면 초록 글자
 struct VerdictButtons: View {
     @Environment(AppModel.self) private var model
+    @State private var tapped = 0
     let bike: String
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
             ForEach([("체인·기어", false), ("타이어", false), ("안장·핸들", false), ("멀쩡해요", true)], id: \.0) { label, fine in
                 Button {
+                    tapped += 1
                     Task { await model.rescue(bike, fine ? "멀쩡함" : label) }
                 } label: {
                     Text(label)
@@ -158,6 +164,7 @@ struct VerdictButtons: View {
                 .buttonStyle(SoftButtonStyle(tint: fine ? Palette.good : Palette.ink))
             }
         }
+        .sensoryFeedback(.success, trigger: tapped)
     }
 }
 

@@ -76,12 +76,13 @@ enum Palette {
     static let mint = dyn(0x35C7A0, 0x35C7A0)
     static let ink = dyn(0x191F28, 0xF5F7F6)         // 제목·숫자
     static let body = dyn(0x4E5968, 0xB0B8C1)        // 본문
-    static let sub = dyn(0x8B95A1, 0x7F8B96)         // 설명
+    static let sub = dyn(0x646F7C, 0x8B97A2)         // 설명 (흰·회색 바탕 모두 4.5:1 넘게)
     static let bg = dyn(0xF2F4F6, 0x0B1320)          // 화면 바탕
     static let card = dyn(0xFFFFFF, 0x151E2B)        // 카드
     static let fill = dyn(0xF2F4F6, 0x222D3B)        // 카드 안 회색 단추·입력칸
     static let line = dyn(0xE5E8EB, 0x24313F)        // 나눔선
-    static let red = dyn(0xE5484D, 0xFF7A70)
+    static let shadow = Color(UIColor { $0.userInterfaceStyle == .dark ? .clear : UIColor(red: 0.07, green: 0.09, blue: 0.15, alpha: 0.05) })
+    static let red = dyn(0xCC2B31, 0xFF7A70)          // 흰 바탕 5.3:1
     static let redSoft = dyn(0xFFEEEE, 0x3A1F1F)
     static let yellow = dyn(0xF5A300, 0xF2C14E)
     static let yellowSoft = dyn(0xFFF5DB, 0x3A300C)
@@ -96,14 +97,64 @@ enum Palette {
 }
 
 extension View {
-    /// 흰 카드 — 테두리·그림자 없이 둥글게
-    func card(padding: CGFloat = 20) -> some View {
-        self.padding(padding)
+    /// 흰 카드 — 테두리 없이 둥글게, 밝은 화면에선 아주 옅은 그림자. tint 를 주면 위쪽만 그 색으로 번짐
+    func card(padding: CGFloat = 20, tint: Color? = nil) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
+        return self.padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(LinearGradient(stops: [.init(color: tint ?? Palette.card, location: 0), .init(color: Palette.card, location: tint == nil ? 0 : 0.45)],
+                                       startPoint: .top, endPoint: .bottom), in: shape)
+            .shadow(color: Palette.shadow, radius: 12, y: 6)
+    }
+    /// 지도 위에 떠 있는 단추 — iOS 26 리퀴드 글래스, 그 전은 옅은 재질 (CI 의 Xcode 16 도 빌드되게 컴파일러로 나눔)
+    @ViewBuilder func floatingGlass() -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) { self.glassEffect(.regular.interactive(), in: Capsule()) }
+        else { self.background(.regularMaterial, in: Capsule()) }
+        #else
+        self.background(.regularMaterial, in: Capsule())
+        #endif
     }
     /// 화면 바탕
     func screenBackground() -> some View { background(Palette.bg.ignoresSafeArea()) }
+}
+
+/// 홈 맨 위 카드 바탕 — 로고 색이 섞인 그라데이션. 밝은 민트는 글자가 없는 오른쪽 위에만(흰 글자 대비). iOS 18+ 는 메시 그라데이션
+struct HeroBackground: View {
+    var body: some View {
+        let deep = Color(red: 0.071, green: 0.412, blue: 0.353)    // #12695A
+        let teal = Color(red: 0.086, green: 0.478, blue: 0.400)    // #167A66
+        let mid = Color(red: 0.125, green: 0.651, blue: 0.541)     // #20A68A
+        let mint = Color(red: 0.208, green: 0.780, blue: 0.627)    // #35C7A0
+        let navy = Color(red: 0.090, green: 0.137, blue: 0.180)    // #17232E
+        if #available(iOS 18.0, *) {
+            MeshGradient(width: 3, height: 3,
+                         points: [[0, 0], [0.55, 0], [1, 0], [0, 0.5], [0.6, 0.45], [1, 0.5], [0, 1], [0.5, 1], [1, 1]],
+                         colors: [deep, teal, mint, deep, teal, mid, navy, deep, teal])
+        } else {
+            ZStack {
+                deep
+                RadialGradient(colors: [mint, .clear], center: .topTrailing, startRadius: 0, endRadius: 260)
+                RadialGradient(colors: [navy, .clear], center: .bottomLeading, startRadius: 0, endRadius: 300)
+            }
+        }
+    }
+}
+
+/// 동그란 링 (애플 피트니스처럼) — 가운데 %
+struct Ring: View {
+    let value: Double
+    @State private var shown = 0.0
+    var body: some View {
+        ZStack {
+            Circle().stroke(Palette.fill, lineWidth: 10)
+            Circle().trim(from: 0, to: shown).stroke(Palette.accent, style: StrokeStyle(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90))
+            Text("\(Int((100 * value).rounded()))%").font(.system(size: 20, weight: .heavy, design: .rounded)).monospacedDigit().foregroundStyle(Palette.ink)
+        }
+        .frame(width: 84, height: 84)
+        .onAppear { withAnimation(.easeOut(duration: 0.9)) { shown = value } }
+        .onChange(of: value) { withAnimation(.easeOut(duration: 0.6)) { shown = value } }
+    }
 }
 
 /// 카드 위 제목 (카드 밖, 바탕 위)

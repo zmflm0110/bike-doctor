@@ -86,47 +86,34 @@ function feedNote() {
 // 구(區) 고르기 — 정비는 구역 단위로 움직인다. 고른 구의 자전거만 요약·지도·순위·동선·목록에.
 const guOf = (b) => (state.stations[b.station] || {}).gu || "기타";
 const shown = () => (state.morning ? state.morning.bikes.filter((b) => !state.gu || guOf(b) === state.gu) : []);
-function guOptions() {
-  const n = {};
-  state.morning.bikes.forEach((b) => (n[guOf(b)] = (n[guOf(b)] || 0) + 1));
-  if (state.gu && !n[state.gu]) state.gu = "";
-  $("#gu").innerHTML = `<option value="">서울 전체 (${state.morning.bikes.length}대)</option>` +
-    Object.keys(n).sort((a, b) => a.localeCompare(b, "ko")).map((g) => `<option value="${esc(g)}" ${g === state.gu ? "selected" : ""}>${esc(g)} (${n[g]}대)</option>`).join("");
+function guOptions() {   // 고른 구가 새 목록에 없으면 전체로 (구 고르기는 알약 — renderStories)
+  if (state.gu && !state.morning.bikes.some((b) => guOf(b) === state.gu)) state.gu = "";
+}
+function setGu(g) {
+  state.gu = g;
+  renderMorning();
+  if (state.map && state.layer) { const b = state.layer.getLayers().map((m) => m.getLatLng()); if (b.length) state.map.fitBounds(L.latLngBounds(b).pad(0.2), { maxZoom: 14 }); }
 }
 function renderMorning() {
   const bikes = shown();
   const red = bikes.filter((b) => b.level === "빨강").length;
-  const known = bikes.filter((b) => typeof b.reported === "boolean");   // 운영 목록은 신고 자료가 없어 모름(null)
-  const unrep = known.filter((b) => !b.reported).length;
-  if (state.day === "live") {
-    const sc = state.morning.score || {};
-    $("#morning-summary").innerHTML =
-      `<b>지금</b> <b>${bikes.length}</b>대가 서로 다른 사람들이 빌리자마자 반납한 채로 서 있어요 (빨강 ${red}대). ` +
-      `<span class="muted">${minsAgo(state.morning.at)}분 전 갱신${state.morning.source === "supabase" ? "(5분마다)" : ""} · 오늘 켜진 경보 ${state.morning.today_alarms}번</span>` +
-      (sc.scored >= 20 ? `<br>실시간 경보 채점: 경보 뒤 처음 빌린 다른 사람 ${sc.scored}명 중 <b class="confirmed">${sc.next_rider_dud}명(${sc["precision_%"]}%)</b>이 또 바로 반납 (평소 약 2.5%)`
-        : sc.scored ? `<br><span class="muted">실시간 경보 채점을 모으는 중 (${sc.scored}건 — 20건부터 보여 줘요)</span>` : "");   // 몇 건으로 낸 % 는 오해를 부른다
-    if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
-    $("#morning-summary").insertAdjacentHTML("beforeend", feedNote());
-    if (minsAgo(state.morning.at) > 30) $("#morning-summary").insertAdjacentHTML("beforeend",
-      `<p class="past-note">⏳ 목록 갱신이 늦어지고 있어요(마지막 ${minsAgo(state.morning.at)}분 전). 그사이 새로 생긴 경보는 아직 안 보일 수 있어요.</p>`);
-    renderMap(bikes); renderRetro(bikes); renderLists(); renderStories();
-    return;
-  }
-  $("#morning-summary").innerHTML = (isPast()
-    ? `${koDay(state.day)} 아침, <b>${bikes.length}</b>대가 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있었어요 `
-    : `<b>${bikes.length}</b>대가 어제까지 서로 다른 사람들이 빌리자마자 반납한 채로 남아 있어요 `) +
-    `(빨강 ${red}대).` + (known.length ? ` 이 중 <b>${unrep}</b>대는 아직 아무도 고장 신고를 안 했어요.` : "") + pastNote();
-  if (state.gu) $("#morning-summary").insertAdjacentHTML("afterbegin", `<b>${esc(state.gu)}</b> — `);
+  const place = state.gu ? `${esc(state.gu)}에` : "서울에";
+  const live = state.day === "live";
+  const status = live ? `<span class="live">실시간 · ${minsAgo(state.morning.at)}분 전 갱신${state.morning.source === "supabase" ? "(5분마다)" : ""}</span>`
+    : `<span class="live past">${isPast() ? `${koDay(state.day)} 자료${state.ops.has(state.day) ? "" : " (시연)"}` : "오늘 아침 목록"}</span>`;
+  const when = live ? "지금 " : isPast() ? `${koDay(state.day)} 아침, ` : "오늘 아침, ";
+  $("#morning-summary").innerHTML = status +
+    `<p class="big">${when}${place}<br>고장 의심 따릉이가</p>` +
+    `<p class="num"><b>${bikes.length}</b>대 ${isPast() ? "있었어요" : "있어요"}</p>` +
+    `<div class="sub">빨강 ${red} · 노랑 ${bikes.length - red}${live && state.morning.today_alarms != null ? ` · 오늘 경보 ${state.morning.today_alarms}번` : ""}</div>`;
+  const notes = (live ? feedNote() : pastNote()) + (live && minsAgo(state.morning.at) > 30
+    ? `<p class="past-note">⏳ 목록 갱신이 늦어지고 있어요(마지막 ${minsAgo(state.morning.at)}분 전). 그사이 새로 생긴 경보는 아직 안 보일 수 있어요.</p>` : "");
+  if (notes) $("#morning-summary").insertAdjacentHTML("beforeend", `<div class="notes">${notes}</div>`);
   renderMap(bikes);
   renderRetro(bikes);
   renderLists();
   renderStories();
 }
-$("#gu").addEventListener("change", (e) => {
-  state.gu = e.target.value;
-  renderMorning();
-  if (state.map && state.layer) { const b = state.layer.getLayers().map((m) => m.getLatLng()); if (b.length) state.map.fitBounds(L.latLngBounds(b).pad(0.2), { maxZoom: 14 }); }
-});
 
 const GU_EN = { 강남구: "gangnam", 강동구: "gangdong", 강북구: "gangbuk", 강서구: "gangseo", 관악구: "gwanak", 광진구: "gwangjin", 구로구: "guro",
   금천구: "geumcheon", 노원구: "nowon", 도봉구: "dobong", 동대문구: "dongdaemun", 동작구: "dongjak", 마포구: "mapo", 서대문구: "seodaemun",
@@ -153,22 +140,26 @@ $("#csv-btn").addEventListener("click", () => {
 });
 
 // 뒤돌아 채점 — 지난 기록이라 '이 목록이 나온 뒤 처음 빌린 사람' 이 어땠는지 안다 (운영에서는 다음 날 아침 채점: server/daily_job.py)
+function scoreCard(title, hit, n, what) {
+  const p = n ? Math.round((100 * hit) / n) : 0;
+  return `<div class="tile ring-tile"><div class="ring" style="--p:${p}"><b>${p}%</b></div>` +
+    `<div><div class="title">${title}</div><div class="detail">${what} ${n.toLocaleString("ko-KR")}명 중 ${hit.toLocaleString("ko-KR")}명(${p}%)이 또 바로 반납 · 평소 자전거는 2.5%</div></div></div>`;
+}
 function renderRetro(bikes) {
-  const known = bikes.filter((b) => typeof b.truth_first_rider_dud === "boolean");
   const box = $("#morning-retro");
-  const sc = state.scores[state.day];
-  if (!known.length && sc && !state.gu) {   // 운영: 다음 날 아침 매일 작업이 채점해 둔 것
-    box.hidden = false;
-    box.innerHTML = `<b>이 목록은 맞았을까?</b> 다음 날 아침 채점: 목록 ${sc.listed}대 중 그날 누가 빌린 ${sc.rode}대, 첫 이용자 ` +
-      `<b class="confirmed">${sc.first_dud}명(${sc.rode ? Math.round((100 * sc.first_dud) / sc.rode) : 0}%)</b>이 또 바로 반납했어요. 평소엔 약 2.5% 예요.`;
-    return;
+  const show = (html) => { box.hidden = !html; box.innerHTML = html || ""; };
+  if (state.day === "live") {
+    const sc = state.morning.score || {};   // 몇 건으로 낸 % 는 오해를 부른다 — 20건부터
+    return show(sc.scored >= 20 ? scoreCard("실시간 경보, 얼마나 맞았을까요?", sc.next_rider_dud, sc.scored, "경보 뒤 처음 빌린 다른 사람")
+      : sc.scored ? `<div class="detail">실시간 경보 채점을 모으는 중이에요 (${sc.scored}건 — 20건부터 보여 줘요)</div>` : "");
   }
-  if (!known.length) { box.hidden = true; return; }
+  const known = bikes.filter((b) => typeof b.truth_first_rider_dud === "boolean");
+  const sc = state.scores[state.day];
+  if (!known.length && sc && !state.gu)   // 운영: 다음 날 아침 매일 작업이 채점해 둔 것
+    return show(scoreCard("이 목록, 얼마나 맞았을까요?", sc.first_dud, sc.rode, "다음 날 첫 이용자"));
+  if (!known.length) return show("");
   const hit = known.filter((b) => b.truth_first_rider_dud).length;
-  box.hidden = false;
-  box.innerHTML = `<b>이 목록은 맞았을까?</b> (지난 기록이라 채점할 수 있어요) 목록이 나온 뒤 처음 빌린 사람 <b>${known.length}</b>명 중 ` +
-    `<b class="confirmed">${hit}명(${Math.round((100 * hit) / known.length)}%)</b>이 또 바로 반납했어요. 평소엔 약 2.5% 예요.` +
-    (bikes.length > known.length ? ` <span class="muted">(${bikes.length - known.length}대는 그 뒤 아무도 안 빌림)</span>` : "");
+  show(scoreCard("이 목록, 얼마나 맞았을까요?", hit, known.length, "목록이 나온 뒤 처음 빌린 사람"));
 }
 function renderLists() {
   if (!state.morning) return;
@@ -210,14 +201,14 @@ function renderRoute(bikes) {
   const rankStops = withinShift(start, planRoute(start, rank), minutes);
   const rankValue = simulate(start, rankStops, stationValue, t0).value;
   $("#route-list").innerHTML = stops.map((s, i) =>
-    `<li><div><b>${esc(s.name)}</b><br><span class="muted">도착 약 ${hhmm(sim.arr[i])} · 의심 ${s.arr.length}대 · 막을 헛걸음 예상 ${stationValue(s, sim.arr[i]).toFixed(1)}명</span></div>` +
-    `<span class="tag ${s.arr.some((b) => b.level === "빨강") ? "빨강" : "노랑"}">${s.arr.length}</span></li>`).join("") +
-    `<li class="total"><span>${here ? "내 위치에서 " : ""}${stops.length}곳 · 약 ${Math.round(sim.used)}분 · 막을 헛걸음 예상 <b>${sim.value.toFixed(1)}명</b>` +
-    `${sim.value > rankValue + 0.05 ? ` <span class="muted">(순위대로 돌 때보다 ${(sim.value - rankValue).toFixed(1)}명 더)</span>` : ""}</span></li>`;
+    `<li><div><b>${esc(s.name)}</b><span class="s">${hhmm(sim.arr[i])} 도착 · 의심 ${s.arr.length}대</span></div>` +
+    `<span class="n accent">${stationValue(s, sim.arr[i]).toFixed(1)}명</span></li>`).join("") +
+    `<li class="total"><span>${here ? "내 위치에서 " : ""}${stops.length}곳 · 약 ${Math.round(sim.used)}분 · 막을 헛걸음 예상 <b style="display:inline;color:var(--accent)">${sim.value.toFixed(1)}명</b>` +
+    `${sim.value > rankValue + 0.05 ? ` (순위대로 돌 때보다 ${(sim.value - rankValue).toFixed(1)}명 더)` : ""}</span></li>`;
   if (typeof L === "undefined" || !state.map) return;
   if (state.routeLayer) state.routeLayer.remove();
   state.routeLayer = L.layerGroup().addTo(state.map);
-  L.polyline([start, ...stops].map((p) => [p.lat, p.lon]), { color: "#0f766e", weight: 3, opacity: 0.8, dashArray: "6 6" }).addTo(state.routeLayer);
+  L.polyline([start, ...stops].map((p) => [p.lat, p.lon]), { color: "#167A66", weight: 3, opacity: 0.8, dashArray: "6 6" }).addTo(state.routeLayer);
   stops.forEach((s, i) => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "route-num", html: String(i + 1), iconSize: [20, 20] }) }).addTo(state.routeLayer));
 }
 
@@ -246,25 +237,19 @@ function checkedOf(bike) {
 function checkedBadge(bike) {
   const c = checkedOf(bike);
   if (!c.total) return "";
-  return c.broken ? ` · <b class="confirmed">사람 확인: 고장 ${c.broken}/${c.total}</b>` : ` · 사람 확인: 멀쩡함 ${c.total}`;
+  return c.broken ? ` · <b>사람 확인: 고장 ${c.broken}/${c.total}</b>` : ` · 사람 확인: 멀쩡함 ${c.total}`;
 }
 
 // 의심 자전거 하나 = 인스타 게시물 하나: 머리(자전거 번호·대여소·언제), 큰 숫자 카드, 단추(3초 확인·자세히), 설명
 const ago = (b) => typeof b.minutes_ago === "number" ? (b.minutes_ago < 60 ? `${b.minutes_ago}분 전` : b.minutes_ago < 1440 ? `${Math.floor(b.minutes_ago / 60)}시간 전` : `${Math.floor(b.minutes_ago / 1440)}일 전`) : `마지막 ${b.last_dud}`;
+const BIKE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h6l3.5 7.5M9 9 7.5 6H5M12 16.5 15 9"/></svg>';
 function bikeRow(b) {
-  const gu = (state.stations[b.station] || {}).gu;
-  const tail = [
-    b.reported === true ? "신고됨" : b.reported === false ? "<b>아직 아무도 신고 안 함</b>" : "",
-    b.truth_first_rider_dud === true ? "다음 사람도 반납" : b.truth_first_rider_dud === false ? "다음 사람은 탐" : "",
-  ].filter(Boolean).join(" · ");
-  return `<li class="post">` +
-    `<div class="post-head"><span class="ava" aria-hidden="true"><span>🚲</span></span>` +
-    `<div class="who"><b>${esc(b.bike)}</b><span>${esc(b.station_name)}${gu ? " · " + esc(gu) : ""} · ${ago(b)}</span></div>` +
-    `<span class="tag ${b.level}">${b.level}</span></div>` +
-    `<div class="post-card ${b.level}"><strong>${b.chain}</strong><span>명이 연달아<br>빌리자마자 반납했어요</span></div>` +
-    `<div class="post-actions"><button class="go" data-act="check" data-bike="${esc(b.bike)}">🙋 3초 확인</button>` +
-    `<button data-act="look" data-bike="${esc(b.bike)}">🔎 자세히</button></div>` +
-    `<div class="post-caption"><span class="muted">서로 다른 ${b.chain}명 연속 · 마지막 ${esc(b.last_dud)}${tail ? " · " : ""}</span>${tail}${checkedBadge(b.bike)}</div></li>`;
+  const tail = [b.reported === true ? "신고됨" : b.reported === false ? "미신고" : "",
+    b.truth_first_rider_dud === true ? "다음 사람도 반납" : b.truth_first_rider_dud === false ? "다음 사람은 탐" : ""].filter(Boolean).join(" · ");
+  return `<li data-bike="${esc(b.bike)}" tabindex="0" role="button" aria-label="${esc(b.bike)} 서로 다른 ${b.chain}명 반납, 자세히">` +
+    `<span class="ico ${b.level}">${BIKE_SVG}</span>` +
+    `<div><b>${esc(b.bike)}</b><span class="s">${esc(b.station_name)} · ${ago(b)}${tail ? " · " + tail : ""}${checkedBadge(b.bike)}</span></div>` +
+    `<span class="n ${b.level}">${b.chain}명</span></li>`;
 }
 function showTab(t) {
   const btn = document.querySelector(`#tabs button[data-tab="${t}"]`);
@@ -276,13 +261,13 @@ if (capApp) capApp.addListener("backButton", () => {
   const on = document.querySelector("#tabs button[aria-selected=\"true\"], #tabs button.on");
   if (on && on.dataset.tab !== "morning") showTab("morning"); else capApp.exitApp();
 });
-$("#bike-list").addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-act]");
-  if (!btn) return;
-  const bike = btn.dataset.bike;
-  if (btn.dataset.act === "check") { state.focusBike = bike; showTab("rescue"); }
-  else { showTab("lookup"); $("#bike-input").value = bike; lookup(bike); }
-});
+const openBike = (e) => {   // 한 줄을 누르면 조회 탭에서 자세히 (판정 단추도 거기)
+  const li = e.target.closest("li[data-bike]");
+  if (!li || (e.type === "keydown" && e.key !== "Enter")) return;
+  showTab("lookup"); $("#bike-input").value = li.dataset.bike; lookup(li.dataset.bike);
+};
+$("#bike-list").addEventListener("click", openBike);
+$("#bike-list").addEventListener("keydown", openBike);
 
 // 스토리 = 구 고르기: 의심 자전거가 많은 구부터, 고른 구는 테두리로
 function renderStories() {
@@ -291,14 +276,11 @@ function renderStories() {
   state.morning.bikes.forEach((b) => (n[guOf(b)] = (n[guOf(b)] || 0) + 1));
   const items = [["", "전체", state.morning.bikes.length], ...Object.entries(n).sort((a, b) => b[1] - a[1]).map(([g, c]) => [g, g, c])];
   $("#stories").innerHTML = items.map(([v, name, c]) =>
-    `<button class="story${v === state.gu ? " on" : ""}" data-gu="${esc(v)}" aria-pressed="${v === state.gu}" aria-label="${esc(name)} ${c}대">` +
-    `<span class="ring"><span${v ? "" : ' class="all"'}>${v ? c : "🚲"}</span></span><em>${esc(name.replace(/구$/, "") || name)}</em></button>`).join("");
+    `<button class="story${v === state.gu ? " on" : ""}" data-gu="${esc(v)}" aria-pressed="${v === state.gu}" aria-label="${esc(v || "서울 전체")} ${c}대">${esc(name.replace(/구$/, "") || name)} ${c}</button>`).join("");
 }
 $("#stories").addEventListener("click", (e) => {
   const st = e.target.closest(".story");
-  if (!st) return;
-  $("#gu").value = st.dataset.gu;
-  $("#gu").dispatchEvent(new Event("change"));
+  if (st) setGu(st.dataset.gu);
 });
 
 function groupByStation(bikes) {
@@ -315,9 +297,9 @@ function renderRank(bikes) {
   $("#station-rank").innerHTML = groupByStation(bikes).slice(0, 10).map(([id, arr]) => {
     const s = state.stations[id];
     const nb = sumBroken(arr);
-    return `<li><div><b>${s ? s.name : id}</b><br><span class="muted">${s ? s.gu : ""} · 의심 ${arr.length}대 · 헛걸음 ${sumChain(arr)}명 누적 (최대 ${maxChain(arr)}명 연속)` +
-      `${nb ? ` · <b class="confirmed">구조대 확인 고장 ${nb}대</b>` : ""}</span></div>` +
-      `<span class="tag ${arr.some((b) => b.level === "빨강") ? "빨강" : "노랑"}">${arr.length}</span></li>`;
+    const red = arr.some((b) => b.level === "빨강");
+    return `<li><div><b>${s ? esc(s.name) : id}</b><span class="s">${nb ? `<b>사람이 확인한 고장 ${nb}대</b> · ` : ""}${s ? s.gu : ""} · 헛걸음 ${sumChain(arr)}명 쌓임</span></div>` +
+      `<span class="n ${red ? "빨강" : "노랑"}">${arr.length}대</span></li>`;
   }).join("");
 }
 
@@ -347,22 +329,26 @@ function renderMap(bikes) {
 }
 
 // ── 자전거 조회
+const VERDICTS = (id, fine = "멀쩡해요") => `<div class="choices">` +
+  ["체인·기어", "타이어", "안장·핸들"].map((v) => `<button onclick="rescueSave('${id}','${v}')">${v}</button>`).join("") +
+  `<button class="fine" onclick="rescueSave('${id}','멀쩡함')">${fine}</button></div>`;
 function lookup(raw) {
   const m = String(raw).toUpperCase().match(/SPB-?\s?(\d{3,6})/);
   const id = m ? `SPB-${m[1].padStart(5, "0")}` : String(raw).trim().toUpperCase();
   const hit = state.morning.bikes.find((b) => b.bike === id);
   const out = $("#lookup-result");
+  const until = state.day === "live" ? "최근" : isPast() ? `${koDay(state.day)} 아침 목록에서` : "어제까지";
   if (hit) {
-    out.innerHTML = `<div class="result warn"><h3>⚠︎ ${id} 는 피하세요</h3>` +
-      `${state.day === "live" ? "최근" : isPast() ? `${koDay(state.day)} 아침 목록에서` : "어제까지"} <b>서로 다른 ${hit.chain}명</b>이 이 자전거를 빌리자마자 반납했어요 (마지막 ${hit.last_dud}, ${hit.station_name}).<br>` +
-      `이런 자전거는 다음 사람도 ${hit.level === "빨강" ? "절반 넘게(55% 이상)" : "약 35~44%"}가 바로 반납했어요(평소 2.5%). 옆 자전거를 고르세요.` +
-      `<div class="choices"><button onclick="rescueSave('${id}','체인·기어')">체인·기어 문제</button><button onclick="rescueSave('${id}','타이어')">타이어</button>` +
-      `<button onclick="rescueSave('${id}','안장·핸들')">안장·핸들</button><button class="fine" onclick="rescueSave('${id}','멀쩡함')">멀쩡해 보여요</button></div>${pastNote()}</div>`;
+    out.innerHTML = `<div class="result warn"><span class="icon" aria-hidden="true">⚠︎</span><h3>${id}는<br>타지 마세요</h3>` +
+      `${until} <b>서로 다른 ${hit.chain}명</b>이 빌리자마자 반납했어요. 옆 자전거를 골라 주세요.` +
+      `<div class="facts"><div><span>다음 사람도 반납할 확률</span><b class="red">${hit.level === "빨강" ? "55% 이상" : "약 35~44%"}</b></div>` +
+      `<div><span>평소 자전거</span><b>2.5%</b></div><div><span>마지막 반납</span><b>${esc(hit.last_dud)}</b></div><div><span>대여소</span><b>${esc(hit.station_name)}</b></div></div>` +
+      `<p class="ask">가까이 있다면, 어디가 이상했나요?</p>${VERDICTS(id)}${pastNote()}</div>`;
   } else {
     out.innerHTML = m ? (isPast()   // 지난 자료에 없다는 건 '괜찮다' 가 아니다 — 초록 체크 대신 모른다고
-      ? `<div class="result"><h3>? ${esc(id)}</h3>${koDay(state.day)} 자료에는 이 자전거가 없어요.${pastNote()}</div>`
-      : `<div class="result ok"><h3>✓ ${esc(id)}</h3>${state.day === "live" ? "최근" : "어제까지"} 기록에 헛걸음 연쇄가 없어요.${feedNote()}</div>`)
-      : `<div class="result">따릉이 번호(SPB-00000)를 못 찾았어요: <code>${esc(String(raw).slice(0, 60))}</code></div>`;
+      ? `<div class="result"><span class="icon" aria-hidden="true">?</span><h3>${esc(id)}는<br>${koDay(state.day)} 자료에 없어요</h3>${pastNote()}</div>`
+      : `<div class="result ok"><span class="icon" aria-hidden="true">✓</span><h3>${esc(id)}는<br>타도 괜찮아요</h3>${until} 기록에 빌리자마자 반납한 연쇄가 없어요.${feedNote()}</div>`)
+      : `<div class="result"><h3>따릉이 번호를 못 찾았어요</h3>SPB-00000 모양으로 넣어 주세요. 읽은 글자: <code>${esc(String(raw).slice(0, 60))}</code></div>`;
   }
 }
 $("#lookup-form").addEventListener("submit", (e) => { e.preventDefault(); lookup($("#bike-input").value); });
@@ -441,14 +427,18 @@ function renderRescue() {
   const next = todo[0];
   const away = (b) => (far(b) == null ? "" : far(b) < 1000 ? ` · ${Math.round(far(b))}m` : ` · ${(far(b) / 1000).toFixed(1)}km`);
   $("#rescue-card").innerHTML = next
-    ? `<div class="result warn"><h3>${next.station_name}의 ${next.bike}${away(next)}</h3>서로 다른 ${next.chain}명이 바로 반납했어요. 가까이 있다면 3초만 봐 주세요.` +
-      `<div class="choices"><button onclick="rescueSave('${next.bike}','체인·기어')">체인·기어</button><button onclick="rescueSave('${next.bike}','타이어')">타이어</button>` +
-      `<button onclick="rescueSave('${next.bike}','안장·핸들')">안장·핸들</button><button class="fine" onclick="rescueSave('${next.bike}','멀쩡함')">멀쩡해요</button></div></div>`
-    : `<div class="result ok">오늘 목록을 다 확인했어요!</div>`;
+    ? `<div class="result warn"><span class="tag ${next.level}">${next.level}</span><h3 style="margin-top:12px">${esc(next.bike)}<span class="dist">${away(next)}</span></h3>` +
+      `<p class="station">${esc(next.station_name)} · 서로 다른 ${next.chain}명이 바로 반납</p>${VERDICTS(next.bike)}</div>`
+    : `<div class="result ok"><span class="icon" aria-hidden="true">✓</span><h3>오늘 목록을 다 확인했어요!</h3></div>`;
   if (next && todo.length > 1)
-    $("#rescue-card").insertAdjacentHTML("beforeend", `<p class="muted">그다음: ${todo.slice(1, 4).map((b) => `${b.station_name} ${b.bike}${away(b)}`).join(" · ")}</p>`);
-  $("#rescue-log").innerHTML = rescueLog().slice(0, 20).map((x) =>
-    `<li><div><b>${x.bike}</b><br><span class="muted">${x.at}</span></div><span class="tag ${x.verdict === "멀쩡함" ? "ok" : "빨강"}">${x.verdict}</span></li>`).join("");
+    $("#rescue-card").insertAdjacentHTML("beforeend", `<h2>그다음</h2><div class="card list"><ul class="rows">` +
+      todo.slice(1, 4).map((b) => `<li><span class="ico ${b.level}">${BIKE_SVG}</span><div><b>${esc(b.bike)}</b><span class="s">${esc(b.station_name)}</span></div>` +
+        `<span class="muted">${away(b).replace(" · ", "")}</span></li>`).join("") + `</ul></div>`);
+  $("#rescue-log").innerHTML = rescueLog().slice(0, 20).map((x) => {
+    const fine = x.verdict === "멀쩡함";
+    return `<li><span class="ico ${fine ? "ok" : "빨강"}">${fine ? "✓" : "✕"}</span><div><b>${esc(x.bike)}</b><span class="s">${esc(x.at)}</span></div>` +
+      `<span class="n ${fine ? "ok" : "빨강"}">${esc(x.verdict)}</span></li>`;
+  }).join("") || `<li><div><span class="s">아직 없어요. 위에서 한 번 눌러 보세요.</span></div></li>`;
 }
 
 // ── 시연
@@ -469,12 +459,12 @@ async function startReplay() {
     rmap = baseMap("replay-map", { zoomControl: false });
     rlayer = L.layerGroup().addTo(rmap);
   }
-  if (timer) { clearInterval(timer); timer = null; $("#play").textContent = "▶ 재생"; return; }
+  if (timer) { clearInterval(timer); timer = null; $("#play").textContent = "▶ 이어서 재생"; return; }
   let clock = 0, i = 0;
   const c = { 헛대여: 0, 경보: 0, "막을 수 있던 헛걸음": 0, "고장 신고": 0 };
   const feed = $("#replay-feed"); feed.innerHTML = "";
   const secs = (e) => e.s;   // 그날 0시부터 초 (다음 날 신고는 86400 넘음)
-  $("#play").textContent = "■ 멈춤";
+  $("#play").textContent = "❚❚ 멈추기";
   timer = setInterval(() => {
     clock += +$("#speed").value / 10;
     while (i < replay.events.length && secs(replay.events[i]) <= clock) {
@@ -496,7 +486,7 @@ async function startReplay() {
     $("#c-alarm").textContent = c["경보"];
     $("#c-prev").textContent = c["막을 수 있던 헛걸음"];
     $("#c-fault").textContent = c["고장 신고"];
-    if (i >= replay.events.length) { clearInterval(timer); timer = null; $("#play").textContent = "▶ 다시"; }
+    if (i >= replay.events.length) { clearInterval(timer); timer = null; $("#play").textContent = "↻ 처음부터 다시"; }
   }, 100);
 }
 $("#play").addEventListener("click", startReplay);
@@ -607,7 +597,7 @@ function setSurveyPhoto(dataUrl) {
   surveyPhoto = dataUrl;
   $("#survey-thumb").hidden = !dataUrl;
   if (dataUrl) $("#survey-thumb").src = dataUrl; else $("#survey-thumb").removeAttribute("src");
-  $("#survey-photo-label").textContent = dataUrl ? `📷 사진 붙음 (${Math.round(dataUrl.length * 0.75 / 1024)}KB) — 다시 누르면 바꿈` : "📷 사진 붙이기 (선택)";
+  $("#survey-photo-label").textContent = dataUrl ? `사진 붙음 (${Math.round(dataUrl.length * 0.75 / 1024)}KB) — 다시 누르면 바꿈` : "사진 붙이기 (선택)";
 }
 $("#survey-photo").addEventListener("change", async (e) => {
   const f = e.target.files && e.target.files[0];

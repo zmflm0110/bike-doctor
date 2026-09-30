@@ -18,12 +18,22 @@ struct MorningView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    BrandTitle().padding(.horizontal, 4).padding(.top, 4)
                     hero
                     guChips
                     score
                     StationMap(groups: groups, route: [], here: model.here, camera: $camera, picked: $picked)
-                        .frame(height: 240)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .frame(height: 260)
+                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                        .overlay(alignment: .bottomTrailing) {
+                            Button { showRoute = true } label: {
+                                Label("정비 동선", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                                    .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
+                                    .padding(.horizontal, 14).padding(.vertical, 10)
+                                    .floatingGlass()
+                            }
+                            .buttonStyle(.plain).padding(12)
+                        }
                         .accessibilityLabel("의심 자전거가 있는 대여소 지도 (아래 목록과 같은 내용)")
 
                     SectionTitle(title: "정비 먼저 볼 곳", sub: "헛걸음이 많이 쌓인 대여소부터")
@@ -38,14 +48,6 @@ struct MorningView: View {
                         }
                     }
                     .card(padding: 14)
-                    Button { showRoute = true } label: {
-                        ListRow(icon: "point.topleft.down.to.point.bottomright.curvepath", title: "정비 동선 짜기", subtitle: "근무 시간 안에 헛걸음을 가장 많이 막는 순서") {
-                            Image(systemName: "chevron.right").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .card(padding: 14)
-
                     SectionTitle(title: "의심 자전거", sub: "서로 다른 사람들이 연달아 빌리자마자 반납했어요")
                     VStack(spacing: 0) {
                         ForEach(Array(model.shown.prefix(5))) { b in BikeListRow(bike: b) }
@@ -85,19 +87,29 @@ struct MorningView: View {
         let live = model.day == AppModel.liveDay ? model.morning : nil
         let place = model.gu.isEmpty ? "서울에" : "\(model.gu)에"
         let when = live != nil ? "지금 " : model.isPastData ? "\(AppModel.koDay(model.day)) 아침, " : "오늘 아침, "
-        return VStack(alignment: .leading, spacing: 12) {
-            BrandTitle().padding(.bottom, 6)
+        return VStack(alignment: .leading, spacing: 0) {
             dayMenu
-            (Text("\(when)\(place)\n고장 의심 따릉이가\n") + Text("\(bikes.count)대").foregroundColor(Palette.accent) + Text(model.isPastData ? " 있었어요" : " 있어요"))
-                .font(.system(size: 28, weight: .bold)).foregroundStyle(Palette.ink).lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("빨강 \(red)대 · 노랑 \(bikes.count - red)대\(live?.todayAlarms.map { " · 오늘 경보 \($0)번" } ?? "")")
-                .font(.subheadline).foregroundStyle(Palette.sub)
+            Text("\(when)\(place)\n고장 의심 따릉이가").font(.system(size: 19, weight: .semibold)).foregroundStyle(.white.opacity(0.92))
+                .padding(.top, 16)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text("\(bikes.count)").font(.system(size: 64, weight: .heavy, design: .rounded)).monospacedDigit()
+                    .contentTransition(.numericText()).animation(.snappy, value: bikes.count)
+                Text(model.isPastData ? "대 있었어요" : "대 있어요").font(.system(size: 22, weight: .bold))
+            }
+            .foregroundStyle(.white)
+            Text("빨강 \(red) · 노랑 \(bikes.count - red)\(live?.todayAlarms.map { " · 오늘 경보 \($0)번" } ?? "")")
+                .font(.subheadline).foregroundStyle(.white.opacity(0.82)).padding(.top, 6)
             ForEach(notes, id: \.self) { n in
-                Label(n, systemImage: "hourglass").font(.footnote).foregroundStyle(Palette.yellowText)
+                Label(n, systemImage: "hourglass").font(.footnote).foregroundStyle(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 8).background(.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 12)).padding(.top, 10)
             }
         }
-        .padding(.horizontal, 4).padding(.top, 8).padding(.bottom, 4)
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(HeroBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: Color(red: 0.086, green: 0.478, blue: 0.4).opacity(0.28), radius: 18, y: 10)
+        .padding(.top, 4)
     }
 
     /// 기준일 — 작은 회색 글씨 단추 (지금 · 5분 전 ▾)
@@ -109,16 +121,18 @@ struct MorningView: View {
                 ForEach(model.store?.days ?? [], id: \.self) { Text("\(AppModel.koDay($0)) (시연)").tag($0) }
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 if model.day == AppModel.liveDay {
-                    Circle().fill(Palette.mint).frame(width: 7, height: 7)
+                    Circle().fill(Color(red: 0.73, green: 1, blue: 0.91)).frame(width: 7, height: 7)
                     Text("실시간 · \(AppModel.minutesAgo(model.morning?.at ?? ""))분 전")
                 } else {
                     Text(model.day == AppModel.today ? "오늘 아침 목록" : "\(AppModel.koDay(model.day)) 자료\(model.cloudLists[model.day] == nil ? " (시연)" : "")")
                 }
                 Image(systemName: "chevron.down").font(.caption2.weight(.bold))
             }
-            .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub)
+            .font(.footnote.weight(.semibold)).foregroundStyle(.white)
+            .padding(.horizontal, 11).padding(.vertical, 6)
+            .background(Color(red: 0.043, green: 0.075, blue: 0.125).opacity(0.28), in: Capsule())
         }
     }
 
@@ -169,20 +183,15 @@ struct MorningView: View {
 
     private func scoreCard(title: String, hit: Int, of n: Int, what: String) -> some View {
         let p = Double(hit) / Double(max(1, n))
-        return VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub)
-            (Text("\(Int((100 * p).rounded()))%").font(.system(size: 34, weight: .bold)).foregroundColor(Palette.ink).monospacedDigit()
-             + Text("가 또 바로 반납했어요").font(.body.weight(.semibold)).foregroundColor(Palette.body))
-            GeometryReader { g in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.fill)
-                    Capsule().fill(Palette.accent).frame(width: max(10, g.size.width * p))
-                }
+        return HStack(spacing: 16) {
+            Ring(value: p)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.headline).foregroundStyle(Palette.ink)
+                Text("\(what) \(n.formatted())명 중 \(hit.formatted())명이 또 바로 반납 · 평소 자전거는 2.5%").font(.subheadline).foregroundStyle(Palette.sub)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(height: 10)
-            Text("\(what) \(n.formatted())명 중 \(hit.formatted())명 · 평소 자전거는 2.5%").font(.footnote).foregroundStyle(Palette.sub)
         }
-        .card()
+        .card(padding: 18)
     }
 
     // MARK: 먼저 볼 곳 한 줄

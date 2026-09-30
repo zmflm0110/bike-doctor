@@ -109,7 +109,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await tap("#lookup-result .choices button:has-text('체인·기어')");
   await wait(2500);
   await tab("morning");
-  await page.waitForFunction(() => document.querySelector("#station-rank").textContent.includes("구조대 확인 고장"), null, { timeout: 15000 }).catch(() => {});
+  await page.waitForFunction(() => document.querySelector("#station-rank").textContent.includes("사람이 확인한 고장"), null, { timeout: 15000 }).catch(() => {});
   await show("#station-rank");
   await cap("확인된 곳이 정비 순위 맨 위로.", "모든 폰에서 같이 바뀌어요(클라우드 DB).");
   await wait(3800);
