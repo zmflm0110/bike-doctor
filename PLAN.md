@@ -9,6 +9,7 @@
 - **돌고 있는 것 — Supabase(맥·GitHub 없이)**: 프로젝트 `iqvquwvoljzuvdgtbpnu`(ap-southeast-1), `supabase/live.sql`. pg_cron `live-tick` 5분마다 — 서울 API(pg_net) → `live.rentals` → 지금 목록·경보·실시간 채점(`live.snapshot`), 06:10 뒤 아침 목록·어제 채점.
   공개 뷰 `live_snapshot`·`ops_lists`·`ops_scores`(앱·웹앱·사이트가 publishable 키로 읽음). 쓰기 표 rescue·survey·사진(`supabase/schema.sql`). 서울 키는 Supabase Vault `seoul_openapi`. DB 비밀번호는 키체인 `supabase-db`.
   확인: `psql … -c "select status from cron.job_run_details order by start_time desc limit 3"` (접속 문자열은 `tools/supabase_live_load.py` DSN). 파이썬과 맞춰 보기: `tools/supabase_live_load.py --parity`.
+- **자체 모델(2026-10-01)**: `analysis/train_model.py` → `supabase/model.sql`(live.p_next_dud) — **model.sql 을 live.sql 보다 먼저 적용**. 검사 `tools/supabase_live_load.py --parity-model`. 쓰기 횟수 제한은 `supabase/schema.sql` 의 live.limit_inserts.
 - **GitHub Actions `cloud.yml`**(드문드문): 백업 live.json·`live-data` 가지·충전기 수집·Supabase 깨우기. 저장소 비밀 `SEOUL_OPENAPI_KEY`, `DATAGOKR_KEY`, `LIVE_STATE_KEY`.
 - **맥**: 실시간 서비스는 꺼 둠(사용자 결정 2026-09-26). 안드로이드 APK 는 `cd android-app && npm run release`(자바 = Homebrew openjdk@21).
 - **실시간 채점 (업데이트형)**: 9/27 10:20 시작(그 전 경보는 늦게 채운 것이라 live_only 에서 빠짐). 18:15 첫 100건 — 108명 중 49명(45%), 19:20 140명 중 54명(39%). 정해진 결과는 `live.alarms.next_dud` 에 적음(`live.settle`, 다음 대여가 7시간 지난 뒤). 주 1회 숫자 갱신(README·보고서; 사이트는 자동).

@@ -341,7 +341,7 @@ function lookup(raw) {
   if (hit) {
     out.innerHTML = `<div class="result warn"><span class="icon" aria-hidden="true">⚠︎</span><h3>${id}는<br>타지 마세요</h3>` +
       `${until} <b>서로 다른 ${hit.chain}명</b>이 빌리자마자 반납했어요. 옆 자전거를 골라 주세요.` +
-      `<div class="facts"><div><span>다음 사람도 반납할 확률</span><b class="red">${hit.level === "빨강" ? "55% 이상" : "약 35~44%"}</b></div>` +
+      `<div class="facts"><div><span>다음 사람도 반납할 확률${hit.p_next != null ? " (모델)" : ""}</span><b class="red">${hit.p_next != null ? hit.p_next + "%" : hit.level === "빨강" ? "55% 이상" : "약 35~44%"}</b></div>` +
       `<div><span>평소 자전거</span><b>2.5%</b></div><div><span>마지막 반납</span><b>${esc(hit.last_dud)}</b></div><div><span>대여소</span><b>${esc(hit.station_name)}</b></div></div>` +
       `<p class="ask">가까이 있다면, 어디가 이상했나요?</p>${VERDICTS(id)}${pastNote()}</div>`;
   } else {

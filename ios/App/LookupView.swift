@@ -101,7 +101,7 @@ struct LookupView: View {
                 md("\(until) **서로 다른 \(b.chain)명**이 빌리자마자 반납했어요. 옆 자전거를 골라 주세요.")
                     .font(.body).foregroundStyle(Palette.body)
                 VStack(spacing: 10) {
-                    fact("다음 사람도 반납할 확률", b.isRed ? "55% 이상" : "약 35~44%", Palette.red)
+                    fact(b.pNext == nil ? "다음 사람도 반납할 확률" : "다음 사람도 반납할 확률 (모델)", b.nextRiderText, Palette.red)
                     fact("평소 자전거", "2.5%")
                     fact("마지막 반납", b.lastDud)
                     fact("대여소", b.stationName)

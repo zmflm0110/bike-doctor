@@ -3,6 +3,7 @@
     python tools/supabase_live_load.py --stations          # 대여소 이름 (web/data/stations.json)
     python tools/supabase_live_load.py --backfill 8         # 지난 8일 대여이력을 서울 API 로 받아 한꺼번에 넣기 (맥에서 몇 분)
     python tools/supabase_live_load.py --parity             # SQL 로 만든 지금 목록 = 파이썬 엔진(server/live.py live_state) 인지
+    python tools/supabase_live_load.py --parity-model       # 자체 모델 특징: SQL live.p_features = 파이썬 features
 
 DB 비밀번호는 키체인 'supabase-db'. 5분마다 도는 예약(pg_cron)은 이 뒤로 새 시간만 받는다.
 """
@@ -107,6 +108,33 @@ def parity():
     return py == sq and today == sql["today_alarms"] and (hit, scored) == (sc["next_rider_dud"], sc["scored"])
 
 
+def parity_model():
+    """자체 모델의 특징: SQL live.p_features = 파이썬 analysis/ml_compare.py features (같은 행, 지금 기준 8일, 목록 자전거마다 마지막 헛대여)."""
+    from engine.core import mark
+    from engine.morning import RULE
+    from analysis.ml_compare import features
+    from analysis.train_model import FEATS5
+    now = pd.Timestamp(psql("select to_char(max(t1), 'YYYY-MM-DD HH24:MI:SS') from live.rentals where t1 <= (now() at time zone 'Asia/Seoul')").strip())
+    sql = json.loads(psql(f"select live.compute('{now}'::timestamp)"))
+    bikes = [b["bike"] for b in sql["bikes"]]
+    arr = "array[" + ",".join(f"'{b}'" for b in bikes) + "]::text[]"
+    S = pd.read_csv(io.StringIO(psql(f"copy (select * from live.p_features('{now}'::timestamp, {arr})) to stdout with csv")),
+                    names=["bike"] + FEATS5).set_index("bike").sort_index()
+    out = psql(f"copy (select bike, t0, st0, t1, st1, dist_m, who from live.rentals where t0 >= '{now}'::timestamp - interval '8 days' "
+               f"and bike = any({arr})) to stdout with csv")
+    R = pd.read_csv(io.StringIO(out), names=["bike", "t0", "st0", "t1", "st1", "dist_m", "who"], dtype={"st0": str, "st1": str, "who": object})
+    R["t0"] = pd.to_datetime(R["t0"]); R["t1"] = pd.to_datetime(R["t1"]); R["who"] = R["who"].where(R["who"].notna(), None)
+    M = mark(R.sort_values(["bike", "t0"], kind="stable").reset_index(drop=True), RULE)
+    F = features(M)
+    F["bike"] = M["bike"].astype(str).to_numpy()
+    P = F.groupby("bike").tail(1).set_index("bike")[FEATS5].sort_index()
+    same = (S.round(3) == P.loc[S.index].round(3)).all(axis=1)
+    p_sql = {b["bike"]: b.get("p_next") for b in sql["bikes"]}
+    print(f"목록 {len(bikes)}대 · SQL 특징 {len(S)}대 · 파이썬과 같음 {int(same.sum())} · 다름 {list(S.index[~same])[:5]}")
+    print("확률 예:", ", ".join(f"{b} 연쇄{int(S.loc[b, 'chain'])}→{p_sql[b]}%" for b in list(S.index)[:5]))
+    return bool(same.all()) and len(S) == len(bikes)
+
+
 def parity_morning(day):
     """오늘(day) 아침 목록: SQL live.morning = 파이썬 engine/morning.py morning_lists (같은 행, 자정 전 7일)."""
     from engine.morning import morning_lists
@@ -128,6 +156,7 @@ if __name__ == "__main__":
     ap.add_argument("--backfill", type=int)
     ap.add_argument("--parity", action="store_true")
     ap.add_argument("--parity-morning", metavar="YYYY-MM-DD")
+    ap.add_argument("--parity-model", action="store_true")
     a = ap.parse_args()
     if a.stations:
         stations()
@@ -135,5 +164,7 @@ if __name__ == "__main__":
         backfill(a.backfill)
     if a.parity_morning:
         sys.exit(0 if parity_morning(a.parity_morning) else 1)
+    if a.parity_model:
+        sys.exit(0 if parity_model() else 1)
     if a.parity:
         sys.exit(0 if parity() else 1)
