@@ -234,8 +234,9 @@
         <div class="card white livescore" id="livescore">
           <span class="pill">스스로 채점 중</span>
           <h3 style="margin-top:16px">실시간 경보는 맞았을까?</h3>
-          <p class="big"><b id="ls-pct">39%</b><span>경보 뒤 처음 빌린 다른 사람 <b id="ls-n">140</b>명 중 <b id="ls-k">54</b>명이 또 바로 반납</span></p>
-          <p class="muted small" style="margin:10px 0 0">평소 자전거는 2.5%, 지난 기록(1·3·6월)으로 같은 방식은 32~34%. 95% 범위 <span id="ls-ci">31~47%</span> · 채점을 기다리는 경보 <span id="ls-w">65</span>건 · <span id="ls-at">9월 27일 19:20</span> 기준 (<span id="ls-since">9월 27일</span>부터 쌓는 중, 5분마다 새로 매김)</p>
+          <p class="big"><b id="ls-pct">32%</b><span>경보 뒤 처음 빌린 다른 사람 <b id="ls-n">1,420</b>명 중 <b id="ls-k">455</b>명이 또 바로 반납</span></p>
+          <p class="muted small" style="margin:10px 0 0">평소 자전거는 2.5%, 지난 기록(1·3·6월)으로 같은 방식은 32~34%. 95% 범위 <span id="ls-ci">30~35%</span> · 채점을 기다리는 경보 <span id="ls-w">110</span>건 · <span id="ls-at">10월 1일 17:15</span> 기준 (<span id="ls-since">9월 27일</span>부터 쌓는 중, 5분마다 새로 매김)</p>
+          <p class="muted small" id="ls-model" style="margin:8px 0 0" hidden>자체 모델 실시간 채점: 경보 때 모델이 말한 확률 평균 <b id="ls-mp">–</b> · 실제 <b id="ls-mr">–</b> (<span id="ls-mn">0</span>건)</p>
         </div>
         <p class="note">솔직한 기록: 처음엔 실시간 대여소 <b>대수</b>만 보고 "공개 자료로는 실시간이 안 된다"(정밀도 0.2~1.7%)고 결론 냈다가, 자전거별 대여이력 API 를 찾고 뒤집었습니다.</p>
       </div>
@@ -525,6 +526,8 @@
       $("#ls-pct").textContent = Math.round(p * 100) + "%"; $("#ls-n").textContent = n.toLocaleString("ko-KR"); $("#ls-k").textContent = k.toLocaleString("ko-KR");
       $("#ls-ci").textContent = `${Math.round((c - m) * 100)}~${Math.round((c + m) * 100)}%`; $("#ls-w").textContent = sc.waiting.toLocaleString("ko-KR");
       if (sc.since) { const [, mo, da] = sc.since.split("-").map(Number); $("#ls-since").textContent = `${mo}월 ${da}일`; }
+      const md = sc.model || {};
+      if (md.n >= 30) { $("#ls-mp").textContent = md["pred_%"] + "%"; $("#ls-mr").textContent = md["real_%"] + "%"; $("#ls-mn").textContent = md.n.toLocaleString("ko-KR"); $("#ls-model").hidden = false; }
       $("#ls-at").textContent = `${at.getMonth() + 1}월 ${at.getDate()}일 ${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
     } catch (e) { /* 적어 둔 숫자 그대로 */ }
   })();

@@ -96,6 +96,8 @@ end $$;
 create table if not exists live.alarms (bike text not null, at timestamp not null, station text, seen_at timestamp not null, primary key (bike, at));
 -- 채점 결과는 한 번 정해지면 적어 둔다(next_*) — 대여 기록은 9일 뒤 지우지만 채점은 계속 쌓이게(2026-09-27)
 alter table live.alarms add column if not exists next_t0 timestamp, add column if not exists next_dud boolean;
+-- 경보가 울린 그 순간 자체 모델이 본 확률 — 나중에 실제 결과와 맞춰 모델을 실시간으로도 채점 (2026-10-01)
+alter table live.alarms add column if not exists p_next real;
 
 -- bikes 는 조인으로(배열 = any 로 하면 110만 행마다 수천 개와 견줘 시간 초과가 났다 — 2026-09-27)
 create or replace function live.mark_rows(since timestamp, bikes text[], until timestamp default 'infinity')
@@ -125,15 +127,19 @@ create or replace function live.cand(now_ timestamp) returns text[] language sql
 -- live_only: 5분 예약이 15분 안에 알아챈 경보만 (처음 채운 지난 경보는 뺌). 적어 둔 결과(next_dud)가 있으면 그것, 없으면 지금 기록으로 매김.
 create or replace function live.score(now_ timestamp, live_only boolean default true) returns jsonb language sql stable as $$
 with a as (
-  select bike, at, next_dud from live.alarms where not live_only or seen_at - at <= interval '15 minutes'
+  select bike, at, next_dud, p_next from live.alarms where not live_only or seen_at - at <= interval '15 minutes'
 ), m as (
   select * from live.mark_rows(now_ - interval '9 days', (select coalesce(array_agg(distinct bike), '{}') from a where next_dud is null))
 ), nx as (
-  select a.bike, a.at, coalesce(a.next_dud, (select m.dud from m where m.bike = a.bike and m.t0 > a.at and not m.retry order by m.t0 limit 1)) nd from a
+  select a.bike, a.at, a.p_next, coalesce(a.next_dud, (select m.dud from m where m.bike = a.bike and m.t0 > a.at and not m.retry order by m.t0 limit 1)) nd from a
 )
 select jsonb_build_object('alarms', count(*), 'scored', count(nd), 'next_rider_dud', count(*) filter (where nd),
   'precision_%', round(100.0 * count(*) filter (where nd) / nullif(count(nd), 0), 1), 'waiting', count(*) - count(nd), 'seen_within_min', 15,
-  'since', to_char(min(at), 'YYYY-MM-DD'))
+  'since', to_char(min(at), 'YYYY-MM-DD'),
+  -- 자체 모델 실시간 채점: 경보 때 모델이 말한 확률의 평균 vs 실제로 다음 사람도 반납한 비율 (결과가 나온 경보만)
+  'model', jsonb_build_object('n', count(*) filter (where p_next is not null and nd is not null),
+    'pred_%', round((100 * avg(p_next) filter (where nd is not null))::numeric, 1),
+    'real_%', round(100.0 * count(*) filter (where p_next is not null and nd) / nullif(count(*) filter (where p_next is not null and nd is not null), 0), 1)))
 from nx
 $$;
 
@@ -212,6 +218,11 @@ begin
   where dud and not retry and streak = 1 and t1 >= now_ - interval '24 hours'
   on conflict (bike, at) do nothing;
   get diagnostics n = row_count;
+  if n > 0 then   -- 방금 울린 경보에 그 순간 모델 확률을 적어 둠
+    update live.alarms a set p_next = live.p_next_dud(f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec)
+    from live.p_features(now_, (select coalesce(array_agg(bike), '{}') from live.alarms where seen_at = now_ and p_next is null)) f
+    where a.bike = f.bike and a.seen_at = now_ and a.p_next is null;
+  end if;
   return n;
 end $$;
 
