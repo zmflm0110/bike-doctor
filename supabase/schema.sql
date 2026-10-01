@@ -34,6 +34,32 @@ create policy "누구나 넣기" on public.survey for insert to anon, authentica
 revoke all on public.rescue, public.survey from anon, authenticated;
 grant insert on public.rescue, public.survey to anon, authenticated;
 
+-- 넣기 횟수 제한 (장난·도배로 정비 순위가 흔들리지 않게, 2026-10-01): 표마다 같은 자전거 10분에 3번, 전체 1분에 20번·1시간에 300번.
+-- 현장 조사는 폰에 모았다 늦게 보내 at 이 과거일 수 있어서, DB 에 들어온 시각(created_at)으로 센다. IP 같은 개인정보는 남기지 않는다.
+alter table public.rescue add column if not exists created_at timestamptz not null default now();
+alter table public.survey add column if not exists created_at timestamptz not null default now();
+create index if not exists rescue_created on public.rescue (created_at);
+create index if not exists survey_created on public.survey (created_at);
+create schema if not exists live;
+create or replace function live.limit_inserts() returns trigger language plpgsql security definer set search_path = public as $$
+declare n_bike int; n_min int; n_hour int;
+begin
+  new.created_at := now();   -- 보내는 쪽이 정하지 못하게
+  execute format('select count(*) filter (where bike = $1 and created_at > now() - interval ''10 minutes''),
+                         count(*) filter (where created_at > now() - interval ''1 minute''), count(*)
+                  from %I.%I where created_at > now() - interval ''1 hour''', tg_table_schema, tg_table_name)
+    into n_bike, n_min, n_hour using new.bike;
+  if n_bike >= 3 or n_min >= 20 or n_hour >= 300 then
+    raise exception '너무 자주 보냈어요 — 잠시 뒤 다시 보내 주세요' using errcode = '23514';
+  end if;
+  return new;
+end $$;
+revoke all on function live.limit_inserts() from public;
+drop trigger if exists limit_inserts on public.rescue;
+create trigger limit_inserts before insert on public.rescue for each row execute function live.limit_inserts();
+drop trigger if exists limit_inserts on public.survey;
+create trigger limit_inserts before insert on public.survey for each row execute function live.limit_inserts();
+
 -- 자전거별 사람 확인 수 (구조대 + 현장 조사) — 앱의 '사람 확인' 표시. 행 자체는 안 보인다(뷰 주인 권한으로 집계만).
 create or replace view public.checked as
   select bike, v as verdict, count(*)::int as n
