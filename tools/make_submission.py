@@ -35,7 +35,8 @@ TEXTS = {
                      "앱 안(web/data)에는 가공 결과(자전거 번호·대여소·시각)만 있고 이용자 정보(생년·성별)는 없다.\n",
     "클라우드.txt": "Supabase(무료 요금제) — 5분마다 서울 API 로 대여이력을 받아 경보 계산·채점(pg_cron, supabase/live.sql), 구조대 확인·현장 조사 저장 (supabase/schema.sql)\n"
                    "GitHub Actions(무료, 공개 저장소) — 백업·전기차 충전기 자료 모으기 (.github/workflows/cloud.yml)\n",
-    "직접만든것.txt": "앱 아이콘·시작 화면·색·화면 디자인, 엔진·서버·분석 코드는 모두 직접 만들었다.\n"
+    "직접만든것.txt": "앱 아이콘·시작 화면·색·화면 디자인, 엔진·서버·분석 코드, 자체 모델(analysis/train_model.py 로 학습 → supabase/model.sql)은 모두 직접 만들었다.\n"
+                    "분석·학습 도구: Python pandas·NumPy·scikit-learn(BSD, 무료) — 앱에는 들어가지 않는다.\n"
                     "아이콘 원본: web/icon.svg → tools/make_icons.js, tools/make_android_assets.js 로 PNG.\n"
                     "로고(자전거 R 마크·RIDEY 글자)는 팀이 그린 초안을 SVG 로 옮김: site/img/mark.svg\n"
                     "글꼴: 앱은 기기 기본 글꼴만 사용(따로 넣은 글꼴 없음). 소개 웹사이트만 Outfit·Pretendard(둘 다 SIL OFL 1.1)를 인터넷으로 불러옴.\n상용 엔진: 사용하지 않음.\n",
