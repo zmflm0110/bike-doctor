@@ -48,6 +48,7 @@ struct LookupView: View {
                 takeQuery()
             }
             .onChange(of: model.lookupQuery) { takeQuery() }
+            .onChange(of: model.day) { if result != nil, !input.isEmpty { lookup(input) } }   // 실시간 목록이 늦게 들어와 기준이 바뀌면 다시
             .fullScreenCover(isPresented: $scanning) {
                 QRScanner { code in
                     scanning = false

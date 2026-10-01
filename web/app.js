@@ -44,8 +44,11 @@ async function loadDay(day) {
   guOptions();
   renderMorning();
   renderRescue();
+  relookup();
   loadChecked();
 }
+// 조회 결과가 떠 있는데 기준 목록이 바뀌면(날짜를 바꾸거나 실시간이 새로 들어오면) 다시 맞춰 봄
+function relookup() { if ($("#lookup-result").innerHTML && $("#bike-input").value) lookup($("#bike-input").value); }
 
 // 실시간: 맥 server/live.py(1분, 같은 와이파이) · Supabase(5분, DB 가 스스로) · GitHub(예약이 드묾) 중 가장 새 것.
 // 채점·자료 지연 표시는 GitHub 쪽에만 있어 가장 새 목록에 빌려 붙인다.
@@ -66,7 +69,7 @@ async function refreshLive() {
   if (!m) return;
   state.morning = m;
   state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
-  guOptions(); renderMorning();
+  guOptions(); renderMorning(); relookup();
 }
 const minsAgo = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso + "+09:00").getTime()) / 60e3));
 // 지난 날 목록을 보고 있나 — 실시간도, 오늘 아침 목록도 아니면 '지금' 상태는 모른다 (시연 자료·지난 운영 목록)
