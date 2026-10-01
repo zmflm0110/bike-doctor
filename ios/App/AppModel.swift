@@ -38,7 +38,7 @@ final class AppModel {
     }
     /// 구조대 확인·현장 조사를 보내는 곳 — 어디서든 Supabase (키가 없으면 맥 서버)
     var sink: (any RecordSink)? { Cloud.supabaseKey.isEmpty ? client : SupabaseClient() }
-    /// GitHub 가 10분마다 만드는 목록 (live-data 가지)
+    /// GitHub 가 드문드문 만드는 백업 목록 (live-data 가지) — 채점·자료 지연 표시는 여기에만
     let cloud = ServerClient(base: Cloud.data)
     /// GitHub 가 매일 06:10 만든 아침 목록 (최근 7일) — 앱에 넣은 시연 자료보다 먼저 보인다
     var cloudLists: [String: MorningList] = [:]
@@ -118,7 +118,7 @@ final class AppModel {
         liveSource = name
         if day == Self.liveDay { morning = merged }
     }
-    /// 지금 목록이 어디서 왔나 — "집 맥" (1분마다) / "클라우드" (10분마다)
+    /// 지금 목록이 어디서 왔나 — "집 맥" (1분마다) / "클라우드" (Supabase 5분마다·GitHub 백업)
     var liveSource = ""
 
     /// 시연(지난) 자료를 보고 있나 — 실시간이 아니면 앱에 넣은 지난 날의 아침 목록이다
