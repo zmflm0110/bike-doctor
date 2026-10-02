@@ -164,11 +164,13 @@ end $$;
 -- 자체 모델의 특징 (analysis/train_model.py · ml_compare.py features 와 같은 정의) — 자전거마다 마지막 헛대여 반납 시점, 지난 7일(그 대여 포함).
 -- 확률 식 live.p_next_dud 는 supabase/model.sql (학습 스크립트가 만듦) — 이 파일보다 먼저 적용한다.
 drop function if exists live.p_features(timestamp, text[]);
-create or replace function live.p_features(now_ timestamp, bikes text[])
+drop function if exists live.p_features(timestamp, text[], timestamp);
+-- until: 지난 시각으로 다시 만들 때(스스로 배우기 자료 채우기) 그 뒤 기록을 안 보게
+create or replace function live.p_features(now_ timestamp, bikes text[], until timestamp default 'infinity')
 returns table (bike text, chain int, hist7_duds int, hist7_rentals int, prior_alarms7 int, dur_sec float8, age_h float8, shun float8)
 language sql stable as $$
 with m as (
-  select * from live.mark_rows(now_ - interval '8 days', bikes)
+  select * from live.mark_rows(now_ - interval '8 days', bikes, until)
 ), last as (
   select distinct on (bike) * from m order by bike, t0 desc
 ), base as (
@@ -189,6 +191,47 @@ select b.bike, b.chain, b.duds, b.rentals, b.prior, b.dur,
        greatest(0, extract(epoch from now_ - b.t1) / 3600)::float8, ln(1 + n.n)::float8
 from base b join near n using (bike)
 $$;
+
+-- 스스로 배우기 (2026-10-02): 3시간마다(0·3·…·21시) 지금 목록의 자전거마다 모델 입력(특징 7개)과 그때 확률을 적어 두고,
+-- 다음 다른 사람이 빌려 결과가 정해지면 정답(next_dud)을 채운다 → 사람이 정답을 달지 않아도 학습 자료가 쌓인다.
+-- 맥에서 tools/retrain.py 가 이것과 지난 기록을 합쳐 다시 배우고, 최근 자료에서 지금 모델보다 나을 때만 바꾼다. (analysis/snapshot_model.py 의 표본과 같은 정의)
+create table if not exists live.samples (
+  at timestamp not null, bike text not null, last_t0 timestamp not null,
+  chain int, hist7_duds int, hist7_rentals int, prior_alarms7 int, dur_sec real, age_h real, shun real,
+  p real, next_t0 timestamp, next_dud boolean,
+  primary key (at, bike)
+);
+drop function if exists live.sample_list(timestamp);
+create or replace function live.sample_list(now_ timestamp, until timestamp default 'infinity') returns int language plpgsql as $$
+declare n int; b text[] := live.cand(now_);
+begin
+  insert into live.samples(at, bike, last_t0, chain, hist7_duds, hist7_rentals, prior_alarms7, dur_sec, age_h, shun, p)
+  with m as (select * from live.mark_rows(now_ - interval '7 days', b, until)),
+  last as (select distinct on (bike) bike, t0, t1, dud, streak from m order by bike, t0 desc),
+  fresh as (select * from last where dud and streak + 1 >= 2 and t1 >= now_ - interval '24 hours' and t1 <= now_),   -- 아직 반납 안 된 대여가 마지막이면 목록에 없음
+  f as (select * from live.p_features(now_, (select coalesce(array_agg(bike), '{}') from fresh), until))
+  select now_, fresh.bike, fresh.t0, f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec, f.age_h, f.shun,
+         live.p_next_dud(f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec, f.age_h, f.shun)
+  from fresh join f using (bike)
+  on conflict (at, bike) do nothing;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+-- 정답 채우기: 마지막 헛대여 뒤 처음 빌린 다른 사람(재시도 아님)도 헛대여였나. 그 대여가 7시간 넘게 지난 뒤에만(늦게 온 기록이 끼어들 수 없게)
+create or replace function live.settle_samples(now_ timestamp) returns int language plpgsql as $$
+declare n int; b text[] := (select coalesce(array_agg(distinct bike), '{}') from live.samples where next_dud is null and at > now_ - interval '8 days');
+begin
+  update live.samples s set next_t0 = x.t0, next_dud = x.dud
+  from (
+    select distinct on (s.at, s.bike) s.at, s.bike, m.t0, m.dud
+    from live.samples s join live.mark_rows(now_ - interval '9 days', b) m on m.bike = s.bike and m.t0 > s.last_t0 and not m.retry
+    where s.next_dud is null
+    order by s.at, s.bike, m.t0
+  ) x
+  where s.at = x.at and s.bike = x.bike and x.t0 < now_ - interval '7 hours';
+  get diagnostics n = row_count;
+  return n;
+end $$;
 
 -- 지금 목록 (live.json 과 같은 모양)
 create or replace function live.compute(now_ timestamp default (now() at time zone 'Asia/Seoul')::timestamp) returns jsonb language sql stable as $$
@@ -290,6 +333,11 @@ begin
   perform live.record_alarms(now_);
   perform live.settle(now_);
   perform live.morning_job(now_);
+  begin   -- 스스로 배우기 자료 — 실패해도 목록은 그대로
+    if extract(hour from now_)::int % 3 = 0 and extract(minute from now_)::int < 5 then perform live.sample_list(now_); end if;
+    if extract(minute from now_)::int % 30 < 5 then perform live.settle_samples(now_); end if;
+  exception when others then raise warning 'samples: %', sqlerrm;
+  end;
   insert into live.snapshot(id, at, body) values (1, now_, live.compute(now_) || jsonb_build_object('score', live.score(now_)))
     on conflict (id) do update set at = excluded.at, body = excluded.body;
   for k in 0..1 loop perform live.request(to_char(now_ - make_interval(hours => k), 'YYYY-MM-DD/HH24')); end loop;

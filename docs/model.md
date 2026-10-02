@@ -47,3 +47,7 @@ python analysis/snapshot_model.py --check      # 시험만 (배움·시험 달�
 
 DB 안 계산이 파이썬과 같은지: `python tools/supabase_live_load.py --parity-model`.
 적용 순서: `supabase/model.sql` → `supabase/live.sql`.
+
+## 스스로 배우기 (2026-10-02)
+클라우드 DB 가 3시간마다(0·3·…·21시) 지금 목록의 자전거마다 특징 7개와 그때 확률을 `live.samples` 에 적고, 다음 다른 사람이 빌려 결과가 정해지면(그 대여가 7시간 지난 뒤) 정답을 채운다 — `live.sample_list`, `live.settle_samples`.
+`python tools/retrain.py` 가 이것으로 지금 모델을 실시간 점검하고(`docs/model_live.md`), 정답이 500개 넘게 모이면 '지난 석 달 + 실시간 앞 70%' 로 다시 배운 모델을 '실시간 뒤 30%' 에서 비교해 로그 손실이 2% 넘게 좋고 기대 수가 실제와 더 가까울 때만 바꾼다(`--deploy`).
