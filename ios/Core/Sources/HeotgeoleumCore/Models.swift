@@ -26,13 +26,19 @@ public struct SuspectBike: Codable, Hashable, Identifiable, Sendable {
     public let minutesAgo: Int?         // 실시간 목록에만 — 마지막 헛대여가 몇 분 전
     public let truthFirstRiderDud: Bool? // 지난 기록(시연)에만 — 목록이 나온 뒤 처음 빌린 사람도 바로 반납했나
     public let pNext: Int?              // 클라우드 실시간 목록에만 — 자체 모델이 본 '다음 사람도 바로 반납할 확률' (%)
+    public let why: [Reason]?           // 그 확률의 이유 (설명 가능한 AI) — 가장 크게 움직인 셋, d = 확률을 몇 %p 올렸나(음수면 내림)
     public var isRed: Bool { level == "빨강" }
     /// 다음 사람도 반납할 확률 글 — 모델 값이 있으면 그 값, 없으면(지난 자료) 연쇄 단계별 실측 범위
     public var nextRiderText: String { pNext.map { "\($0)%" } ?? (isRed ? "55% 이상" : "약 35~44%") }
 
     enum CodingKeys: String, CodingKey {
         case bike, station, chain, level, reported
-        case stationName = "station_name", lastDud = "last_dud", truthFirstRiderDud = "truth_first_rider_dud", minutesAgo = "minutes_ago", pNext = "p_next"
+        case stationName = "station_name", lastDud = "last_dud", truthFirstRiderDud = "truth_first_rider_dud", minutesAgo = "minutes_ago", pNext = "p_next", why
+    }
+
+    public struct Reason: Codable, Hashable, Sendable {
+        public let t: String
+        public let d: Int
     }
 }
 

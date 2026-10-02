@@ -357,6 +357,8 @@ function lookup(raw) {
       `${until} <b>서로 다른 ${hit.chain}명</b>이 빌리자마자 반납했어요. 옆 자전거를 골라 주세요.` +
       `<div class="facts"><div><span>다음 사람도 반납할 확률${hit.p_next != null ? " (모델)" : ""}</span><b class="red">${hit.p_next != null ? hit.p_next + "%" : hit.level === "빨강" ? "55% 이상" : "약 35~44%"}</b></div>` +
       `<div><span>평소 자전거</span><b>2.5%</b></div><div><span>마지막 반납</span><b>${esc(hit.last_dud)}</b></div><div><span>대여소</span><b>${esc(hit.station_name)}</b></div></div>` +
+      (hit.why && hit.why.length ? `<div class="why"><p>✦ AI 가 본 이유</p>` + hit.why.map((r) =>
+        `<div><i class="${r.d >= 0 ? "up" : "down"}">${r.d >= 0 ? "▲" : "▼"}</i><span>${esc(r.t)}</span><em>${r.d >= 0 ? "+" : ""}${r.d}%p</em></div>`).join("") + `</div>` : "") +
       `<p class="ask">가까이 있다면, 어디가 이상했나요?</p>${VERDICTS(id)}${pastNote()}</div>`;
   } else {
     out.innerHTML = m ? (isPast()   // 지난 자료에 없다는 건 '괜찮다' 가 아니다 — 초록 체크 대신 모른다고

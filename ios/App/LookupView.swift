@@ -120,6 +120,20 @@ struct LookupView: View {
                 }
                 .padding(16)
                 .background(Palette.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                if let why = b.why, !why.isEmpty {   // 설명 가능한 AI — 그 확률을 가장 크게 움직인 이유
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("AI 가 본 이유", systemImage: "sparkles").font(.footnote.weight(.semibold)).foregroundStyle(Palette.sub)
+                        ForEach(why, id: \.self) { r in
+                            HStack(spacing: 8) {
+                                Image(systemName: r.d >= 0 ? "arrow.up.right" : "arrow.down.right").font(.caption.weight(.bold))
+                                    .foregroundStyle(r.d >= 0 ? Palette.red : Palette.good)
+                                Text(r.t).font(.subheadline).foregroundStyle(Palette.ink)
+                                Spacer(minLength: 4)
+                                Text("\(r.d >= 0 ? "+" : "")\(r.d)%p").font(.caption.weight(.semibold)).monospacedDigit().foregroundStyle(Palette.sub)
+                            }
+                        }
+                    }
+                }
                 Text("가까이 있다면, 어디가 이상했나요?").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sub).padding(.top, 4)
                 VerdictButtons(bike: b.bike)
                 pastNote

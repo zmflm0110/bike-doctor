@@ -233,6 +233,34 @@ begin
   return n;
 end $$;
 
+-- AI 가 본 이유 (설명 가능한 AI, 2026-10-02): 특징 하나씩을 '목록의 보통 자전거' 값(목록 표본 중앙값)으로 바꿨을 때 확률이 얼마나 변하나.
+-- 가장 크게 움직인 셋을 사람 말로 — 앱의 조회 화면에 '왜 이 확률?' 로. (중앙값: 연쇄 2, 지난 7일 헛대여 4·대여 21, 이전 경보 0, 대여 34초, 경과 6.8시간, 외면 log1p 2.2)
+create or replace function live.p_why(chain float8, duds float8, rentals float8, prior float8, dur float8, age float8, shun float8)
+returns jsonb language sql immutable as $$
+with p as (select live.p_next_dud(chain, duds, rentals, prior, dur, age, shun) v),
+c as (
+  select * from (values
+    (case when chain >= 3 then format('서로 다른 %s명이 연달아 반납', chain::int) end,
+     (select v from p) - live.p_next_dud(2, duds, rentals, prior, dur, age, shun)),
+    (case when duds > 4 then format('지난 7일 바로 반납 %s번 (보통 4번)', duds::int) else format('지난 7일 바로 반납 %s번뿐', duds::int) end,
+     (select v from p) - live.p_next_dud(chain, 4, rentals, prior, dur, age, shun)),
+    (format('지난 7일 대여 %s번 (보통 21번)', rentals::int),
+     (select v from p) - live.p_next_dud(chain, duds, 21, prior, dur, age, shun)),
+    (case when prior > 0 then format('이번 주 경보 %s번 더 있었음', prior::int) end,
+     (select v from p) - live.p_next_dud(chain, duds, rentals, 0, dur, age, shun)),
+    (case when dur < 34 then format('%s초 만에 반납', dur::int) else format('%s초 타고 반납', dur::int) end,
+     (select v from p) - live.p_next_dud(chain, duds, rentals, prior, 34, age, shun)),
+    (case when age < 6.8 then format('%s 전에 반납 (최근)', case when age < 1 then (age * 60)::int || '분' else round(age::numeric, 1) || '시간' end)
+          else format('%s시간째 그대로', round(age::numeric, 1)) end,
+     (select v from p) - live.p_next_dud(chain, duds, rentals, prior, dur, 6.8, shun)),
+    (format('그사이 이 대여소에서 빌려 간 사람 %s명 (%s)', round(exp(shun) - 1)::int, case when shun < 2.2 then '적음' else '많음' end),
+     (select v from p) - live.p_next_dud(chain, duds, rentals, prior, dur, age, 2.2))
+  ) x(t, d) where t is not null
+)
+select coalesce(jsonb_agg(jsonb_build_object('t', t, 'd', round(d::numeric * 100)::int) order by abs(d) desc), '[]'::jsonb)
+from (select * from c where abs(d) >= 0.02 order by abs(d) desc limit 3) top
+$$;
+
 -- 지금 목록 (live.json 과 같은 모양)
 create or replace function live.compute(now_ timestamp default (now() at time zone 'Asia/Seoul')::timestamp) returns jsonb language sql stable as $$
 with m as (
@@ -244,10 +272,11 @@ with m as (
   select l.*, s.name from last l left join live.stations s on s.id = l.st1
   where l.chain >= 2 and l.t1 >= now_ - interval '24 hours'
 ), pf as (   -- 자체 모델: 다음에 빌린 다른 사람도 바로 반납할 확률
-  select f.bike, live.p_next_dud(f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec, f.age_h, f.shun) p
+  select f.bike, live.p_next_dud(f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec, f.age_h, f.shun) p,
+         live.p_why(f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec, f.age_h, f.shun) why
   from live.p_features(now_, (select coalesce(array_agg(bike), '{}') from fresh)) f
 ), fp as (
-  select fresh.*, pf.p from fresh left join pf using (bike)
+  select fresh.*, pf.p, pf.why from fresh left join pf using (bike)
 )
 select jsonb_build_object(
   'date', 'live', 'source', 'supabase', 'at', to_char(now_, 'YYYY-MM-DD"T"HH24:MI:SS'),
@@ -256,7 +285,7 @@ select jsonb_build_object(
       'bike', bike, 'station', st1, 'station_name', coalesce(name, st1), 'chain', chain,
       'level', case when chain >= 3 then '빨강' else '노랑' end,
       'last_dud', to_char(t1, 'MM-DD HH24:MI'), 'minutes_ago', floor(extract(epoch from now_ - t1) / 60)::int, 'reported', null,
-      'p_next', round(100 * p)::int)
+      'p_next', round(100 * p)::int, 'why', why)
       order by p desc nulls last, chain desc, t1 desc) from fp), '[]'::jsonb),   -- 모델 확률 순 (목록 위 20대 정밀도가 세 달 모두 올라감, docs/model.md)
   'model', jsonb_build_object('q', live.list_q(), 'expected', round(coalesce((select sum(p) from fp), 0)::numeric, 1),
     'at_least', greatest(0, floor(coalesce((select sum(p) + live.list_q() * sqrt(sum(p * (1 - p))) from fp), 0)))::int),

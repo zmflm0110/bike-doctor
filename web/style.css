@@ -163,6 +163,11 @@ video { width: 100%; margin: 10px 0 0; border-radius: 18px; }
 .facts { background: var(--fill); border-radius: 14px; padding: 14px 16px; margin: 14px 0 4px; display: grid; gap: 8px; font-size: 15px; }
 .facts div { display: flex; justify-content: space-between; gap: 12px; }
 .facts span { color: var(--sub); } .facts b { color: var(--ink); text-align: right; font-weight: 600; } .facts b.red { color: var(--red); }
+.why { margin: 14px 0 0; display: grid; gap: 6px; font-size: 14.5px; }
+.why p { margin: 0 0 2px; font-size: 13.5px; font-weight: 600; color: var(--sub); }
+.why div { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+.why span { flex: 1; } .why em { font-style: normal; font-size: 13px; font-weight: 600; color: var(--sub); font-variant-numeric: tabular-nums; }
+.why i { font-style: normal; font-size: 11px; } .why i.up { color: var(--red); } .why i.down { color: var(--good); }
 .ask { font-size: 15px; font-weight: 600; color: var(--sub); margin: 18px 0 0; }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .choices button { background: var(--fill); color: var(--ink); border-radius: 14px; min-height: 52px; padding: 12px 10px; }
