@@ -5,7 +5,7 @@
 <p align="center"><b>따릉이 고장 예보</b> — 사람들이 귀찮아서 안 하는 고장 신고를,<br>이미 공개된 <b>'빌리자마자 반납'</b> 기록이 대신한다.</p>
 
 <p align="center">
-  <a href="https://zmflm0110.github.io/ridey/"><img alt="웹사이트" src="https://img.shields.io/badge/웹사이트-zmflm0110.github.io-0f766e"></a>
+  <a href="https://zmflm0110.github.io/ridey/"><img alt="웹사이트" src="https://img.shields.io/badge/웹사이트-zmflm0110.github.io-167A66"></a>
   <a href="https://zmflm0110.github.io/ridey/app/"><img alt="웹앱" src="https://img.shields.io/badge/웹앱-써_보기-237032"></a>
   <a href="https://github.com/zmflm0110/ridey/actions/workflows/test.yml"><img alt="검사" src="https://github.com/zmflm0110/ridey/actions/workflows/test.yml/badge.svg"></a>
   <a href="https://github.com/zmflm0110/ridey/actions/workflows/ios.yml"><img alt="아이폰 앱 빌드" src="https://github.com/zmflm0110/ridey/actions/workflows/ios.yml/badge.svg"></a>
@@ -34,6 +34,8 @@
 - 이 경보는 고장 신고보다 **20\~25시간 먼저** 울리고, 끝내 **신고되지 않을 고장(49\~61%)** 까지 찾는다.
 - 서울 대여이력 API 는 자전거별 기록을 **반납하자마자** 준다. 그래서 지금 **5분마다 실시간 경보**를 낸다 — 맥 없이 클라우드 DB(Supabase) 안에서 돌고, 앱은 **어디서든** 받는다(2026년 9월 27일부터).
 - 서울 3개월·대전 2개월, **약 1천만 건**으로 검증했다. 기준은 1월 기록으로만 정하고 다른 달·도시에 그대로 적용했다.
+- 실제 운영에서도 그대로였다: 경보 뒤 처음 빌린 다른 사람 1,700명 넘게 중 **32%** 가 또 바로 반납(지난 기록으로 잰 값 32\~34%).
+- **자체 AI** 가 클라우드 DB 안에서 목록의 자전거마다 "다음 사람도 반납할 확률" 과 **이유**를 붙이고, "이 중 최소 몇 대는 진짜" 를 90% 로 보장하며, 실시간 결과로 **스스로 다시 배운다** ([model](docs/model.md)). 아이폰은 카메라로 번호판을 읽는다.
 
 ## 왜 만들었나
 
