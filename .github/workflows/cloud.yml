@@ -64,11 +64,7 @@ jobs:
       - name: 아침 목록 (06:10 이 지났고 오늘 것이 없으면)
         run: |
           if [ "$(date +%H%M)" -ge 0610 ] && [ ! -f "$OPS_DIR/$(date +%F).json" ]; then python server/daily_job.py --source live; fi
-      - name: 전기차 충전기 상태 (서울, 최근 30분 안에 바뀐 것)
-        continue-on-error: true
-        run: |
-          python server/ev_collect.py --once --period 30
-          python analysis/ev_validate.py > /dev/null
+      # 전기차 충전기 상태는 2026-10-01 부터 클라우드 DB 가 5분마다 직접 모은다(supabase/ev.sql, 예약 ev-tick) — 여기선 안 함
       - name: DB 잠그기
         run: |
           rm -rf cache && mkdir cache

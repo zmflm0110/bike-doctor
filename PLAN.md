@@ -9,6 +9,7 @@
 - **돌고 있는 것 — Supabase(맥·GitHub 없이)**: 프로젝트 `iqvquwvoljzuvdgtbpnu`(ap-southeast-1), `supabase/live.sql`. pg_cron `live-tick` 5분마다 — 서울 API(pg_net) → `live.rentals` → 지금 목록·경보·실시간 채점(`live.snapshot`), 06:10 뒤 아침 목록·어제 채점.
   공개 뷰 `live_snapshot`·`ops_lists`·`ops_scores`(앱·웹앱·사이트가 publishable 키로 읽음). 쓰기 표 rescue·survey·사진(`supabase/schema.sql`). 서울 키는 Supabase Vault `seoul_openapi`. DB 비밀번호는 키체인 `supabase-db`.
   확인: `psql … -c "select status from cron.job_run_details order by start_time desc limit 3"` (접속 문자열은 `tools/supabase_live_load.py` DSN). 파이썬과 맞춰 보기: `tools/supabase_live_load.py --parity`.
+- **충전기(2026-10-02)**: 클라우드 DB 가 5분마다(`supabase/ev.sql`, ev-tick, Vault 'datagokr'). 맥 수집기 kr.bikedoctor.ev 는 끔(plist 는 data/launchagents-off/). 검증: `tools/ev_pull.py` → `analysis/ev_validate.py`.
 - **자체 모델(2026-10-01)**: `analysis/train_model.py` → `supabase/model.sql`(live.p_next_dud) — **model.sql 을 live.sql 보다 먼저 적용**. 검사 `tools/supabase_live_load.py --parity-model`. 쓰기 횟수 제한은 `supabase/schema.sql` 의 live.limit_inserts.
 - **GitHub Actions `cloud.yml`**(드문드문): 백업 live.json·`live-data` 가지·충전기 수집·Supabase 깨우기. 저장소 비밀 `SEOUL_OPENAPI_KEY`, `DATAGOKR_KEY`, `LIVE_STATE_KEY`.
 - **맥**: 실시간 서비스는 꺼 둠(사용자 결정 2026-09-26). 안드로이드 APK 는 `cd android-app && npm run release`(자바 = Homebrew openjdk@21).

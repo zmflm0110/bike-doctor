@@ -26,3 +26,4 @@ dist/
 submission/
 # 안드로이드 서명 열쇠 (비밀번호는 키체인 android-keystore)
 *.keystore
+data/launchagents-off/
