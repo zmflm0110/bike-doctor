@@ -18,6 +18,7 @@
 | [per_alarm.md](per_alarm.md) | 경보 한 건마다 다음 사람 기준 정밀도 (실시간 채점과 같은 방식) | `analysis/per_alarm.py` |
 | [ml_compare.md](ml_compare.md) | 규칙 vs 머신러닝 — 같은 수를 고를 때 누가 더 맞히나 (모델 +3\~4%p, 규칙 유지) | `analysis/ml_compare.py` |
 | [related_work.md](related_work.md) | 선행 연구(Kaspi 2016·HMM 2024·트랜스포머 2025 등)·새 기술과 비교, 외면 신호·건강 모델·작은 부스팅 실측 | 조사 + 실험 |
+| [station_fault.md](station_fault.md) | 자전거 탓인가 대여소 탓인가 — 여러 자전거가 한꺼번에 헛대여한 대여소는 평소의 1.3\~2배뿐(자전거 경보는 14배) → 대여소 경보는 안 만듦 | `analysis/station_fault.py` |
 | [phase2.md](phase2.md) · [phase2_nextday.md](phase2_nextday.md) | 실시간 대여소 대수로 되나(안 됨) · 하루 늦은 자전거별 목록 | `analysis/phase2_*.py` |
 | [api_parity.md](api_parity.md) | 실시간 대여이력 API 와 월별 파일이 같은 자료인가 (같음) | `analysis/api_parity.py` |
 | [ev_validation.md](ev_validation.md) | 전기차 충전기 헛충전 중간 검증 — 기록 품질 거르기, 연쇄 뒤 다음 충전 | `analysis/ev_validate.py` |
