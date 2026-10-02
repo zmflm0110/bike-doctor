@@ -26,7 +26,7 @@ def judge(R, bike, t):
     if g.empty:
         return 0
     last = g.iloc[-1]
-    return int(last["streak"] + 1) if (last["dud"] and not last["retry"]) else (int(last["streak"]) if last["dud"] else 0)
+    return int(last["streak"] + 1) if last["dud"] else 0   # 앱·DB 와 같은 연쇄 (재시도여도 그 사람까지 — 2026-09-27 고침)
 
 
 def wilson(k, n, z=1.96):
