@@ -7,8 +7,9 @@
   record_alarms → settle (매번), compute·score (매번 비교), sample_list (3시간마다), settle_samples (매번).
 비교: 지금 목록(자전거·연쇄·대여소·확률·이유), 오늘 경보 수, 모델 기대·하한, 경보 표(확률·채점 결과), 채점, 스스로 배우기 표본.
 클라우드 DB 는 건드리지 않는다. pg_net·pg_cron·Vault 는 빈 껍데기로 대신한다(이 비교에 안 쓰임).
---cold: 클라우드처럼 '반납 순서' 로 쌓은 표에서, 쿼리마다 로컬 서버를 다시 켜(shared_buffers 32MB) 디스크에서 읽은 페이지 수를 센다.
-  무료 DB 는 디스크가 기본 250 IOPS 라 이 수가 곧 시간이다(읽기 4천 번 ≈ 16초).
+--cold: 클라우드처럼 '반납 순서' 로 쌓은 표에서, 쿼리마다 로컬 서버를 빈 캐시로 다시 켜(shared_buffers 512MB — 내쫓기 없음)
+  처음 읽은 페이지 수 = 그 일이 건드리는 서로 다른 페이지 수(작업 집합)를 센다. 무료 DB(메모리 0.5GB)는 이게 크면 캐시가 디스크로
+  밀려나 느려지고(2026-10-02 사고), 식은 캐시면 디스크 기본 250 IOPS 로 이 수만큼 읽는다.
 """
 import argparse, pathlib, re, subprocess, sys, tempfile, time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -66,23 +67,25 @@ def cold(a, old_sql, new_sql, model, M):
     Q = [("후보 찾기", f"select cardinality(live.cand({T}))"),
          ("연쇄 표시(7일)", f"select count(*) from live.mark_rows({T} - interval '7 days', live.cand({T}))"),
          ("지금 목록", f"select live.compute({T})"),
-         ("경보 기록", f"select live.record_alarms({T})")]
+         ("경보 기록", f"select live.record_alarms({T})"),
+         ("5분 작업 계산 전체", f"select live.record_alarms({T}), live.settle({T}), length(live.compute({T})::text), live.score({T})")]
     out = {}
     for db, body in (("cold_old", old_sql), ("cold_new", new_sql)):
         fresh(a.port, db, body, model)
         run(a.port, db, f"copy live.rentals (bike, t0, st0, t1, st1, dist_m, who) from '{f}' with csv; vacuum analyze live.rentals;")
         for name, q in Q:
+            run(a.port, db, "delete from live.alarms")   # 경보 기록이 매번 같은 조건에서
             # 로그는 파일로 — 출력을 붙잡으면 새로 뜬 서버가 그 통로를 계속 쥐고 있어 끝나지 않는다
             subprocess.run(["pg_ctl", "-D", a.cold, "-m", "fast", "-w", "-l", str(pathlib.Path(tempfile.gettempdir()) / "live_sql_cold.log"), "restart", "-o",
-                            f"-p {a.port} -c shared_buffers=32MB -c work_mem=2184kB -c max_parallel_workers_per_gather=0"],
+                            f"-p {a.port} -c shared_buffers=512MB -c work_mem=2184kB -c max_parallel_workers_per_gather=0"],
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             p = json.loads(run(a.port, db, f"explain (analyze, buffers, format json) {q}"))[0]
             rd = p["Plan"].get("Shared Read Blocks", 0) + p.get("Planning", {}).get("Shared Read Blocks", 0)
             out[(db, name)] = (rd, p["Execution Time"] + p["Planning Time"])
-    print(f"\n{now} · 대여 {len(R):,}행을 반납 순서로 · 식은 캐시(32MB)에서 읽은 페이지 (250 IOPS 면 걸릴 시간)")
+    print(f"\n{now} · 대여 {len(R):,}행을 반납 순서로 · 건드린 서로 다른 페이지 (MB, 식은 캐시에서 250 IOPS 면 걸릴 시간)")
     for name, _ in Q:
         (o, ot), (n, nt) = out[("cold_old", name)], out[("cold_new", name)]
-        print(f"  {name:12s} {o:>7,} → {n:>7,}  ({o / 250:5.1f}초 → {n / 250:5.1f}초, 로컬 {ot:6.0f} → {nt:6.0f} ms)")
+        print(f"  {name:16s} {o:>7,} → {n:>7,}  ({o * 8 / 1024:4.0f} → {n * 8 / 1024:4.0f}MB, {o / 250:5.1f}초 → {n / 250:5.1f}초, 로컬 {ot:6.0f} → {nt:6.0f} ms)")
     return 0
 
 
