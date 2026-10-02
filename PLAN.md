@@ -15,6 +15,7 @@
   **옛/새 SQL 이 같은 답인지는 로컬 Postgres 로**: `tools/live_sql_compare.py`(6월 기록을 반납 순서대로 30분씩 흘려 넣으며 비교 — 36시간 73번 모두 같음, compute 6.2→0.2초). **클라우드에서 무거운 측정 금지**, 측정은 로컬에서.
   디스크가 느린 것도 고려: 기본 키 색인에 나머지 열을 담고(INCLUDE) 헛대여 부분 색인도 덮개 색인으로 → 식은 캐시에서 읽는 페이지 3\~5배 줄음(반납 순서로 쌓은 로컬 표로 잼).
   **클라우드 상태(10-03 04:10)**: 전부 적용 — 덮개 기본 키·덮개 헛대여 색인·가벼운 함수·tick_log·예약 4분 제한, live-tick 다시 켬(job 24).
+  04:50 부터 5분 작업 모두 성공, 한 번 17\~22초(가장 큰 단계는 경보 기록 9\~14초 — 5분 사이 캐시에서 밀려난 쪽을 다시 읽는 몫). 확인: `select at, ms from live.tick_log order by at desc limit 5`.
   그 전에 기계가 메모리 부족으로 Postgres 캐시를 디스크로 밀어내 캐시 420쪽 읽기에 17\~30초 → tick 을 잠시 멈추고 잠잠해진 뒤(무작위 읽기 탐침 0.3초) 색인을 만듦(10분).
   큰 작업 뒤엔 20\~40분 동안 예약이 `job startup timeout` 일 수 있다. 오래 안 풀리면 대시보드 → Project Settings → General → Restart project.
   예약을 멈추기/켜기: `select cron.alter_job(<jobid>, active := false/true)` (jobid 는 `select jobid, jobname from cron.job`).
