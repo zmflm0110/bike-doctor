@@ -39,7 +39,7 @@ async function loadDay(day) {
     $("#day").value = DEMO_DAY;
     return loadDay(DEMO_DAY);
   }
-  if (day === "live") liveTimer = setInterval(() => state.day === "live" && refreshLive(), 60e3);
+  if (day === "live") liveTimer = setInterval(() => state.day === "live" && !document.hidden && refreshLive(), 60e3);   // 안 보는 동안은 묻지 않음
   state.morning.bikes.forEach((b) => (b.station_name = String(b.station_name).trim()));
   guOptions();
   renderMorning();
@@ -64,6 +64,8 @@ async function getLive() {
   if (gh && !best.feed) best.feed = gh.feed;
   return best;
 }
+// 다른 앱·탭에 갔다 돌아오면 바로 새로 (안 보는 동안은 묻지 않았으니)
+document.addEventListener("visibilitychange", () => { if (!document.hidden && state.day === "live") refreshLive(); });
 async function refreshLive() {
   const m = await getLive();
   if (!m) return;

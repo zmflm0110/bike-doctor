@@ -31,10 +31,19 @@ async function sbChecked(bike) {
   return out;
 }
 // 지금 목록 — Supabase 가 5분마다 스스로 만든 것 (supabase/live.sql, pg_cron). [{at, body}] → body
+// 1분마다 묻지만 목록은 5분에 한 번 바뀐다 → 만든 시각만 먼저 묻고, 바뀌었을 때만 본문(약 25KB)을 받는다
+let sbLast = null;
 async function sbLive() {
+  if (sbLast) {
+    const r = await fetch(`${CLOUD.sb}/rest/v1/live_snapshot?select=at`, { headers: sbHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    const x = (await r.json())[0];
+    if (x && x.at === sbLast.at) return sbLast.body;
+  }
   const r = await fetch(`${CLOUD.sb}/rest/v1/live_snapshot?select=at,body`, { headers: sbHeaders() });
   if (!r.ok) throw new Error(r.status);
   const x = (await r.json())[0];
+  if (x) sbLast = { at: x.at, body: x.body };
   return x && x.body;
 }
 // 매일 아침 목록·채점 — Supabase 가 06:10 에 스스로 만든 것 (live.morning_job)

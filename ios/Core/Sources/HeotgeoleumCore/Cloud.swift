@@ -70,11 +70,19 @@ public struct SupabaseClient: RecordSink {
     }
 
     /// 지금 목록 — Supabase 가 5분마다 스스로 만든 것 (supabase/live.sql, pg_cron)
+    /// 앱은 1분마다 묻지만 목록은 5분에 한 번 바뀐다 → 만든 시각만 먼저 묻고, 바뀌었을 때만 본문을 받는다(웹 cloud.js 와 같음)
     public func live() async throws -> MorningList {
-        struct Row: Decodable { let body: MorningList }
-        let rows = try JSONDecoder().decode([Row].self, from: try await call("rest/v1/live_snapshot", query: "select=body"))
-        guard let m = rows.first?.body else { throw ServerClient.Failure.server(404) }
-        return m
+        struct At: Decodable { let at: String }
+        struct Row: Decodable { let at: String; let body: MorningList }
+        let cache = LiveCache.shared
+        if let (at, body) = await cache.last(for: url) {
+            let now = try JSONDecoder().decode([At].self, from: try await call("rest/v1/live_snapshot", query: "select=at"))
+            if now.first?.at == at { return body }
+        }
+        let rows = try JSONDecoder().decode([Row].self, from: try await call("rest/v1/live_snapshot", query: "select=at,body"))
+        guard let r = rows.first else { throw ServerClient.Failure.server(404) }
+        await cache.keep(r.at, r.body, for: url)
+        return r.body
     }
 
     func checked(bike: String?) async throws -> Checked {
@@ -99,4 +107,12 @@ public struct SupabaseClient: RecordSink {
         if let lat = r.lat, let lon = r.lon { row["lat"] = lat; row["lon"] = lon }
         _ = try await call("rest/v1/survey", body: try JSONSerialization.data(withJSONObject: row), contentType: "application/json")
     }
+}
+
+/// 마지막으로 받은 지금 목록 (Supabase 주소별) — 시각이 같으면 본문을 다시 받지 않는다
+actor LiveCache {
+    static let shared = LiveCache()
+    private var last: [URL: (String, MorningList)] = [:]
+    func last(for url: URL) -> (String, MorningList)? { last[url] }
+    func keep(_ at: String, _ body: MorningList, for url: URL) { last[url] = (at, body) }
 }
