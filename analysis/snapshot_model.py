@@ -21,7 +21,12 @@ STEP = np.timedelta64(3, "h")
 
 def samples(ym):
     """목록 표본: 후보 줄(헛대여, 연쇄 2+)이 다음 대여 전·24시간 안에 걸친 3시간 격자 시각마다 한 줄."""
-    M = marked(ym).reset_index(drop=True)
+    return samples_from(marked(ym))
+
+
+def samples_from(M):
+    """samples 와 같음 — 이미 mark() 한 대여표로 (다른 도시·실시간 자료)."""
+    M = M.reset_index(drop=True)
     F = features(M)
     b = M["bike"].astype(str).to_numpy(); r = M["retry"].to_numpy(); d = M["dud"].to_numpy()
     t0 = M["t0"].to_numpy(); t1 = M["t1"].to_numpy()
