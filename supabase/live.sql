@@ -413,22 +413,32 @@ begin
   end if;
 end $$;
 
+-- 5분 작업이 단계마다 몇 ms 걸렸나 (3일만) — 클라우드에서 무거운 측정을 하지 않고도 비용을 본다 (2026-10-03)
+create table if not exists live.tick_log (at timestamp primary key, ms jsonb not null);
+revoke all on live.tick_log from anon, authenticated;
+
 -- 5분마다: 도착한 것 넣기 → 목록 만들기 → 다음 요청 (지금·직전 시간은 매번, 2~6시간 전은 30분마다, 빠진 칸은 몇 개씩)
 create or replace function live.tick() returns void language plpgsql as $$
 declare now_ timestamp := (now() at time zone 'Asia/Seoul')::timestamp; k int; h text; miss int := 0;
+        started timestamptz := clock_timestamp(); tm timestamptz := clock_timestamp(); ms jsonb := '{}'; n int;
 begin
   if not pg_try_advisory_xact_lock(hashtext('live.tick')) then return; end if;   -- 예약과 손으로 돌린 것이 겹치면 하나만
-  perform live.collect();
+  n := live.collect();
+  ms := ms || jsonb_build_object('collect', round(1000 * extract(epoch from clock_timestamp() - tm)), 'rows', n); tm := clock_timestamp();
   perform live.record_alarms(now_);
+  ms := ms || jsonb_build_object('alarms', round(1000 * extract(epoch from clock_timestamp() - tm))); tm := clock_timestamp();
   perform live.settle(now_);
   perform live.morning_job(now_);
+  ms := ms || jsonb_build_object('settle', round(1000 * extract(epoch from clock_timestamp() - tm))); tm := clock_timestamp();
   begin   -- 스스로 배우기 자료 — 실패해도 목록은 그대로
     if extract(hour from now_)::int % 3 = 0 and extract(minute from now_)::int < 5 then perform live.sample_list(now_); end if;
     if extract(minute from now_)::int % 30 < 5 then perform live.settle_samples(now_); end if;
   exception when others then raise warning 'samples: %', sqlerrm;
   end;
+  ms := ms || jsonb_build_object('samples', round(1000 * extract(epoch from clock_timestamp() - tm))); tm := clock_timestamp();
   insert into live.snapshot(id, at, body) values (1, now_, live.compute(now_) || jsonb_build_object('score', live.score(now_)))
     on conflict (id) do update set at = excluded.at, body = excluded.body;
+  ms := ms || jsonb_build_object('list', round(1000 * extract(epoch from clock_timestamp() - tm))); tm := clock_timestamp();
   -- 한 시간 자료는 반납 순으로 쌓인다(새 반납은 끝에 붙음, 2026-10-02 확인) → 지금·직전 시간은 마지막 꽉 찬 쪽부터만(겹쳐서 한 쪽).
   -- 30분마다 직전~6시간 전은 처음부터 다시(늦게 끼어든 기록 바로잡기). 매번 30여 쪽 → 서너 쪽.
   for k in 0..1 loop
@@ -446,6 +456,10 @@ begin
   end loop;
   delete from live.rentals where t1 < now_ - interval '9 days';   -- t1 색인으로 (t0 로는 표 전체를 훑었다). t1 ≥ t0 라 9일 안 대여는 안 지워짐
   delete from live.alarms where at < now_ - interval '10 days' and next_dud is null;   -- 채점된 경보는 계속 둔다(작음)
+  insert into live.tick_log(at, ms) values (now_, ms || jsonb_build_object('rest', round(1000 * extract(epoch from clock_timestamp() - tm)),
+                                                                          'total', round(1000 * extract(epoch from clock_timestamp() - started))))
+    on conflict (at) do nothing;
+  delete from live.tick_log where at < now_ - interval '3 days';
 end $$;
 
 -- 앱이 읽는 곳 — 공개 키로 읽기만 (행 자료·생년·성별은 안 보임, 목록 JSON 만)

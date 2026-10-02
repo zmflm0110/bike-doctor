@@ -18,6 +18,13 @@ create schema if not exists cron;
 create table if not exists cron.job (jobid bigserial, jobname text, schedule text, command text);
 create or replace function cron.schedule(n text, s text, c text) returns bigint language sql as $f$ insert into cron.job(jobname, schedule, command) values (n, s, c) returning jobid $f$;
 create or replace function cron.unschedule(j bigint) returns boolean language sql as $f$ delete from cron.job where jobid = j returning true $f$;
+create schema if not exists net;
+create table if not exists net._http_response (id bigint primary key, status_code int, content text);
+create sequence if not exists net.req_seq;
+create or replace function net.http_get(url text, params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds int default 5000)
+  returns bigint language sql as $f$ select nextval('net.req_seq') $f$;
+create schema if not exists vault;
+create table if not exists vault.decrypted_secrets (name text, decrypted_secret text);
 """
 
 
@@ -104,6 +111,13 @@ def main():
     for k in times["old"]:
         o, n = times["old"][k], times["new"][k]
         print(f"  {k:15s} {sum(o) / len(o):7.3f} → {sum(n) / len(n):7.3f}")
+    # 5분 작업 전체가 오류 없이 도는지 (네트워크는 빈 껍데기 — 응답 한 쪽을 흉내 내 넣기까지)
+    page = '{"rentData":{"list_total_count":"1","row":[{"BIKE_ID":"SPB-99999","RENT_DT":"2026-06-14 06:59:00","RENT_ID":"1","RTN_DT":"2026-06-14 07:00:00","RTN_ID":"1","USE_DST":"0","BIRTH_YEAR":"1990","SEX_CD":"M"}]}}'
+    run(a.port, "new", f"insert into live.req(id, hour, page) values (-1, '2026-06-14/06', 1); insert into net._http_response values (-1, 200, $j${page}$j$);"
+                       "select live.tick(); select live.tick();")
+    tl = run(a.port, "new", "select ms from live.tick_log order by at desc limit 1").strip()
+    left = run(a.port, "new", "select count(*) from live.req where id = -1").strip()
+    print(f"5분 작업(live.tick) 두 번 오류 없음 · 단계별 ms {tl} · 흉내 응답 넣음 {left == '0'}")
     print("\n결과:", "모든 시각에서 같은 답" if diffs == 0 else f"{diffs}개 시각에서 다름")
     return 1 if diffs else 0
 
