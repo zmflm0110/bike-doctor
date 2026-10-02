@@ -54,6 +54,37 @@ def validate(survey, R):
                "경보 적중률 %": rate(ab), "경보 적중률 95%": ci(ab), "평소 고장 비율 %": rate(S["broken"])}
 
 
+def add_ai(S, R):
+    """경보였던 자전거마다 '조사한 그 시각' 의 자체 AI 확률(analysis/snapshot_model.py 목록 모델) — AI 가 높게 본 자전거가 실제로 더 고장이었나.
+    R 은 조사 대여소의 다른 대여까지 든 전체 기록(외면 특징). 지난 석 달 학습 자료가 없으면(data/cache/ml) 건너뜀."""
+    try:
+        from analysis.ml_compare import features
+        from analysis.snapshot_model import samples, FEATS6
+        from analysis.train_model import model
+        hist = pd.concat([samples(ym) for ym in ("2601", "2603", "2606")])
+    except Exception as e:   # 월별 파일·캐시가 없는 곳
+        print("AI 확률은 건너뜀:", e)
+        return S.assign(p_ai=np.nan)
+    mdl = model().fit(hist[FEATS6], hist["y"])
+    M = mark(R, RULE).reset_index(drop=True)
+    F = features(M)
+    b = M["bike"].astype(str).to_numpy()
+    starts = {k: v["t0"].to_numpy() for k, v in M[["st0", "t0"]].sort_values(["st0", "t0"]).groupby("st0")}
+    out = []
+    for bike, at, alarm in zip(S["bike"], pd.to_datetime(S["at"]), S["alarm"]):
+        idx = np.where((b == bike) & (M["t1"].to_numpy() <= np.datetime64(at)))[0]
+        if not alarm or not len(idx):
+            out.append(np.nan); continue
+        i = idx[-1]
+        row = F.iloc[[i]][list(FEATS6[:5])].copy()
+        t1 = M["t1"].iloc[i]
+        row["age_h"] = (at - t1).total_seconds() / 3600
+        ts = starts.get(M["st1"].iloc[i])
+        row["shun"] = np.log1p(0 if ts is None else np.searchsorted(ts, np.datetime64(at), "left") - np.searchsorted(ts, np.datetime64(t1), "right"))
+        out.append(float(mdl.predict_proba(row[FEATS6])[:, 1][0]))
+    return S.assign(p_ai=out)
+
+
 def to_markdown(S, m):
     """보고서용 요약 — 숫자 옆에 표본 수와 신뢰구간을 꼭 붙인다."""
     f = lambda k: "—" if m[k] is None else f"{m[k]}%"
@@ -72,6 +103,15 @@ def to_markdown(S, m):
         lines.append(f"| {st} | {len(g)} | {int(g['alarm'].sum())} |")
     lines += ["", "고장 포착률이 낮은 건 자연스럽다: 아무도 안 빌려 본 고장(헛대여 흔적이 아직 없음)은 엔진이 알 수 없다. "
               "핵심은 **경보 적중률**이 평소 고장 비율보다 얼마나 높은가."]
+    if "p_ai" in S and S["p_ai"].notna().sum() >= 4:   # 경보 자전거를 AI 확률 중앙값으로 둘로
+        A = S[S["p_ai"].notna()]; med = A["p_ai"].median()
+        hi, lo = A[A["p_ai"] >= med], A[A["p_ai"] < med]
+        lines += ["", "## 자체 AI 가 높게 본 경보 자전거가 실제로 더 고장이었나", "",
+                  "| 경보 자전거 | 대수 | AI 확률 평균 | 사람이 본 고장 (95%) |", "|---|---:|---:|---|"]
+        for lab, g in ((f"AI 확률 {100 * med:.0f}% 이상", hi), (f"{100 * med:.0f}% 미만", lo)):
+            k = int(g["broken"].sum()); ci = wilson(k, len(g))
+            lines.append(f"| {lab} | {len(g)} | {100 * g['p_ai'].mean():.0f}% | {100 * k / max(1, len(g)):.0f}% ({ci[0]}~{ci[1]}%) |")
+        lines += ["", "AI 확률은 '다음 사람도 바로 반납' 을 맞히도록 배웠고, 사람은 눈에 보이는 고장만 본다 — 두 값의 크기는 다르지만 **순서**가 맞는지 본다."]
     return "\n".join(lines) + "\n"
 
 
@@ -90,6 +130,7 @@ if __name__ == "__main__":
     else:
         R = load_seoul(sys.argv[2])
     S, m = validate(survey, R)
+    S = add_ai(S, R)
     print(m)
     S.to_csv(ROOT / "docs" / "field_validation_rows.csv", index=False, encoding="utf-8-sig")
     (ROOT / "docs" / "field_validation.md").write_text(to_markdown(S, m))

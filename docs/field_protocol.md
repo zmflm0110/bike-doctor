@@ -39,4 +39,5 @@
 .venv/bin/python analysis/field_validation.py data/survey.csv live   # 서울 API 로 그때 기록을 채워 엔진 판단과 맞춤
 ```
 - 나오는 숫자: 경보 적중률(경보 자전거 중 실제 고장)·고장 포착률·헛경보율과 각각의 95% 신뢰구간, 상태별 표 → `docs/field_validation.md`.
+- 그리고 **자체 AI 가 높게 본 경보 자전거가 실제로 더 고장이었나**(조사한 그 시각의 AI 확률을 중앙값으로 둘로 나눠 비교) — AI 를 사람 눈으로 검증하는 표.
 - 사진은 Supabase 대시보드 → Storage → survey-photos. 발표에 2~3장.
