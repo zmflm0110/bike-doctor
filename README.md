@@ -56,12 +56,15 @@ flowchart LR
   G --> I
 ```
 
+<img src="docs/img/architecture.svg" alt="RIDEY 구조 — 서울 API 를 클라우드 DB 가 5분마다 받아 SQL 엔진·자체 AI 로 계산하고, 앱이 읽고, 결과로 AI 가 다시 배운다" width="900">
+
 | 어디서 | 무엇을 |
 |---|---|
-| **Supabase 안** (`supabase/live.sql`, pg_cron 5분마다) | 서울 API(pg_net) → `live.rentals` → SQL 로 연쇄·경보 → 지금 목록(`live_snapshot`)·실시간 경보 채점, 06:10 아침 목록(`ops_lists`)·어제 목록 채점(`ops_scores`). 파이썬 엔진과 같은 결과인지 `tools/supabase_live_load.py --parity` 로 확인(9/27: 90대·오늘 경보 56 모두 같음) |
-| GitHub Actions (`.github/workflows/cloud.yml`, 예약이 드물게 돎) | 서울 API → DB(SQLite, **암호화해** Actions 캐시에) → 채점·06:10 아침 목록·충전기 상태 → `live-data` 가지에 JSON |
-| 앱·웹앱 | `live-data` 의 목록을 **어디서든** 읽는다. 같은 와이파이에 맥 서버가 있으면 1분마다 갱신되는 그쪽을 먼저 |
-| Supabase (`supabase/schema.sql`) | 구조대 확인·현장 조사·사진. 앱의 공개 키로는 **넣기만** 되고, 읽기는 자전거별 확인 수(집계)만. 위치·메모·사진은 우리만 본다 |
+| **Supabase 안** (`supabase/live.sql`, `supabase/model.sql`, pg_cron 5분마다) | 서울 API(pg_net) → `live.rentals`(9일) → SQL 로 연쇄·경보 → **자체 AI**(나무 60그루를 SQL 식으로, 자전거마다 확률·이유·목록 보장) → 지금 목록(`live_snapshot`)·실시간 채점, 06:10 아침 목록(`ops_lists`)·채점(`ops_scores`), 3시간마다 학습 자료(`live.samples`). 파이썬과 같은 결과인지 `tools/supabase_live_load.py --parity` · `--parity-model` |
+| Supabase (`supabase/ev.sql`) | 전기차 충전기 상태 5분마다(4일 보관 → 맥이 `tools/ev_pull.py` 로 모음) |
+| Supabase (`supabase/schema.sql`) | 구조대 확인·현장 조사·사진. 앱의 공개 키로는 **넣기만**(횟수 제한) 되고, 읽기는 자전거별 확인 수(집계)만. 위치·메모·사진은 우리만 본다 |
+| 앱·웹앱 | Supabase 의 목록을 **어디서든** 읽는다(백업: GitHub `live-data`, 같은 와이파이의 맥 서버). 인터넷이 없으면 앱 안의 시연 자료 |
+| 맥 (가끔) | 지난 기록 분석·AI 학습(`analysis/snapshot_model.py`), 주 1회 실시간 점검·다시 배우기(`tools/retrain.py`) |
 
 | 규칙 | 뜻 |
 |---|---|

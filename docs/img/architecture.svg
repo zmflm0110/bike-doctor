@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" font-family="-apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Pretendard', sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#4E5968"/></marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#167A66"/></marker>
+    <linearGradient id="db" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E3F5EF"/><stop offset="1" stop-color="#F2F4F6"/></linearGradient>
+  </defs>
+  <rect width="1200" height="640" fill="#ffffff"/>
+  <text x="40" y="48" font-size="26" font-weight="800" fill="#191F28">RIDEY 구조 — 맥·서버 없이 클라우드 DB 가 스스로 돈다</text>
+  <text x="40" y="76" font-size="15" fill="#646F7C">5분마다: 공개 기록을 받아 → SQL 엔진이 연쇄를 세고 → AI 가 확률·이유·보장을 붙이고 → 앱이 읽는다. 결과로 정답이 쌓여 AI 가 다시 배운다.</text>
+
+  <!-- 바깥 자료 -->
+  <g>
+    <rect x="40" y="120" width="210" height="96" rx="16" fill="#F2F4F6"/>
+    <text x="58" y="152" font-size="16" font-weight="700" fill="#191F28">서울 열린데이터광장</text>
+    <text x="58" y="176" font-size="14" fill="#4E5968">따릉이 대여이력 API</text>
+    <text x="58" y="198" font-size="13" fill="#646F7C">반납 즉시 · 하루 15만 건</text>
+    <rect x="40" y="236" width="210" height="80" rx="16" fill="#F2F4F6"/>
+    <text x="58" y="268" font-size="16" font-weight="700" fill="#191F28">한국환경공단</text>
+    <text x="58" y="292" font-size="14" fill="#4E5968">전기차 충전기 상태 API</text>
+    <rect x="40" y="336" width="210" height="96" rx="16" fill="#F2F4F6"/>
+    <text x="58" y="368" font-size="16" font-weight="700" fill="#191F28">지난 기록 1천만 건</text>
+    <text x="58" y="392" font-size="14" fill="#4E5968">서울 3개월 · 대전 2개월</text>
+    <text x="58" y="414" font-size="13" fill="#646F7C">규칙 검증 · AI 학습</text>
+  </g>
+
+  <!-- 클라우드 DB -->
+  <rect x="300" y="104" width="560" height="440" rx="24" fill="url(#db)" stroke="#35C7A0" stroke-width="2"/>
+  <text x="324" y="138" font-size="18" font-weight="800" fill="#167A66">클라우드 DB (Supabase Postgres) — pg_cron 5분마다</text>
+  <g font-size="14">
+    <rect x="324" y="156" width="250" height="70" rx="14" fill="#fff"/>
+    <text x="340" y="184" font-weight="700" fill="#191F28">① 받기 (pg_net)</text>
+    <text x="340" y="206" fill="#646F7C">최근 9일 대여 · 바뀐 줄만 고쳐 씀</text>
+    <rect x="590" y="156" width="250" height="70" rx="14" fill="#fff"/>
+    <text x="606" y="184" font-weight="700" fill="#191F28">② SQL 엔진 — 연쇄 세기</text>
+    <text x="606" y="206" fill="#646F7C">서로 다른 사람 · 3분 · 300m</text>
+    <rect x="324" y="244" width="516" height="104" rx="14" fill="#fff" stroke="#167A66" stroke-width="1.5"/>
+    <text x="340" y="272" font-weight="800" fill="#167A66" font-size="16">③ 자체 AI — 나무 60그루를 SQL 식으로 (서버 없음)</text>
+    <text x="340" y="296" fill="#191F28">자전거마다 '다음 사람도 반납할 확률' (특징 7개: 연쇄·지난 7일·경과·외면…)</text>
+    <text x="340" y="318" fill="#191F28">이유 셋 (설명 가능한 AI) · "최소 M대는 진짜" 90% 보장 (컨포멀)</text>
+    <text x="340" y="338" fill="#646F7C">목록 위 20대 정밀도 +2.4~4.5%p · 파이썬과 92/92 같은 계산</text>
+    <rect x="324" y="366" width="250" height="78" rx="14" fill="#fff"/>
+    <text x="340" y="394" font-weight="700" fill="#191F28">④ 지금 목록 · 아침 목록</text>
+    <text x="340" y="416" fill="#646F7C">확률 순 · 대여소는 기대 고장 수 순</text>
+    <rect x="590" y="366" width="250" height="78" rx="14" fill="#fff"/>
+    <text x="606" y="394" font-weight="700" fill="#191F28">⑤ 스스로 채점</text>
+    <text x="606" y="416" fill="#646F7C">경보 뒤 다음 사람 · 1,700명+ 32%</text>
+    <rect x="324" y="462" width="516" height="62" rx="14" fill="#fff" stroke="#35C7A0" stroke-dasharray="6 5"/>
+    <text x="340" y="490" font-weight="700" fill="#191F28">⑥ 스스로 배우기 — 3시간마다 목록 입력·확률 저장, 다음 사람 결과로 정답 자동</text>
+    <text x="340" y="511" fill="#646F7C">주 1회 다시 배워 최근 자료에서 더 나을 때만 교체 (tools/retrain.py)</text>
+  </g>
+  <!-- DB 안 화살표 -->
+  <path d="M574 191 H588" stroke="#4E5968" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M715 226 V242" stroke="#4E5968" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M449 348 V364" stroke="#4E5968" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M715 348 V364" stroke="#4E5968" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M715 444 V460" stroke="#167A66" stroke-width="2" marker-end="url(#g)"/>
+  <path d="M842 493 H852 V296 H842" fill="none" stroke="#167A66" stroke-width="2" marker-end="url(#g)"/>
+
+  <!-- 바깥 → DB -->
+  <path d="M250 168 H322" stroke="#4E5968" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M250 276 H290 V200 H322" fill="none" stroke="#4E5968" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M250 384 H290 V300 H322" fill="none" stroke="#167A66" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#g)"/>
+  <text x="258" y="430" font-size="12" fill="#167A66">학습(맥)</text>
+
+  <!-- 앱 -->
+  <g font-size="14">
+    <rect x="910" y="120" width="250" height="96" rx="16" fill="#191F28"/>
+    <text x="928" y="152" font-size="16" font-weight="700" fill="#fff">웹앱 · 아이폰 · 안드로이드</text>
+    <text x="928" y="176" fill="#B0B8C1">공개 키로 읽기만 (REST)</text>
+    <text x="928" y="198" fill="#B0B8C1">인터넷 없으면 앱 안 자료</text>
+    <rect x="910" y="236" width="250" height="92" rx="16" fill="#F2F4F6"/>
+    <text x="928" y="266" font-size="16" font-weight="700" fill="#191F28">이용자</text>
+    <text x="928" y="290" fill="#4E5968">번호·QR·카메라 글자 인식</text>
+    <text x="928" y="312" fill="#4E5968">→ "타지 마세요 · 80% · 이유"</text>
+    <rect x="910" y="346" width="250" height="92" rx="16" fill="#F2F4F6"/>
+    <text x="928" y="376" font-size="16" font-weight="700" fill="#191F28">정비 기사</text>
+    <text x="928" y="400" fill="#4E5968">구별 순위 · 정비 동선 · CSV</text>
+    <text x="928" y="422" fill="#4E5968">"약 31대 진짜 · 최소 20대"</text>
+    <rect x="910" y="456" width="250" height="68" rx="16" fill="#E3F5EF"/>
+    <text x="928" y="484" font-size="16" font-weight="700" fill="#167A66">3초 확인 · 현장 조사</text>
+    <text x="928" y="506" fill="#4E5968">넣기만 · 횟수 제한 · 사진 비공개</text>
+  </g>
+  <path d="M860 168 H908" stroke="#4E5968" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M1035 216 V234" stroke="#4E5968" stroke-width="2"/>
+  <path d="M910 490 H870 V420 H862" fill="none" stroke="#167A66" stroke-width="2" marker-end="url(#g)"/>
+  <text x="866" y="540" font-size="12" fill="#167A66">사람 확인 → 순위 맨 위</text>
+
+  <text x="40" y="600" font-size="14" fill="#646F7C">같은 엔진이 파이썬(분석)·SQL(운영)·스위프트(아이폰)·자바스크립트(웹)에 있고, 서로 같은 답을 내는지 자동 검사한다. 비밀 키는 DB 금고(Vault)·키체인에만.</text>
+</svg>
