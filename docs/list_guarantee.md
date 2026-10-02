@@ -1,5 +1,7 @@
 # 목록 보장 — 최소 몇 대가 진짜인가 (자동 생성: `python analysis/list_guarantee.py`)
 
+> **지난 실험 기록.** 반납 순간 모델(`analysis/train_model.py`)로 목록 보장을 시험했더니 하한이 시험 달에서 40\~58% 만 맞았다 — 목록 자전거의 확률을 크게 잡았기 때문. 이 결과로 **목록에 맞춘 모델**(`analysis/snapshot_model.py`, 경과 시간·외면 포함)로 바꿨고, 그 모델의 보장은 98\~100% 맞는다 → [model.md](model.md).
+
 python analysis/list_guarantee.py        # → docs/list_guarantee.md, supabase/model.sql 끝에 붙일 상수 출력
 
 지금 목록 흉내: 날마다 9·13·18시에, 그 시각 전 마지막 대여가 '서로 다른 2명+ 연쇄의 헛대여' 이고 24시간 안인 자전거들.

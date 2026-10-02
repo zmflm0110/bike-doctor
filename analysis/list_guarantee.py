@@ -49,7 +49,8 @@ def month(ym, m):
 
 
 def main():
-    lines = ["# 목록 보장 — 최소 몇 대가 진짜인가 (자동 생성: `python analysis/list_guarantee.py`)", "", __doc__.split("\n", 1)[1].strip(), ""]
+    lines = ["# 목록 보장 — 최소 몇 대가 진짜인가 (자동 생성: `python analysis/list_guarantee.py`)", "",
+             '> **지난 실험 기록.** 반납 순간 모델(`analysis/train_model.py`)로 목록 보장을 시험했더니 하한이 시험 달에서 40\\~58% 만 맞았다 — 목록 자전거의 확률을 크게 잡았기 때문. 이 결과로 **목록에 맞춘 모델**(`analysis/snapshot_model.py`, 경과 시간·외면 포함)로 바꿨고, 그 모델의 보장은 98\\~100% 맞는다 → [model.md](model.md).', "", __doc__.split("\n", 1)[1].strip(), ""]
     rows = []
     qs = []
     for trm, cal, tem in ((("2601",), "2603", "2606"), (("2603",), "2606", "2601"), (("2606",), "2601", "2603")):
