@@ -14,11 +14,10 @@
   → 5분 작업을 다시 짬: 후보 = '바로 앞 대여도 헛대여'(경보·연쇄 2+ 의 필요조건이라 답이 같음), 채점은 경보마다 다음 사람만 색인으로(live.next_rider), 지금·직전 시간은 마지막 꽉 찬 쪽부터만 받기(30분마다 전체), 오래된 대여 지우기는 t1 색인, 7일 대여 수는 시간별 합계, work_mem 은 기본.
   **옛/새 SQL 이 같은 답인지는 로컬 Postgres 로**: `tools/live_sql_compare.py`(6월 기록을 반납 순서대로 30분씩 흘려 넣으며 비교 — 36시간 73번 모두 같음, compute 6.2→0.2초). **클라우드에서 무거운 측정 금지**, 측정은 로컬에서.
   디스크가 느린 것도 고려: 기본 키 색인에 나머지 열을 담고(INCLUDE) 헛대여 부분 색인도 덮개 색인으로 → 식은 캐시에서 읽는 페이지 3\~5배 줄음(반납 순서로 쌓은 로컬 표로 잼).
-  **클라우드 상태(10-03 01:15)**: 가벼운 함수·tick_log·예약 4분 제한은 적용됨. **덮개 색인 두 개는 아직** — 바닥난 디스크(표 훑기 28KB/s)에서 concurrently 로 만들다 1시간 넘어 취소.
-  적용은 IO 가 회복된 뒤(`select count(*) from live.rentals` 가 몇 초 안일 때) `psql -1 -f supabase/live.sql` 한 번 — DO 블록이 덮개 기본 키를 만들고 바꿔 끼운다(그동안 rentals 쓰기가 잠겨 tick 이 기다림, 4분 제한 안이면 괜찮음).
-  예약이 계속 `job startup timeout` 이면 대시보드 → Project Settings → General → Restart project.
-  **⚠ 10-03 03:14 live-tick 예약을 멈춰 둠**(`cron.alter_job(23, active := false)`) — 기계가 메모리를 디스크로 밀어내는 중(캐시에 있는 420쪽 읽기에 17\~30초)이라 4분마다 끊기는 tick 이 회복만 늦췄다.
-  다시 켜기: 재시작 뒤 `psql -1 -f supabase/live.sql`(덮개 색인 + 예약 새로 만듦 — 켜진 채로) 또는 `select cron.alter_job(23, active := true)`. 그동안 사용자 화면은 GitHub 백업 목록(`gh workflow run cloud.yml`).
+  **클라우드 상태(10-03 04:10)**: 전부 적용 — 덮개 기본 키·덮개 헛대여 색인·가벼운 함수·tick_log·예약 4분 제한, live-tick 다시 켬(job 24).
+  그 전에 기계가 메모리 부족으로 Postgres 캐시를 디스크로 밀어내 캐시 420쪽 읽기에 17\~30초 → tick 을 잠시 멈추고 잠잠해진 뒤(무작위 읽기 탐침 0.3초) 색인을 만듦(10분).
+  큰 작업 뒤엔 20\~40분 동안 예약이 `job startup timeout` 일 수 있다. 오래 안 풀리면 대시보드 → Project Settings → General → Restart project.
+  예약을 멈추기/켜기: `select cron.alter_job(<jobid>, active := false/true)` (jobid 는 `select jobid, jobname from cron.job`).
 - **스스로 배우기(2026-10-02)**: DB 가 3시간마다 live.samples 에 목록 표본·확률, 정답은 자동. 주 1회 `python tools/retrain.py` (점검 → docs/model_live.md), 500개+ 모이면 `--deploy` 로 나을 때만 교체.
 - **충전기(2026-10-02)**: 클라우드 DB 가 5분마다(`supabase/ev.sql`, ev-tick, Vault 'datagokr'). **클라우드엔 4일만 남김(하루 20MB) → 4일 안에 한 번 `tools/ev_pull.py`** (맥 data/ev.sqlite 에 다 모임). 맥 수집기 kr.bikedoctor.ev 는 끔(plist 는 data/launchagents-off/). 검증: `tools/ev_pull.py` → `analysis/ev_validate.py`.
 - **자체 모델(2026-10-02 목록 모델)**: `analysis/snapshot_model.py` → `supabase/model.sql`(live.p_next_dud 7특징 + live.list_q) — **model.sql 을 live.sql 보다 먼저 적용**(함수 모양이 바뀌면 옛 p_next_dud 를 drop). 반납 순간 모델은 `analysis/train_model.py` → docs/model_event.md(비교용). 검사 `tools/supabase_live_load.py --parity-model`. 쓰기 횟수 제한은 `supabase/schema.sql` 의 live.limit_inserts.
