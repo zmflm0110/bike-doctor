@@ -84,9 +84,19 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await cap(live ? "RIDEY는 서울시 공개 대여기록을 5분마다 읽어요." : "RIDEY는 서울시 공개 대여기록만 봅니다.",
     "서로 다른 사람이 연달아 빌리자마자(3분·300m 안) 반납한 자전거 = 고장 의심. 센서·장비 없이.");
   await wait(4800);
+  const ai = ((await page.textContent("#morning-summary .ai").catch(() => "")) || "").replace("✦ ", "");
+  if (ai) {   // 자체 AI — 목록 자전거마다 확률, '최소 몇 대는 진짜' 보장
+    await cap("자체 AI 가 자전거마다 '다음 사람도 반납할 확률' 을 계산해 순서를 매겨요.", ai + " — 실시간 결과로 스스로 다시 배워요.");
+    await wait(4200);
+  }
   const gu = await page.$eval("#stories .story:nth-child(2)", (b) => b.dataset.gu);
   await tap("#stories .story:nth-child(2)");
-  const bike = await page.$eval("#bike-list li:last-child b", (b) => b.textContent);   // 고른 구 안, 순위 아래쪽 대여소의 자전거 — 확인하면 맨 위로 올라가는 게 보이게
+  // 고른 구 안에서 확률이 높은 자전거 중, 정비 순위 맨 위가 아닌 대여소의 것 — 확인하면 맨 위로 올라가는 게 보이게
+  const bike = await page.evaluate(() => {
+    const top = document.querySelector("#station-rank li b")?.textContent;
+    const rows = [...document.querySelectorAll("#bike-list li")].map((li) => [li.querySelector("b").textContent, li.querySelector(".s").textContent]);
+    return (rows.find(([, s]) => top && !s.startsWith(top)) || rows[0])[0];
+  });
   await cap(`정비 기사는 구를 골라요 — ${gu}.`, "지도와 '먼저 볼 곳' 순위. 경보의 절반이 대여소 16% 에 몰려 있어요.");
   await wait(3500);
   await show("#station-rank");
@@ -102,8 +112,15 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(1200);
   await type("#bike-input", bike);
   await page.press("#bike-input", "Enter");
-  await cap(`${bike} — 서로 다른 사람들이 바로 반납한 자전거`, "이런 자전거는 다음 사람도 35~44% 가 바로 반납해요(평소 2.5%). 옆 자전거를 고르면 헛걸음 끝.");
-  await wait(5200);
+  const pText = ((await page.textContent("#lookup-result .facts b.red").catch(() => "")) || "").trim();
+  await cap(`${bike} — 서로 다른 사람들이 바로 반납한 자전거`, `다음 사람도 바로 반납할 확률 ${pText || "약 35~44%"} (평소 2.5%). 옆 자전거를 고르면 헛걸음 끝.`);
+  await wait(4600);
+  if (await page.$("#lookup-result .why")) {   // 설명 가능한 AI — 그 확률의 이유
+    await show("#lookup-result .why");
+    const why = await page.$$eval("#lookup-result .why div span", (s) => s.map((x) => x.textContent).slice(0, 2).join(" · "));
+    await cap("AI 가 본 이유도 사람 말로 보여 줘요.", why);
+    await wait(4200);
+  }
   await cap("근처에 있다면 3초 확인.", "체인·타이어·안장·멀쩡함 중 한 번 탭 → 모든 폰의 정비 순위에 '사람이 확인함' 으로.");
   await wait(2200);
   await tap("#lookup-result .choices button:has-text('체인·기어')");

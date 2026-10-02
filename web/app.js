@@ -353,7 +353,8 @@ function lookup(raw) {
   const out = $("#lookup-result");
   const until = state.day === "live" ? "최근" : isPast() ? `${koDay(state.day)} 아침 목록에서` : "어제까지";
   if (hit) {
-    out.innerHTML = `<div class="result warn"><span class="icon" aria-hidden="true">⚠︎</span><h3>${id}는<br>타지 마세요</h3>` +
+    const soft = hit.p_next != null && hit.p_next < 30;   // 모델이 낮게 본 자전거는 말을 누그러뜨림 (그래도 평소의 몇 배)
+    out.innerHTML = `<div class="result warn"><span class="icon" aria-hidden="true">⚠︎</span><h3>${id}는<br>${soft ? "되도록 피하세요" : "타지 마세요"}</h3>` +
       `${until} <b>서로 다른 ${hit.chain}명</b>이 빌리자마자 반납했어요. 옆 자전거를 골라 주세요.` +
       `<div class="facts"><div><span>다음 사람도 반납할 확률${hit.p_next != null ? " (모델)" : ""}</span><b class="red">${hit.p_next != null ? hit.p_next + "%" : hit.level === "빨강" ? "55% 이상" : "약 35~44%"}</b></div>` +
       `<div><span>평소 자전거</span><b>2.5%</b></div><div><span>마지막 반납</span><b>${esc(hit.last_dud)}</b></div><div><span>대여소</span><b>${esc(hit.station_name)}</b></div></div>` +
