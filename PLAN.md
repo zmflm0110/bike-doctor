@@ -10,7 +10,7 @@
   공개 뷰 `live_snapshot`·`ops_lists`·`ops_scores`(앱·웹앱·사이트가 publishable 키로 읽음). 쓰기 표 rescue·survey·사진(`supabase/schema.sql`). 서울 키는 Supabase Vault `seoul_openapi`. DB 비밀번호는 키체인 `supabase-db`.
   확인: `psql … -c "select status from cron.job_run_details order by start_time desc limit 3"` (접속 문자열은 `tools/supabase_live_load.py` DSN). 파이썬과 맞춰 보기: `tools/supabase_live_load.py --parity`.
 - **스스로 배우기(2026-10-02)**: DB 가 3시간마다 live.samples 에 목록 표본·확률, 정답은 자동. 주 1회 `python tools/retrain.py` (점검 → docs/model_live.md), 500개+ 모이면 `--deploy` 로 나을 때만 교체.
-- **충전기(2026-10-02)**: 클라우드 DB 가 5분마다(`supabase/ev.sql`, ev-tick, Vault 'datagokr'). 맥 수집기 kr.bikedoctor.ev 는 끔(plist 는 data/launchagents-off/). 검증: `tools/ev_pull.py` → `analysis/ev_validate.py`.
+- **충전기(2026-10-02)**: 클라우드 DB 가 5분마다(`supabase/ev.sql`, ev-tick, Vault 'datagokr'). **클라우드엔 4일만 남김(하루 20MB) → 4일 안에 한 번 `tools/ev_pull.py`** (맥 data/ev.sqlite 에 다 모임). 맥 수집기 kr.bikedoctor.ev 는 끔(plist 는 data/launchagents-off/). 검증: `tools/ev_pull.py` → `analysis/ev_validate.py`.
 - **자체 모델(2026-10-02 목록 모델)**: `analysis/snapshot_model.py` → `supabase/model.sql`(live.p_next_dud 7특징 + live.list_q) — **model.sql 을 live.sql 보다 먼저 적용**(함수 모양이 바뀌면 옛 p_next_dud 를 drop). 반납 순간 모델은 `analysis/train_model.py` → docs/model_event.md(비교용). 검사 `tools/supabase_live_load.py --parity-model`. 쓰기 횟수 제한은 `supabase/schema.sql` 의 live.limit_inserts.
 - **GitHub Actions `cloud.yml`**(드문드문): 백업 live.json·`live-data` 가지·충전기 수집·Supabase 깨우기. 저장소 비밀 `SEOUL_OPENAPI_KEY`, `DATAGOKR_KEY`, `LIVE_STATE_KEY`.
 - **맥**: 실시간 서비스는 꺼 둠(사용자 결정 2026-09-26). 안드로이드 APK 는 `cd android-app && npm run release`(자바 = Homebrew openjdk@21).

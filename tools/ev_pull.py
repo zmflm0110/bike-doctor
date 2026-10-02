@@ -2,7 +2,8 @@
 
     python tools/ev_pull.py && python analysis/ev_validate.py      # → docs/ev_validation.md
 
-클라우드가 모으기 시작한 때(ev_runs 가장 이른 시각)부터는 클라우드 것으로 바꿔 넣는다(여러 번 돌려도 같음). 그 전은 맥이 모은 기록 그대로.
+클라우드에 남아 있는 가장 이른 시각(ev_runs, 클라우드는 4일만 둔다)부터는 클라우드 것으로 바꿔 넣는다(여러 번 돌려도 같음). 그 전은 맥에 받아 둔 기록 그대로 —
+**4일 안에 한 번씩** 돌려야 빈틈이 없다.
 DB 비밀번호는 키체인 'supabase-db'.
 """
 import csv, io, pathlib, sqlite3, sys
