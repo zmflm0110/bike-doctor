@@ -9,9 +9,10 @@
 /* Begin PBXBuildFile section */
 		08541188AF02DB3AC05A3EF6 /* HeotgeoleumCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9DBDAECDDA99CE607BE01E7B /* HeotgeoleumCore */; };
 		322B1DCBB9DA31D95D14B105 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EFFBD7A29FD3C1A719055ACA /* Assets.xcassets */; };
+		36042089C3E96EEA88894914 /* data in Resources */ = {isa = PBXBuildFile; fileRef = 4AFFC3AC1EEBA31D85579467 /* data */; };
 		410282C0DBB48EDAC5F8B6C4 /* MorningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B254A92D4C542F185125A182 /* MorningView.swift */; };
+		7D0DFB1566ACD4997E9D19F9 /* LiveScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4FAC139A6F8D8806C095600 /* LiveScanner.swift */; };
 		9DFBD7E7FCE810D491AFADDE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BACC404C40FC33C152CB2D37 /* SettingsView.swift */; };
-		A09DE5656A147FAC030CD8D8 /* data in Resources */ = {isa = PBXBuildFile; fileRef = EC0EA059BEBDB5A4DC71B8C2 /* data */; };
 		ACBC112BB091399F0D4468C8 /* SurveyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7735C7EA0D3BC90329FB8A6 /* SurveyView.swift */; };
 		C65D6E0997CDFBF72E7FEADE /* HeotgeoleumApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABE74D60FBC4DF1974C3E2C1 /* HeotgeoleumApp.swift */; };
 		D04133F0C9783FC55B10E933 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE7255AEAE0248D21CFF5E8F /* AppModel.swift */; };
@@ -22,6 +23,8 @@
 
 /* Begin PBXFileReference section */
 		1964E01ACE5573526DAF6D2F /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
+		4AFFC3AC1EEBA31D85579467 /* data */ = {isa = PBXFileReference; lastKnownFileType = folder; name = data; path = ../web/data; sourceTree = SOURCE_ROOT; };
+		A4FAC139A6F8D8806C095600 /* LiveScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveScanner.swift; sourceTree = "<group>"; };
 		A69D7F6A879308D9FE10E8A0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		ABE74D60FBC4DF1974C3E2C1 /* HeotgeoleumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeotgeoleumApp.swift; sourceTree = "<group>"; };
 		B254A92D4C542F185125A182 /* MorningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningView.swift; sourceTree = "<group>"; };
@@ -31,7 +34,6 @@
 		D81146908413A2D09DDBDD66 /* RescueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RescueView.swift; sourceTree = "<group>"; };
 		E36B3DBBC941CF1A552D8BD8 /* LookupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LookupView.swift; sourceTree = "<group>"; };
 		E60268A6F1250E2D89300463 /* HeotgeoleumZero.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HeotgeoleumZero.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		EC0EA059BEBDB5A4DC71B8C2 /* data */ = {isa = PBXFileReference; lastKnownFileType = folder; name = data; path = ../web/data; sourceTree = SOURCE_ROOT; };
 		EFFBD7A29FD3C1A719055ACA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FE7255AEAE0248D21CFF5E8F /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -52,19 +54,18 @@
 			isa = PBXGroup;
 			children = (
 				916A9023C2D385B8CA9183B8 /* App */,
+				A1D8658AEA887DA0553D39BD /* bike-doctor */,
 				89816CCB708F022F75181206 /* Packages */,
-				71377E679286F8BED30EB617 /* w */,
 				C36707E40620BE49402DEAAC /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		71377E679286F8BED30EB617 /* w */ = {
+		68B1D163BE5455BD407BF24E /* web */ = {
 			isa = PBXGroup;
 			children = (
-				9B4F260919EF76216954D0D8 /* web */,
+				4AFFC3AC1EEBA31D85579467 /* data */,
 			);
-			name = w;
-			path = ..;
+			path = web;
 			sourceTree = "<group>";
 		};
 		89816CCB708F022F75181206 /* Packages */ = {
@@ -82,6 +83,7 @@
 				EFFBD7A29FD3C1A719055ACA /* Assets.xcassets */,
 				ABE74D60FBC4DF1974C3E2C1 /* HeotgeoleumApp.swift */,
 				A69D7F6A879308D9FE10E8A0 /* Info.plist */,
+				A4FAC139A6F8D8806C095600 /* LiveScanner.swift */,
 				E36B3DBBC941CF1A552D8BD8 /* LookupView.swift */,
 				B254A92D4C542F185125A182 /* MorningView.swift */,
 				1964E01ACE5573526DAF6D2F /* ReplayView.swift */,
@@ -92,12 +94,13 @@
 			path = App;
 			sourceTree = "<group>";
 		};
-		9B4F260919EF76216954D0D8 /* web */ = {
+		A1D8658AEA887DA0553D39BD /* bike-doctor */ = {
 			isa = PBXGroup;
 			children = (
-				EC0EA059BEBDB5A4DC71B8C2 /* data */,
+				68B1D163BE5455BD407BF24E /* web */,
 			);
-			path = web;
+			name = "bike-doctor";
+			path = ..;
 			sourceTree = "<group>";
 		};
 		C36707E40620BE49402DEAAC /* Products */ = {
@@ -174,7 +177,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				322B1DCBB9DA31D95D14B105 /* Assets.xcassets in Resources */,
-				A09DE5656A147FAC030CD8D8 /* data in Resources */,
+				36042089C3E96EEA88894914 /* data in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -187,6 +190,7 @@
 			files = (
 				D04133F0C9783FC55B10E933 /* AppModel.swift in Sources */,
 				C65D6E0997CDFBF72E7FEADE /* HeotgeoleumApp.swift in Sources */,
+				7D0DFB1566ACD4997E9D19F9 /* LiveScanner.swift in Sources */,
 				E8E5E5C86E124626C4571F77 /* LookupView.swift in Sources */,
 				410282C0DBB48EDAC5F8B6C4 /* MorningView.swift in Sources */,
 				E9556013E2EC4D46AEDFCF9B /* ReplayView.swift in Sources */,

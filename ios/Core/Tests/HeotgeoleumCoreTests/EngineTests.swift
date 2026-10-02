@@ -39,6 +39,17 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(Morning.groupByStation(tie).map(\.id), ["150", "3000", "02720"])
     }
 
+    func testScanText() {
+        XCTAssertEqual(BikeID.fromScan("SPB-12345"), "SPB-12345")
+        XCTAssertEqual(BikeID.fromScan("spb 4567"), "SPB-04567")
+        XCTAssertEqual(BikeID.fromScan(" 69683 "), "SPB-69683")
+        XCTAssertNil(BikeID.fromScan("1234"))          // 너무 짧음 (대여소 번호 등)
+        XCTAssertNil(BikeID.fromScan("010-2797"))      // 전화번호 조각
+        XCTAssertNil(BikeID.fromScan("123456"))        // 6자리 숫자만은 안 받음 (SPB 가 보이면 받음)
+        XCTAssertNil(BikeID.fromScan("１２３４５"))       // 전각 숫자
+        XCTAssertNil(BikeID.fromScan("따릉이"))
+    }
+
     func testModelExpectationAndRank() {
         func b(_ id: String, _ st: String, _ chain: Int, _ p: Int?) -> SuspectBike {
             try! JSONDecoder().decode(SuspectBike.self, from: """

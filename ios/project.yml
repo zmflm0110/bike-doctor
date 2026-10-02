@@ -44,7 +44,7 @@ targets:
         UILaunchScreen:
           UIColorName: ""
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        NSCameraUsageDescription: 따릉이 QR 을 읽고, 현장 조사 때 고장 부위 사진을 찍으려고 카메라를 씁니다.
+        NSCameraUsageDescription: 따릉이 QR·자전거 번호를 읽고(기기 안에서만), 현장 조사 때 고장 부위 사진을 찍으려고 카메라를 씁니다.
         NSLocationWhenInUseUsageDescription: 가까운 대여소·의심 자전거와 정비 동선을 보여 주려고 지금 위치를 씁니다. 위치는 조사 기록에만 붙고 따로 모으지 않습니다.
         NSLocalNetworkUsageDescription: 같은 와이파이의 맥 서버로 구조대 확인·현장 조사 기록을 보냅니다.
         NSAppTransportSecurity:

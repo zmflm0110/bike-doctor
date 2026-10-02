@@ -31,7 +31,9 @@ struct LookupView: View {
                             .background(Palette.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .accessibilityLabel("자전거 번호")
                         Button("조회하기") { lookup(input) }.buttonStyle(PrimaryButtonStyle())
-                        Button { scanning = true } label: { Label("QR 로 찍기", systemImage: "qrcode.viewfinder") }
+                        Button { scanning = true } label: {
+                            Label(LiveScanner.usable ? "카메라로 번호·QR 읽기" : "QR 로 찍기", systemImage: LiveScanner.usable ? "camera.viewfinder" : "qrcode.viewfinder")
+                        }
                             .buttonStyle(SoftButtonStyle(tint: Palette.ink))
                     }
                     .card(padding: 16)
@@ -50,12 +52,21 @@ struct LookupView: View {
             .onChange(of: model.lookupQuery) { takeQuery() }
             .onChange(of: model.day) { if result != nil, !input.isEmpty { lookup(input) } }   // 실시간 목록이 늦게 들어와 기준이 바뀌면 다시
             .fullScreenCover(isPresented: $scanning) {
-                QRScanner { code in
-                    scanning = false
-                    input = code
-                    lookup(code)
-                } cancel: { scanning = false }
-                .ignoresSafeArea()
+                if LiveScanner.usable {   // 기기 안 글자 인식 — 여러 대를 비추면 의심 자전거에 빨간 상자
+                    LiveScanner(suspects: Dictionary((model.morning?.bikes ?? []).map { ($0.bike, $0) }, uniquingKeysWith: { a, _ in a })) { id in
+                        scanning = false
+                        input = id
+                        lookup(id)
+                    } cancel: { scanning = false }
+                    .ignoresSafeArea()
+                } else {
+                    QRScanner { code in
+                        scanning = false
+                        input = code
+                        lookup(code)
+                    } cancel: { scanning = false }
+                    .ignoresSafeArea()
+                }
             }
         }
     }

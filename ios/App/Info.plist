@@ -28,7 +28,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>따릉이 QR 을 읽고, 현장 조사 때 고장 부위 사진을 찍으려고 카메라를 씁니다.</string>
+	<string>따릉이 QR·자전거 번호를 읽고(기기 안에서만), 현장 조사 때 고장 부위 사진을 찍으려고 카메라를 씁니다.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>같은 와이파이의 맥 서버로 구조대 확인·현장 조사 기록을 보냅니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
