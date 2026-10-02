@@ -196,6 +196,29 @@ const check = (ok, what) => { console.log((ok ? "  ✓ " : "  ✗ ") + what); if
       check(/25명 중 8명\(32%\)/.test(t), "채점은 GitHub 쪽에서 빌려 옴");
       await sctx.close();
     }
+    console.log("자체 모델 — 자전거마다 확률이 오면: AI 예측(기대·90% 하한), 확률 순 목록, 조회에 그 자전거 확률");
+    {
+      const mctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "ko-KR", serviceWorkers: "block" });
+      await mctx.route(/tile\.openstreetmap\.org/, (r) => r.abort());
+      const now = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 19);
+      // 12대: 확률 80% 4대 + 30% 8대 → μ = 3.2 + 2.4 = 5.6, σ = √(4·0.16 + 8·0.21) = √2.32 ≈ 1.523, q = −2 → ⌊2.55⌋ = 2
+      const bikes = Array.from({ length: 12 }, (_, i) => ({ bike: `SPB-${String(30000 + i)}`, station: st.id, station_name: st.name, chain: i < 4 ? 2 : 5,
+        level: i < 4 ? "노랑" : "빨강", last_dud: "10-02 10:00", minutes_ago: 3, reported: null, p_next: i < 4 ? 80 : 30 }));
+      await mctx.route(/raw\.githubusercontent\.com/, (r) => r.abort());
+      await mctx.route(/supabase\.co/, (r) => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+      await mctx.route(/supabase\.co\/rest\/v1\/live_snapshot/, (r) => r.fulfill({ contentType: "application/json",
+        body: JSON.stringify([{ at: now, body: { date: "live", source: "supabase", at: now, bikes, today_alarms: 2, model: { q: -2 } } }]) }));
+      const mp = await mctx.newPage();
+      await mp.goto(URL, { waitUntil: "networkidle" });
+      await mp.waitForFunction(() => document.querySelector("#morning-summary").textContent.includes("지금"));
+      const ai = await mp.textContent("#morning-summary .ai").catch(() => "");
+      check(/약 6대가 진짜 고장 · 최소 2대\(90%\)/.test(ai), "AI 예측 줄: " + ai);
+      check((await mp.$eval("#bike-list li .n", (e) => e.textContent)) === "80%", "의심 자전거에 확률 표시");
+      check((await mp.textContent("#station-rank li")).includes("진짜 고장 예상 5.6대"), "대여소에 기대 고장 수");
+      await mp.click('#tabs button[data-tab="lookup"]'); await mp.fill("#bike-input", "SPB-30005"); await mp.press("#bike-input", "Enter");
+      check((await mp.textContent("#lookup-result")).includes("다음 사람도 반납할 확률 (모델)30%"), "조회에 그 자전거의 모델 확률");
+      await mctx.close();
+    }
     console.log("클라우드 DB (Supabase 흉내) — 밖에서 현장 조사");
     const cctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "ko-KR", serviceWorkers: "block" });
     await cctx.route(/tile\.openstreetmap\.org|raw\.githubusercontent\.com/, (r) => r.abort());

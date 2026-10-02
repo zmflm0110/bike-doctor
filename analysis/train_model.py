@@ -1,6 +1,6 @@
 """자체 모델 학습 → 클라우드 DB 용 SQL — 자전거마다 '다음에 빌린 다른 사람도 바로 반납할 확률'
 
-    python analysis/train_model.py      # → supabase/model.sql (live.p_next_dud), docs/model.md
+    python analysis/train_model.py      # → docs/model_event.md (반납 순간 모델 — 배포는 analysis/snapshot_model.py 의 목록 모델)
 
 특징 5개 (그 헛대여 반납 시점, 지난 7일): 연쇄(서로 다른 사람 수), 헛대여 수, 대여 수, 이번 줄 전의 경보 수, 이번 대여 시간(초).
 17개를 다 쓴 모델과 같은 정밀도라(docs/related_work.md 3-1, 아래 표) DB 안에서 셀 수 있는 5개만 쓴다. 이용자 정보는 안 쓴다.
@@ -40,21 +40,21 @@ def eval_trees(m, X):
     return 1 / (1 + np.exp(-raw))
 
 
-def sql_tree(nodes, n=0, ind="  "):
+def sql_tree(nodes, feats, n=0):
     nd = nodes[n]
     if nd["is_leaf"]:
         return repr(float(nd["value"]))
-    f = FEATS5[nd["feature_idx"]]
-    return (f"case when {f} <= {float(nd['num_threshold'])!r} then {sql_tree(nodes, nd['left'], ind)} "
-            f"else {sql_tree(nodes, nd['right'], ind)} end")
+    f = feats[nd["feature_idx"]]
+    return (f"case when {f} <= {float(nd['num_threshold'])!r} then {sql_tree(nodes, feats, nd['left'])} "
+            f"else {sql_tree(nodes, feats, nd['right'])} end")
 
 
-def to_sql(m):
-    body = "\n    + ".join(sql_tree(t) for t in trees(m))
-    args = ", ".join(f"{f} float8" for f in FEATS5)
+def to_sql(m, feats=FEATS5, what="헛대여 반납"):
+    body = "\n    + ".join(sql_tree(t, feats) for t in trees(m))
+    args = ", ".join(f"{f} float8" for f in feats)
     return f"""-- 자동 생성: python analysis/train_model.py — 손으로 고치지 말 것
--- 자전거마다 '다음에 빌린 다른 사람도 바로 반납할 확률' (0~1). 특징은 live.p_features 와 같은 정의.
--- 그래디언트 부스팅 {len(trees(m))}그루·깊이 3, 서울 2026년 1·3·6월 헛대여 반납 {m._n_train:,}건으로 학습.
+-- 자전거마다 '다음에 빌린 다른 사람도 바로 반납할 확률' (0~1). 특징은 live.p_features 와 같은 정의({", ".join(feats)}).
+-- 그래디언트 부스팅 {len(trees(m))}그루·깊이 3, 서울 2026년 1·3·6월 {what} {m._n_train:,}건으로 학습.
 create or replace function live.p_next_dud({args}) returns float8 language sql immutable parallel safe as $$
   select 1 / (1 + exp(-(
     {float(m._baseline_prediction.ravel()[0])!r}
@@ -91,15 +91,17 @@ def main():
     i = np.random.default_rng(0).choice(len(X), 3000, replace=False)
     diff = np.abs(eval_trees(m, X[i]) - m.predict_proba(X[i])[:, 1]).max()
     assert diff < 1e-9, f"SQL 식이 sklearn 과 다름: {diff}"
-    (ROOT / "supabase" / "model.sql").write_text(to_sql(m))
+    # 배포용 supabase/model.sql 은 analysis/snapshot_model.py 가 쓴다(목록에 맞춘 모델) — 여기선 반납 순간 모델의 비교 기록만
+    (ROOT / "data" / "cache" / "ml").mkdir(parents=True, exist_ok=True)
+    (ROOT / "data" / "cache" / "ml" / "model_event.sql").write_text(to_sql(m))
     lines += ["", f"최종 모델은 세 달 {len(allE):,}건으로 학습. SQL 식(`supabase/model.sql`)과 sklearn 의 답 차이 최대 {diff:.1e} (3,000건 표본).",
               "", "## 어디에 쓰나", "",
               "목록 기준(서로 다른 2명이 연달아)은 그대로 두고, 목록에 오른 자전거마다 이 확률을 보여 준다(조회 화면 '다음 사람도 반납할 확률').",
               "규칙 목록 **안의 순서**를 바꾸는 효과는 거의 없었다(위 25% 정밀도 76\\~77% 로 같음) — 그래서 순서는 바꾸지 않는다.",
               "", "DB 안 계산이 파이썬과 같은지: `python tools/supabase_live_load.py --parity-model` (2026-10-01: 목록 86대 특징 모두 같음).",
               "적용 순서: `supabase/model.sql` → `supabase/live.sql` (live.compute 가 live.p_next_dud 를 부른다)."]
-    (ROOT / "docs" / "model.md").write_text("\n".join(lines) + "\n")
-    print(f"→ supabase/model.sql, docs/model.md (학습 {len(allE):,}건, SQL 식 차이 {diff:.1e})")
+    (ROOT / "docs" / "model_event.md").write_text("\n".join(lines) + "\n")
+    print(f"→ docs/model_event.md (학습 {len(allE):,}건, SQL 식 차이 {diff:.1e})")
 
 
 if __name__ == "__main__":

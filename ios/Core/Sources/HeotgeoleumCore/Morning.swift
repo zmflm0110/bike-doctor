@@ -21,6 +21,8 @@ public struct StationGroup: Identifiable, Hashable, Sendable {
     public var sumChain: Int { bikes.reduce(0) { $0 + $1.chain } }
     public var maxChain: Int { bikes.map(\.chain).max() ?? 0 }
     public var hasRed: Bool { bikes.contains(where: \.isRed) }
+    /// 자체 모델이 본 '진짜 고장일 자전거 수' 의 기대값 (확률 합) — 실시간 목록에만, 없으면 nil
+    public var expected: Double? { bikes.contains { $0.pNext != nil } ? bikes.reduce(0) { $0 + Double($1.pNext ?? 0) / 100 } : nil }
     public func brokenCount(_ checked: Checked) -> Int { bikes.filter { checkSummary(checked, bike: $0.bike).broken > 0 }.count }
 }
 
@@ -45,6 +47,7 @@ public enum Morning {
             let (a, b) = (x.element, y.element)
             let (ba, bb) = (a.brokenCount(checked), b.brokenCount(checked))
             if ba != bb { return ba > bb }
+            if let ea = a.expected, let eb = b.expected, abs(ea - eb) > 1e-9 { return ea > eb }   // 모델이 있으면 기대 고장 수 순 (docs/model.md)
             if a.sumChain != b.sumChain { return a.sumChain > b.sumChain }
             if a.bikes.count != b.bikes.count { return a.bikes.count > b.bikes.count }
             return x.offset < y.offset
@@ -84,3 +87,17 @@ public enum Morning {
         return "\u{FEFF}" + ([head] + rows).map { $0.map(q).joined(separator: ",") }.joined(separator: "\r\n") + "\r\n"
     }
 }
+
+/// 목록 보장 — "이 중 약 μ대는 진짜, 90% 확률로 최소 ⌊μ + q·σ⌋대" (docs/model.md, 분할 컨포멀로 맞춘 q)
+public struct ListExpectation: Sendable, Equatable {
+    public let expected: Double
+    public let atLeast: Int
+    public init?(_ bikes: [SuspectBike], q: Double?) {
+        let ps = bikes.compactMap { $0.pNext.map { Double($0) / 100 } }
+        guard let q, !ps.isEmpty, ps.count == bikes.count else { return nil }
+        let mu = ps.reduce(0, +), sd = ps.reduce(0) { $0 + $1 * (1 - $1) }.squareRoot()
+        expected = mu
+        atLeast = max(0, Int((mu + q * sd).rounded(.down)))
+    }
+}
+

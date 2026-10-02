@@ -39,6 +39,27 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(Morning.groupByStation(tie).map(\.id), ["150", "3000", "02720"])
     }
 
+    func testModelExpectationAndRank() {
+        func b(_ id: String, _ st: String, _ chain: Int, _ p: Int?) -> SuspectBike {
+            try! JSONDecoder().decode(SuspectBike.self, from: """
+            {"bike":"\(id)","station":"\(st)","station_name":"x","chain":\(chain),"level":"노랑","last_dud":"10-02 09:00","reported":null\(p.map { ",\"p_next\":\($0)" } ?? "")}
+            """.data(using: .utf8)!)
+        }
+        // 모델 확률이 있으면 대여소는 기대 고장 수(확률 합) 순 — 연쇄 합이 작아도 확률이 크면 앞
+        let live = [b("SPB-00001", "0A", 9, 20), b("SPB-00002", "0B", 2, 70)]
+        XCTAssertEqual(Morning.groupByStation(live).map(\.id), ["0B", "0A"])
+        XCTAssertEqual(Morning.groupByStation(live, checked: ["SPB-00001": ["타이어": 1]]).map(\.id), ["0A", "0B"])   // 사람 확인이 먼저
+        // 확률이 없는 지난 자료는 예전처럼 연쇄 합 순
+        XCTAssertEqual(Morning.groupByStation([b("SPB-1", "0A", 9, nil), b("SPB-2", "0B", 2, nil)]).map(\.id), ["0A", "0B"])
+        // 목록 보장: μ = 0.2+0.7+0.5 = 1.4, σ = √(0.16+0.21+0.25) ≈ 0.787, q = −1 → ⌊0.61⌋ = 0
+        let e = ListExpectation([b("SPB-1", "0A", 2, 20), b("SPB-2", "0A", 2, 70), b("SPB-3", "0B", 2, 50)], q: -1)
+        XCTAssertEqual(e?.expected ?? 0, 1.4, accuracy: 1e-9)
+        XCTAssertEqual(e?.atLeast, 0)
+        XCTAssertEqual(ListExpectation(Array(repeating: b("SPB-9", "0A", 2, 80), count: 50), q: -2.34)?.atLeast, 33)   // 40 − 2.34·√8 = 33.4
+        XCTAssertNil(ListExpectation([b("SPB-1", "0A", 2, nil)], q: -2))   // 확률 없는 목록은 보장 없음
+        XCTAssertNil(ListExpectation([b("SPB-1", "0A", 2, 50)], q: nil))
+    }
+
     func testReplay() throws {
         let replay = try ParityTests.store.replay()
         var p = ReplayPlayer(replay)

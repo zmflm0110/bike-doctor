@@ -45,7 +45,15 @@ public struct MorningList: Codable, Sendable {
     public let todayAlarms: Int?
     public var score: LiveScore?
     public var feed: FeedStatus?
-    enum CodingKeys: String, CodingKey { case date, rule, bikes, at, score, feed, todayAlarms = "today_alarms" }
+    public let model: ListModel?        // 클라우드 실시간 목록에만 — 목록 보장의 q
+    enum CodingKeys: String, CodingKey { case date, rule, bikes, at, score, feed, model, todayAlarms = "today_alarms" }
+}
+
+public struct ListModel: Codable, Hashable, Sendable {
+    public let q: Double?
+    public let expected: Double?
+    public let atLeast: Int?
+    enum CodingKeys: String, CodingKey { case q, expected, atLeast = "at_least" }
 }
 
 /// 서울 API 가 평소보다 훨씬 적게 내놓는 중인가 (server/live.py feed_status) — 그 사이 새 경보를 놓칠 수 있다

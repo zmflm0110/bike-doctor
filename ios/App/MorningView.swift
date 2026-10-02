@@ -36,7 +36,7 @@ struct MorningView: View {
                         }
                         .accessibilityLabel("의심 자전거가 있는 대여소 지도 (아래 목록과 같은 내용)")
 
-                    SectionTitle(title: "정비 먼저 볼 곳", sub: "헛걸음이 많이 쌓인 대여소부터")
+                    SectionTitle(title: "정비 먼저 볼 곳", sub: model.shown.first?.pNext == nil ? "헛걸음이 많이 쌓인 대여소부터" : "진짜 고장일 자전거가 많을 대여소부터")
                     VStack(spacing: 0) {
                         let top = Array(groups.prefix(allStations ? 10 : 5))
                         ForEach(Array(top.enumerated()), id: \.element.id) { i, g in rankRow(i, g) }
@@ -48,7 +48,7 @@ struct MorningView: View {
                         }
                     }
                     .card(padding: 14)
-                    SectionTitle(title: "의심 자전거", sub: "서로 다른 사람들이 연달아 빌리자마자 반납했어요")
+                    SectionTitle(title: "의심 자전거", sub: model.shown.first?.pNext == nil ? "서로 다른 사람들이 연달아 빌리자마자 반납했어요" : "AI 가 본 '다음 사람도 반납할 확률' 순")
                     VStack(spacing: 0) {
                         ForEach(Array(model.shown.prefix(5))) { b in BikeListRow(bike: b) }
                         if model.shown.count > 5 {
@@ -99,6 +99,16 @@ struct MorningView: View {
             .foregroundStyle(.white)
             Text("빨강 \(red) · 노랑 \(bikes.count - red)\(live?.todayAlarms.map { " · 오늘 경보 \($0)번" } ?? "")")
                 .font(.subheadline).foregroundStyle(.white.opacity(0.82)).padding(.top, 6)
+            if bikes.count >= 10, let e = ListExpectation(bikes, q: live?.model?.q) {   // 자체 모델: 이 중 진짜 고장일 수 (90% 하한은 docs/model.md)
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles").font(.caption.weight(.bold))
+                    Text("AI 예측: 이 중 약 \(Int(e.expected.rounded()))대가 진짜 고장 · 최소 \(e.atLeast)대(90%)")
+                }
+                .font(.footnote.weight(.semibold)).foregroundStyle(.white)
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(.black.opacity(0.22), in: Capsule())
+                .padding(.top, 10)
+            }
             ForEach(notes, id: \.self) { n in
                 Label(n, systemImage: "hourglass").font(.footnote).foregroundStyle(.white)
                     .padding(.horizontal, 12).padding(.vertical, 8).background(.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 12)).padding(.top, 10)
@@ -206,7 +216,8 @@ struct MorningView: View {
                     .frame(width: 24)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(s?.name ?? g.id).font(.body.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(1)
-                    Text(broken > 0 ? "사람이 확인한 고장 \(broken)대 · \(s?.gu ?? "")" : "\(s?.gu ?? "") · 헛걸음 \(g.sumChain)명 쌓임")
+                    Text(broken > 0 ? "사람이 확인한 고장 \(broken)대 · \(s?.gu ?? "")"
+                         : g.expected.map { "\(s?.gu ?? "") · 진짜 고장 예상 \(String(format: "%.1f", $0))대" } ?? "\(s?.gu ?? "") · 헛걸음 \(g.sumChain)명 쌓임")
                         .font(.subheadline).foregroundStyle(broken > 0 ? Palette.red : Palette.sub).lineLimit(1)
                 }
                 Spacer(minLength: 8)
@@ -239,12 +250,12 @@ struct BikeListRow: View {
             model.lookupQuery = bike.bike; model.tab = "lookup"; dismiss()
         } label: {
             ListRow(icon: "bicycle", tint: Palette.levelText(bike.isRed), soft: Palette.levelSoft(bike.isRed),
-                    title: bike.bike, subtitle: [bike.stationName, when].compactMap { $0 }.joined(separator: " · ")) {
-                Text("\(bike.chain)명").font(.body.weight(.bold)).monospacedDigit().foregroundStyle(Palette.levelText(bike.isRed))
+                    title: bike.bike, subtitle: [bike.stationName, bike.pNext == nil ? nil : "\(bike.chain)명 연속", when].compactMap { $0 }.joined(separator: " · ")) {
+                Text(bike.pNext.map { "\($0)%" } ?? "\(bike.chain)명").font(.body.weight(.bold)).monospacedDigit().foregroundStyle(Palette.levelText(bike.isRed))
             }
         }
         .buttonStyle(.plain)
-        .accessibilityHint("서로 다른 \(bike.chain)명이 바로 반납. 누르면 자세히")
+        .accessibilityHint("서로 다른 \(bike.chain)명이 바로 반납\(bike.pNext.map { ", 다음 사람도 반납할 확률 \($0)%" } ?? ""). 누르면 자세히")
     }
     private var when: String? {
         guard let m = bike.minutesAgo else { return nil }

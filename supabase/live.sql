@@ -163,21 +163,31 @@ end $$;
 
 -- 자체 모델의 특징 (analysis/train_model.py · ml_compare.py features 와 같은 정의) — 자전거마다 마지막 헛대여 반납 시점, 지난 7일(그 대여 포함).
 -- 확률 식 live.p_next_dud 는 supabase/model.sql (학습 스크립트가 만듦) — 이 파일보다 먼저 적용한다.
+drop function if exists live.p_features(timestamp, text[]);
 create or replace function live.p_features(now_ timestamp, bikes text[])
-returns table (bike text, chain int, hist7_duds int, hist7_rentals int, prior_alarms7 int, dur_sec float8) language sql stable as $$
+returns table (bike text, chain int, hist7_duds int, hist7_rentals int, prior_alarms7 int, dur_sec float8, age_h float8, shun float8)
+language sql stable as $$
 with m as (
   select * from live.mark_rows(now_ - interval '8 days', bikes)
 ), last as (
   select distinct on (bike) * from m order by bike, t0 desc
+), base as (
+  select l.bike, l.streak + 1 chain,
+         (count(*) filter (where x.dud))::int duds, count(*)::int rentals,
+         (count(*) filter (where x.dud and not x.retry and x.streak = 1) - case when l.streak + 1 >= 2 then 1 else 0 end)::int prior,
+         extract(epoch from l.t1 - l.t0)::float8 dur, l.t1, r.st1
+  from last l join m x on x.bike = l.bike and x.t0 >= l.t0 - interval '7 days' and x.t0 <= l.t0
+  join live.rentals r on r.bike = l.bike and r.t0 = l.t0
+  where l.dud
+  group by l.bike, l.streak, l.t0, l.t1, r.st1
+), near as (   -- 외면: 마지막 헛대여 뒤 지금까지 같은 대여소에서 다른 사람이 빌려 간 수 (최근 25시간만 훑음)
+  select b.bike, count(r.*) n
+  from base b left join live.rentals r on r.st0 = b.st1 and r.t0 > b.t1 and r.t0 < now_ and r.t1 >= now_ - interval '25 hours'
+  group by b.bike
 )
-select l.bike, l.streak + 1,
-       (count(*) filter (where x.dud))::int,
-       count(*)::int,
-       (count(*) filter (where x.dud and not x.retry and x.streak = 1) - case when l.streak + 1 >= 2 then 1 else 0 end)::int,
-       extract(epoch from l.t1 - l.t0)::float8
-from last l join m x on x.bike = l.bike and x.t0 >= l.t0 - interval '7 days' and x.t0 <= l.t0
-where l.dud
-group by l.bike, l.streak, l.t0, l.t1
+select b.bike, b.chain, b.duds, b.rentals, b.prior, b.dur,
+       greatest(0, extract(epoch from now_ - b.t1) / 3600)::float8, ln(1 + n.n)::float8
+from base b join near n using (bike)
 $$;
 
 -- 지금 목록 (live.json 과 같은 모양)
@@ -191,8 +201,10 @@ with m as (
   select l.*, s.name from last l left join live.stations s on s.id = l.st1
   where l.chain >= 2 and l.t1 >= now_ - interval '24 hours'
 ), pf as (   -- 자체 모델: 다음에 빌린 다른 사람도 바로 반납할 확률
-  select f.bike, live.p_next_dud(f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec) p
+  select f.bike, live.p_next_dud(f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec, f.age_h, f.shun) p
   from live.p_features(now_, (select coalesce(array_agg(bike), '{}') from fresh)) f
+), fp as (
+  select fresh.*, pf.p from fresh left join pf using (bike)
 )
 select jsonb_build_object(
   'date', 'live', 'source', 'supabase', 'at', to_char(now_, 'YYYY-MM-DD"T"HH24:MI:SS'),
@@ -201,8 +213,10 @@ select jsonb_build_object(
       'bike', bike, 'station', st1, 'station_name', coalesce(name, st1), 'chain', chain,
       'level', case when chain >= 3 then '빨강' else '노랑' end,
       'last_dud', to_char(t1, 'MM-DD HH24:MI'), 'minutes_ago', floor(extract(epoch from now_ - t1) / 60)::int, 'reported', null,
-      'p_next', (select round(100 * pf.p)::int from pf where pf.bike = fresh.bike))
-      order by chain desc, t1 desc) from fresh), '[]'::jsonb),
+      'p_next', round(100 * p)::int)
+      order by p desc nulls last, chain desc, t1 desc) from fp), '[]'::jsonb),   -- 모델 확률 순 (목록 위 20대 정밀도가 세 달 모두 올라감, docs/model.md)
+  'model', jsonb_build_object('q', live.list_q(), 'expected', round(coalesce((select sum(p) from fp), 0)::numeric, 1),
+    'at_least', greatest(0, floor(coalesce((select sum(p) + live.list_q() * sqrt(sum(p * (1 - p))) from fp), 0)))::int),
   'today_alarms', (select count(*) from m where dud and not retry and streak = 1 and t1 >= date_trunc('day', now_)),
   'rentals_in_window', (select count(*) from live.rentals where t0 >= now_ - interval '7 days'),
   'latest_return', (select to_char(max(t1), 'YYYY-MM-DD"T"HH24:MI:SS') from live.rentals where t1 <= now_ + interval '5 minutes'))
@@ -219,7 +233,7 @@ begin
   on conflict (bike, at) do nothing;
   get diagnostics n = row_count;
   if n > 0 then   -- 방금 울린 경보에 그 순간 모델 확률을 적어 둠
-    update live.alarms a set p_next = live.p_next_dud(f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec)
+    update live.alarms a set p_next = live.p_next_dud(f.chain, f.hist7_duds, f.hist7_rentals, f.prior_alarms7, f.dur_sec, f.age_h, f.shun)
     from live.p_features(now_, (select coalesce(array_agg(bike), '{}') from live.alarms where seen_at = now_ and p_next is null)) f
     where a.bike = f.bike and a.seen_at = now_ and a.p_next is null;
   end if;

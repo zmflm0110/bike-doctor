@@ -10,6 +10,7 @@ DB 비밀번호는 키체인 'supabase-db'. 5분마다 도는 예약(pg_cron)은
 import argparse, csv, datetime as dt, io, json, os, pathlib, subprocess, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import numpy as np
 import pandas as pd
 from server import seoul_api
 from server.seoul_api import key
@@ -114,12 +115,13 @@ def parity_model():
     from engine.morning import RULE
     from analysis.ml_compare import features
     from analysis.train_model import FEATS5
+    from analysis.snapshot_model import FEATS6
     now = pd.Timestamp(psql("select to_char(max(t1), 'YYYY-MM-DD HH24:MI:SS') from live.rentals where t1 <= (now() at time zone 'Asia/Seoul')").strip())
     sql = json.loads(psql(f"select live.compute('{now}'::timestamp)"))
     bikes = [b["bike"] for b in sql["bikes"]]
     arr = "array[" + ",".join(f"'{b}'" for b in bikes) + "]::text[]"
     S = pd.read_csv(io.StringIO(psql(f"copy (select * from live.p_features('{now}'::timestamp, {arr})) to stdout with csv")),
-                    names=["bike"] + FEATS5).set_index("bike").sort_index()
+                    names=["bike"] + FEATS6).set_index("bike").sort_index()
     out = psql(f"copy (select bike, t0, st0, t1, st1, dist_m, who from live.rentals where t0 >= '{now}'::timestamp - interval '8 days' "
                f"and bike = any({arr})) to stdout with csv")
     R = pd.read_csv(io.StringIO(out), names=["bike", "t0", "st0", "t1", "st1", "dist_m", "who"], dtype={"st0": str, "st1": str, "who": object})
@@ -127,11 +129,19 @@ def parity_model():
     M = mark(R.sort_values(["bike", "t0"], kind="stable").reset_index(drop=True), RULE)
     F = features(M)
     F["bike"] = M["bike"].astype(str).to_numpy()
-    P = F.groupby("bike").tail(1).set_index("bike")[FEATS5].sort_index()
-    same = (S.round(3) == P.loc[S.index].round(3)).all(axis=1)
+    last = M.assign(**{c: F[c].to_numpy() for c in FEATS5}).groupby(M["bike"].astype(str)).tail(1).set_index(M["bike"].astype(str).groupby(M["bike"].astype(str)).tail(1).to_numpy())
+    P = last[FEATS5].copy()
+    P["age_h"] = (now - last["t1"]).dt.total_seconds() / 3600
+    near = pd.read_csv(io.StringIO(psql(f"copy (select st0, t0 from live.rentals where t1 >= '{now}'::timestamp - interval '25 hours' and t0 < '{now}'::timestamp) to stdout with csv")),
+                       names=["st0", "t0"], dtype={"st0": str}, parse_dates=["t0"])
+    P["shun"] = [np.log1p(((near["st0"] == st) & (near["t0"] > t1)).sum()) for st, t1 in zip(last["st1"], last["t1"])]
+    P = P.sort_index()
+    same = (S.round(3) == P.loc[S.index, FEATS6].round(3)).all(axis=1)
     p_sql = {b["bike"]: b.get("p_next") for b in sql["bikes"]}
     print(f"목록 {len(bikes)}대 · SQL 특징 {len(S)}대 · 파이썬과 같음 {int(same.sum())} · 다름 {list(S.index[~same])[:5]}")
-    print("확률 예:", ", ".join(f"{b} 연쇄{int(S.loc[b, 'chain'])}→{p_sql[b]}%" for b in list(S.index)[:5]))
+    print("확률 예:", ", ".join(f"{b} 연쇄{int(S.loc[b, 'chain'])}·{S.loc[b, 'age_h']:.1f}시간→{p_sql[b]}%" for b in list(S.index)[:5]))
+    if not same.all():
+        print(pd.concat([S.loc[~same], P.loc[S.index[~same], FEATS6]], keys=["sql", "py"]).head(6))
     return bool(same.all()) and len(S) == len(bikes)
 
 

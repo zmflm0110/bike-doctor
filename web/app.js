@@ -108,7 +108,9 @@ function renderMorning() {
   $("#morning-summary").innerHTML = status +
     `<p class="big">${when}${place}<br>고장 의심 따릉이가</p>` +
     `<p class="num"><b>${bikes.length}</b>대 ${isPast() ? "있었어요" : "있어요"}</p>` +
-    `<div class="sub">빨강 ${red} · 노랑 ${bikes.length - red}${live && state.morning.today_alarms != null ? ` · 오늘 경보 ${state.morning.today_alarms}번` : ""}</div>`;
+    `<div class="sub">빨강 ${red} · 노랑 ${bikes.length - red}${live && state.morning.today_alarms != null ? ` · 오늘 경보 ${state.morning.today_alarms}번` : ""}</div>`
+  const ex = live && bikes.length >= 10 ? listExpect(bikes, (state.morning.model || {}).q) : null;
+  if (ex) $("#morning-summary").insertAdjacentHTML("beforeend", `<div class="ai">✦ AI 예측: 이 중 약 ${Math.round(ex.mu)}대가 진짜 고장 · 최소 ${ex.atLeast}대(90%)</div>`);
   const notes = (live ? feedNote() : pastNote()) + (live && minsAgo(state.morning.at) > 30
     ? `<p class="past-note">⏳ 목록 갱신이 늦어지고 있어요(마지막 ${minsAgo(state.morning.at)}분 전). 그사이 새로 생긴 경보는 아직 안 보일 수 있어요.</p>` : "");
   if (notes) $("#morning-summary").insertAdjacentHTML("beforeend", `<div class="notes">${notes}</div>`);
@@ -251,8 +253,8 @@ function bikeRow(b) {
     b.truth_first_rider_dud === true ? "다음 사람도 반납" : b.truth_first_rider_dud === false ? "다음 사람은 탐" : ""].filter(Boolean).join(" · ");
   return `<li data-bike="${esc(b.bike)}" tabindex="0" role="button" aria-label="${esc(b.bike)} 서로 다른 ${b.chain}명 반납, 자세히">` +
     `<span class="ico ${b.level}">${BIKE_SVG}</span>` +
-    `<div><b>${esc(b.bike)}</b><span class="s">${esc(b.station_name)} · ${ago(b)}${tail ? " · " + tail : ""}${checkedBadge(b.bike)}</span></div>` +
-    `<span class="n ${b.level}">${b.chain}명</span></li>`;
+    `<div><b>${esc(b.bike)}</b><span class="s">${esc(b.station_name)}${b.p_next != null ? ` · ${b.chain}명 연속` : ""} · ${ago(b)}${tail ? " · " + tail : ""}${checkedBadge(b.bike)}</span></div>` +
+    `<span class="n ${b.level}">${b.p_next != null ? b.p_next + "%" : b.chain + "명"}</span></li>`;
 }
 function showTab(t) {
   const btn = document.querySelector(`#tabs button[data-tab="${t}"]`);
@@ -290,7 +292,15 @@ function groupByStation(bikes) {
   const g = {};
   bikes.forEach((b) => (g[b.station] = g[b.station] || []).push(b));
   // 우선순위: 구조대가 고장이라고 확인한 자전거가 있는 곳 먼저, 그다음 연쇄 길이의 합 (그만큼 사람들이 이미 헛걸음했고, 앞으로도 날 가능성이 큼)
-  return Object.entries(g).sort((a, b) => sumBroken(b[1]) - sumBroken(a[1]) || sumChain(b[1]) - sumChain(a[1]) || b[1].length - a[1].length);
+  // 자체 모델 확률이 있으면(실시간) 연쇄 합 대신 '진짜 고장일 자전거 수' 의 기대값(확률 합) 순 — docs/model.md
+  return Object.entries(g).sort((a, b) => sumBroken(b[1]) - sumBroken(a[1]) || (expectOf(b[1]) ?? 0) - (expectOf(a[1]) ?? 0) || sumChain(b[1]) - sumChain(a[1]) || b[1].length - a[1].length);
+}
+const expectOf = (arr) => arr.some((b) => b.p_next != null) ? arr.reduce((t, b) => t + (b.p_next || 0) / 100, 0) : null;
+// 목록 보장: 이 중 약 μ대가 진짜, 90% 확률로 최소 ⌊μ + q·σ⌋대 (q 는 클라우드 목록에 실려 옴)
+function listExpect(bikes, q) {
+  if (q == null || !bikes.length || bikes.some((b) => b.p_next == null)) return null;
+  const ps = bikes.map((b) => b.p_next / 100), mu = ps.reduce((a, b) => a + b, 0), sd = Math.sqrt(ps.reduce((a, p) => a + p * (1 - p), 0));
+  return { mu, atLeast: Math.max(0, Math.floor(mu + q * sd)) };
 }
 const sumBroken = (arr) => arr.filter((b) => checkedOf(b.bike).broken > 0).length;
 const maxChain = (arr) => Math.max(...arr.map((b) => b.chain));
@@ -301,7 +311,8 @@ function renderRank(bikes) {
     const s = state.stations[id];
     const nb = sumBroken(arr);
     const red = arr.some((b) => b.level === "빨강");
-    return `<li><div><b>${s ? esc(s.name) : id}</b><span class="s">${nb ? `<b>사람이 확인한 고장 ${nb}대</b> · ` : ""}${s ? s.gu : ""} · 헛걸음 ${sumChain(arr)}명 쌓임</span></div>` +
+    const ex = expectOf(arr);
+    return `<li><div><b>${s ? esc(s.name) : id}</b><span class="s">${nb ? `<b>사람이 확인한 고장 ${nb}대</b> · ` : ""}${s ? s.gu : ""} · ${ex != null ? `진짜 고장 예상 ${ex.toFixed(1)}대` : `헛걸음 ${sumChain(arr)}명 쌓임`}</span></div>` +
       `<span class="n ${red ? "빨강" : "노랑"}">${arr.length}대</span></li>`;
   }).join("");
 }
