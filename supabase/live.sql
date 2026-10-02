@@ -12,10 +12,22 @@ create schema if not exists live;
 create table if not exists live.rentals (
   bike text not null, t0 timestamp not null, st0 text, t1 timestamp not null, st1 text,
   dist_m real not null default 0, who text,
-  primary key (bike, t0)
+  primary key (bike, t0) include (st0, t1, st1, dist_m, who)
 );
+-- 기본 키 색인에 나머지 열도 담는다(INCLUDE): 자전거별 기록이 색인 안에 붙어 있어 표를 읽지 않고(index-only) 연쇄를 센다.
+-- 표는 반납 순서로 쌓여 한 자전거의 7일이 수십 페이지에 흩어진다 — 무료 DB 디스크(기본 250 IOPS)에서 식은 캐시로 읽으면 1~2분.
+-- 같은 자료로 재 보니 읽는 페이지가 3~5배 줄었다(지금 목록 17,306 → 5,750, 경보 기록 22,935 → 4,707, 2026-10-02). 옛 DB 는 한 번 바꿔 끼운다.
+do $$ begin
+  if (select indnkeyatts = indnatts from pg_index where indexrelid = 'live.rentals_pkey'::regclass) then
+    create unique index if not exists rentals_pkey_cover on live.rentals (bike, t0) include (st0, t1, st1, dist_m, who);
+    alter table live.rentals drop constraint rentals_pkey, add constraint rentals_pkey primary key using index rentals_pkey_cover;
+  end if;
+end $$;
 create index if not exists rentals_t1 on live.rentals (t1);
-alter table live.rentals set (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.05);   -- 자주 치우기(기본 20%)
+-- 헛대여만 담은 작은 색인(전체의 몇 %, 자전거·대여 시각도 담음) — 후보 찾기가 24시간 대여 15만 행을 훑지 않게 (2026-10-02)
+create index if not exists rentals_dud_t1 on live.rentals (t1) include (bike, t0) where st0 = st1 and t1 - t0 <= interval '180 seconds' and dist_m < 300;
+-- 자주 치우기(기본 20%). 넣기만 해도 치워야 '다 보이는 페이지' 표시가 붙어 색인만 읽기가 된다
+alter table live.rentals set (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.05, autovacuum_vacuum_insert_scale_factor = 0.05);
 create table if not exists live.hours (hour text primary key, total int, fetched_at timestamptz);
 create table if not exists live.req (id bigint primary key, hour text not null, page int not null, made_at timestamptz not null default now());
 create table if not exists live.stations (id text primary key, name text);
@@ -99,9 +111,14 @@ alter table live.alarms add column if not exists next_t0 timestamp, add column i
 -- 경보가 울린 그 순간 자체 모델이 본 확률 — 나중에 실제 결과와 맞춰 모델을 실시간으로도 채점 (2026-10-01)
 alter table live.alarms add column if not exists p_next real;
 
--- bikes 는 조인으로(배열 = any 로 하면 110만 행마다 수천 개와 견줘 시간 초과가 났다 — 2026-09-27)
-create or replace function live.mark_rows(since timestamp, bikes text[], until timestamp default 'infinity')
-returns table (bike text, t0 timestamp, t1 timestamp, st1 text, dud boolean, retry boolean, streak int) language sql stable as $$
+-- 연쇄 표시는 자전거 수에 따라 두 길로 (2026-10-02 실측):
+--   아주 많을 때(하루치 아침 목록 등 수천 대) — 최근 기록을 한 번 죽 읽고 해시 조인
+--   보통(5분 예약의 후보·목록·채점, 수백 대 이하) — 자전거마다 기본 키 색인으로 바로(LATERAL)
+-- 예전엔 5분마다 후보 3천여 대를 표시해 계획에 따라 15~40초 걸렸다. 지금은 후보를 줄여(live.cand) 색인 길로 충분하다.
+-- 0.5GB 무료 DB 라 work_mem 은 올리지 않는다(올렸더니 메모리·디스크가 밀려 예약 연결까지 막혔다, 2026-10-02).
+create or replace function live.mark_rows_big(since timestamp, bikes text[], until timestamp default 'infinity')
+returns table (bike text, t0 timestamp, t1 timestamp, st1 text, dud boolean, retry boolean, streak int) language sql stable
+set enable_nestloop = off as $$
 with b as materialized (select distinct unnest(bikes) bike), r as (
   select r.bike, r.t0, r.t1, r.st1, r.who, (r.st0 = r.st1 and r.t1 - r.t0 <= interval '180 seconds' and r.dist_m < 300) dud,
          lag(r.who) over (partition by r.bike order by r.t0) prev_who
@@ -117,21 +134,63 @@ select bike, t0, t1, st1, dud, retry,
        (sum(case when rn > 1 and not retry then 1 else 0 end) over (partition by bike, g order by t0 rows between unbounded preceding and current row))::int
 from r3
 $$;
+create or replace function live.mark_rows_small(since timestamp, bikes text[], until timestamp default 'infinity')
+returns table (bike text, t0 timestamp, t1 timestamp, st1 text, dud boolean, retry boolean, streak int) language sql stable as $$
+with r as (
+  select r.bike, r.t0, r.t1, r.st1, r.who, (r.st0 = r.st1 and r.t1 - r.t0 <= interval '180 seconds' and r.dist_m < 300) dud,
+         lag(r.who) over (partition by r.bike order by r.t0) prev_who
+  from (select distinct unnest(bikes) bike) b
+  cross join lateral (select * from live.rentals x where x.bike = b.bike and x.t0 >= since and x.t0 < until) r
+), r2 as (
+  select *, coalesce(who = prev_who, false) retry,
+         coalesce(sum(case when dud then 0 else 1 end) over (partition by bike order by t0 rows between unbounded preceding and 1 preceding), 0) g
+  from r
+), r3 as (
+  select *, row_number() over (partition by bike, g order by t0) rn from r2
+)   -- streak = 헛대여 줄 안에서, 첫 대여 뒤로 '재시도 아님' 인 대여 수
+select bike, t0, t1, st1, dud, retry,
+       (sum(case when rn > 1 and not retry then 1 else 0 end) over (partition by bike, g order by t0 rows between unbounded preceding and current row))::int
+from r3
+$$;
+-- engine/core.py mark 와 같은 규칙: since 이후 대여, 주어진 자전거만
+create or replace function live.mark_rows(since timestamp, bikes text[], until timestamp default 'infinity')
+returns table (bike text, t0 timestamp, t1 timestamp, st1 text, dud boolean, retry boolean, streak int) language plpgsql stable as $$
+begin
+  if coalesce(cardinality(bikes), 0) > 1500 then
+    return query select * from live.mark_rows_big(since, bikes, until);
+  else
+    return query select * from live.mark_rows_small(since, bikes, until);
+  end if;
+end $$;
 
 -- 24시간 안에 헛대여가 있던 자전거 (목록·오늘 경보는 모두 여기서 나온다)
+-- 경보(두 번째 사람)와 목록(연쇄 2+)은 헛대여가 둘 이상 이어져야 생긴다 → '바로 앞 대여도 헛대여' 인 것만 후보로 (답은 똑같고 후보는 몇 분의 1, 2026-10-02)
 create or replace function live.cand(now_ timestamp) returns text[] language sql stable as $$
-  select coalesce(array_agg(distinct bike), '{}') from live.rentals
-  where t1 >= now_ - interval '24 hours' and st0 = st1 and t1 - t0 <= interval '180 seconds' and dist_m < 300 $$;
+  select coalesce(array_agg(distinct d.bike), '{}') from live.rentals d
+  cross join lateral (select p.st0, p.st1, p.t0, p.t1, p.dist_m from live.rentals p where p.bike = d.bike and p.t0 < d.t0 order by p.t0 desc limit 1) p
+  where d.t1 >= now_ - interval '24 hours' and d.st0 = d.st1 and d.t1 - d.t0 <= interval '180 seconds' and d.dist_m < 300
+    and p.st0 = p.st1 and p.t1 - p.t0 <= interval '180 seconds' and p.dist_m < 300 $$;
+
+-- 다음 '다른 사람'(재시도 아님)의 대여: at_ 뒤 첫 대여부터, 바로 앞 대여와 생년·성별이 같으면 건너뜀.
+-- mark_rows(since_, …) 의 retry 와 같은 뜻(since_ 앞 대여는 앞사람으로 안 봄). 9일 창 전체를 표시하지 않고 기본 키 색인으로 몇 줄만 (2026-10-02)
+create or replace function live.next_rider(bike_ text, at_ timestamp, since_ timestamp)
+returns table (t0 timestamp, dud boolean) language sql stable as $$
+  select t0, dud from (
+    select x.t0, (x.st0 = x.st1 and x.t1 - x.t0 <= interval '180 seconds' and x.dist_m < 300) dud,
+           coalesce(x.who = lag(x.who) over (order by x.t0), false) retry
+    from ((select * from live.rentals p where p.bike = bike_ and p.t0 <= at_ and p.t0 >= since_ order by p.t0 desc limit 1)
+          union all
+          (select * from live.rentals n where n.bike = bike_ and n.t0 > at_ and n.t0 >= since_ order by n.t0 limit 20)) x
+  ) y where y.t0 > at_ and not y.retry order by y.t0 limit 1
+$$;
 
 -- 경보 채점 (server/live.py score 와 같음): 경보 뒤 '다른 사람'(재시도 아님)의 첫 대여도 헛대여였나. 아직 없으면 기다림.
 -- live_only: 5분 예약이 15분 안에 알아챈 경보만 (처음 채운 지난 경보는 뺌). 적어 둔 결과(next_dud)가 있으면 그것, 없으면 지금 기록으로 매김.
 create or replace function live.score(now_ timestamp, live_only boolean default true) returns jsonb language sql stable as $$
 with a as (
   select bike, at, next_dud, p_next from live.alarms where not live_only or seen_at - at <= interval '15 minutes'
-), m as (
-  select * from live.mark_rows(now_ - interval '9 days', (select coalesce(array_agg(distinct bike), '{}') from a where next_dud is null))
 ), nx as (
-  select a.bike, a.at, a.p_next, coalesce(a.next_dud, (select m.dud from m where m.bike = a.bike and m.t0 > a.at and not m.retry order by m.t0 limit 1)) nd from a
+  select a.bike, a.at, a.p_next, coalesce(a.next_dud, (select n.dud from live.next_rider(a.bike, a.at, now_ - interval '9 days') n)) nd from a
 )
 select jsonb_build_object('alarms', count(*), 'scored', count(nd), 'next_rider_dud', count(*) filter (where nd),
   'precision_%', round(100.0 * count(*) filter (where nd) / nullif(count(nd), 0), 1), 'waiting', count(*) - count(nd), 'seen_within_min', 15,
@@ -149,12 +208,9 @@ declare n int;
 begin
   update live.alarms a set next_t0 = x.t0, next_dud = x.dud
   from (
-    select distinct on (a.bike, a.at) a.bike, a.at, m.t0, m.dud
-    from live.alarms a
-    join live.mark_rows(now_ - interval '9 days', (select coalesce(array_agg(distinct bike), '{}') from live.alarms where next_dud is null)) m
-      on m.bike = a.bike and m.t0 > a.at and not m.retry
+    select a.bike, a.at, n.t0, n.dud
+    from live.alarms a cross join lateral live.next_rider(a.bike, a.at, now_ - interval '9 days') n
     where a.next_dud is null
-    order by a.bike, a.at, m.t0
   ) x
   where a.bike = x.bike and a.at = x.at and x.t0 < now_ - interval '7 hours';
   get diagnostics n = row_count;
@@ -182,9 +238,11 @@ with m as (
   join live.rentals r on r.bike = l.bike and r.t0 = l.t0
   where l.dud
   group by l.bike, l.streak, l.t0, l.t1, r.st1
-), near as (   -- 외면: 마지막 헛대여 뒤 지금까지 같은 대여소에서 다른 사람이 빌려 간 수 (최근 25시간만 훑음)
-  select b.bike, count(r.*) n
-  from base b left join live.rentals r on r.st0 = b.st1 and r.t0 > b.t1 and r.t0 < now_ and r.t1 >= now_ - interval '25 hours'
+), recent as materialized (   -- 최근 25시간 대여를 한 번만, 목록 자전거의 대여소만 (t1 색인) — 자전거마다 전체 표를 훑던 계획이 30~40초 걸렸다(2026-10-02)
+  select st0, t0 from live.rentals where t1 >= now_ - interval '25 hours' and t0 < now_ and st0 in (select st1 from base)
+), near as (   -- 외면: 마지막 헛대여 뒤 지금까지 같은 대여소에서 다른 사람이 빌려 간 수
+  select b.bike, count(r.t0) n
+  from base b left join recent r on r.st0 = b.st1 and r.t0 > b.t1
   group by b.bike
 )
 select b.bike, b.chain, b.duds, b.rentals, b.prior, b.dur,
@@ -219,14 +277,13 @@ begin
 end $$;
 -- 정답 채우기: 마지막 헛대여 뒤 처음 빌린 다른 사람(재시도 아님)도 헛대여였나. 그 대여가 7시간 넘게 지난 뒤에만(늦게 온 기록이 끼어들 수 없게)
 create or replace function live.settle_samples(now_ timestamp) returns int language plpgsql as $$
-declare n int; b text[] := (select coalesce(array_agg(distinct bike), '{}') from live.samples where next_dud is null and at > now_ - interval '8 days');
+declare n int;
 begin
   update live.samples s set next_t0 = x.t0, next_dud = x.dud
   from (
-    select distinct on (s.at, s.bike) s.at, s.bike, m.t0, m.dud
-    from live.samples s join live.mark_rows(now_ - interval '9 days', b) m on m.bike = s.bike and m.t0 > s.last_t0 and not m.retry
-    where s.next_dud is null
-    order by s.at, s.bike, m.t0
+    select s.at, s.bike, n.t0, n.dud
+    from live.samples s cross join lateral live.next_rider(s.bike, s.last_t0, now_ - interval '9 days') n
+    where s.next_dud is null and s.at > now_ - interval '8 days'
   ) x
   where s.at = x.at and s.bike = x.bike and x.t0 < now_ - interval '7 hours';
   get diagnostics n = row_count;
@@ -290,7 +347,7 @@ select jsonb_build_object(
   'model', jsonb_build_object('q', live.list_q(), 'expected', round(coalesce((select sum(p) from fp), 0)::numeric, 1),
     'at_least', greatest(0, floor(coalesce((select sum(p) + live.list_q() * sqrt(sum(p * (1 - p))) from fp), 0)))::int),
   'today_alarms', (select count(*) from m where dud and not retry and streak = 1 and t1 >= date_trunc('day', now_)),
-  'rentals_in_window', (select count(*) from live.rentals where t0 >= now_ - interval '7 days'),
+  'rentals_in_window', (select sum(total) from live.hours where hour > to_char(now_ - interval '7 days', 'YYYY-MM-DD/HH24') and hour <= to_char(now_, 'YYYY-MM-DD/HH24')),   -- API 시간별 합계(110만 행을 매번 세지 않게)
   'latest_return', (select to_char(max(t1), 'YYYY-MM-DD"T"HH24:MI:SS') from live.rentals where t1 <= now_ + interval '5 minutes'))
 $$;
 
@@ -317,9 +374,11 @@ create table if not exists live.lists (day date primary key, generated timestamp
 create table if not exists live.scores (day date primary key, listed int, rode int, first_dud int, scored_at timestamp);
 
 create or replace function live.morning(d date) returns jsonb language sql stable as $$
-with c as (   -- 어제 헛대여가 있던 자전거 (어제 마지막 대여가 헛대여여야 연쇄 2+ 가 된다)
-  select coalesce(array_agg(distinct bike), '{}') b from live.rentals
-  where t0 >= d - 1 and t0 < d and st0 = st1 and t1 - t0 <= interval '180 seconds' and dist_m < 300
+with c as (   -- 어제 헛대여 중 바로 앞 대여도 헛대여인 자전거 (연쇄 2+ 는 헛대여가 둘 이상 이어져야 생김 — live.cand 와 같은 생각, 답은 같음)
+  select coalesce(array_agg(distinct d0.bike), '{}') b from live.rentals d0
+  cross join lateral (select p.st0, p.st1, p.t0, p.t1, p.dist_m from live.rentals p where p.bike = d0.bike and p.t0 < d0.t0 order by p.t0 desc limit 1) p
+  where d0.t1 >= d - 1 and d0.t0 >= d - 1 and d0.t0 < d and d0.st0 = d0.st1 and d0.t1 - d0.t0 <= interval '180 seconds' and d0.dist_m < 300
+    and p.st0 = p.st1 and p.t1 - p.t0 <= interval '180 seconds' and p.dist_m < 300
 ), m as (
   select * from live.mark_rows((d - 7)::timestamp, (select b from c), d::timestamp)
 ), last as (
@@ -358,6 +417,7 @@ end $$;
 create or replace function live.tick() returns void language plpgsql as $$
 declare now_ timestamp := (now() at time zone 'Asia/Seoul')::timestamp; k int; h text; miss int := 0;
 begin
+  if not pg_try_advisory_xact_lock(hashtext('live.tick')) then return; end if;   -- 예약과 손으로 돌린 것이 겹치면 하나만
   perform live.collect();
   perform live.record_alarms(now_);
   perform live.settle(now_);
@@ -369,7 +429,13 @@ begin
   end;
   insert into live.snapshot(id, at, body) values (1, now_, live.compute(now_) || jsonb_build_object('score', live.score(now_)))
     on conflict (id) do update set at = excluded.at, body = excluded.body;
-  for k in 0..1 loop perform live.request(to_char(now_ - make_interval(hours => k), 'YYYY-MM-DD/HH24')); end loop;
+  -- 한 시간 자료는 반납 순으로 쌓인다(새 반납은 끝에 붙음, 2026-10-02 확인) → 지금·직전 시간은 마지막 꽉 찬 쪽부터만(겹쳐서 한 쪽).
+  -- 30분마다 직전~6시간 전은 처음부터 다시(늦게 끼어든 기록 바로잡기). 매번 30여 쪽 → 서너 쪽.
+  for k in 0..1 loop
+    h := to_char(now_ - make_interval(hours => k), 'YYYY-MM-DD/HH24');
+    if k = 1 and extract(minute from now_)::int % 30 < 5 then perform live.request(h);
+    else perform live.request(h, greatest(1, coalesce((select total from live.hours where hour = h), 0) / 1000)); end if;
+  end loop;
   if extract(minute from now_)::int % 30 < 5 then
     for k in 2..6 loop perform live.request(to_char(now_ - make_interval(hours => k), 'YYYY-MM-DD/HH24')); end loop;
   end if;
@@ -378,7 +444,7 @@ begin
     exit when miss >= 6;
     perform live.request(h); miss := miss + 1;
   end loop;
-  delete from live.rentals where t0 < now_ - interval '9 days';
+  delete from live.rentals where t1 < now_ - interval '9 days';   -- t1 색인으로 (t0 로는 표 전체를 훑었다). t1 ≥ t0 라 9일 안 대여는 안 지워짐
   delete from live.alarms where at < now_ - interval '10 days' and next_dud is null;   -- 채점된 경보는 계속 둔다(작음)
 end $$;
 

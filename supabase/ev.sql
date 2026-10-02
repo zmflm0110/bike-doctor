@@ -77,6 +77,7 @@ revoke all on live.ev_req, live.ev_runs, live.ev_last, live.ev_snap from anon, a
 -- 5분마다: 도착한 것 넣고 다음 요청
 create or replace function live.ev_tick() returns void language plpgsql as $$
 begin
+  if not pg_try_advisory_xact_lock(hashtext('live.ev_tick')) then return; end if;   -- 겹치면 하나만
   perform live.ev_collect();
   perform live.ev_request();
 end $$;
