@@ -471,4 +471,4 @@ revoke all on all tables in schema live from anon, authenticated;
 
 -- 예약 (5분마다). 다시 적용해도 하나만
 select cron.unschedule(jobid) from cron.job where jobname = 'live-tick';
-select cron.schedule('live-tick', '*/5 * * * *', 'select live.tick()');
+select cron.schedule('live-tick', '*/5 * * * *', $c$set statement_timeout = '4min'; select live.tick()$c$);   -- 무료 DB 가 느릴 때도 캐시가 데워질 때까지(기본 2분이면 계속 끊김)
