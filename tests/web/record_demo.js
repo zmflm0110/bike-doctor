@@ -121,7 +121,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     await cap("AI 가 본 이유도 사람 말로 보여 줘요.", why);
     await wait(4200);
   }
-  await cap("근처에 있다면 3초 확인.", "체인·타이어·안장·멀쩡함 중 한 번 탭 → 모든 폰의 정비 순위에 '사람이 확인함' 으로.");
+  await cap("순회 중 의심 자전거 앞에서 탭 한 번.", "체인·타이어·안장·멀쩡함 → 모든 폰의 정비 순위에 '사람이 확인함' 으로.");
   await wait(2200);
   await tap("#lookup-result .choices button:has-text('체인·기어')");
   await wait(2500);

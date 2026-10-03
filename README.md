@@ -65,7 +65,7 @@ flowchart LR
 |---|---|
 | **Supabase 안** (`supabase/live.sql`, `supabase/model.sql`, pg_cron 5분마다) | 서울 API(pg_net) → `live.rentals`(9일) → SQL 로 연쇄·경보 → **자체 AI**(나무 60그루를 SQL 식으로, 자전거마다 확률·이유·목록 보장) → 지금 목록(`live_snapshot`)·실시간 채점, 06:10 아침 목록(`ops_lists`)·채점(`ops_scores`), 3시간마다 학습 자료(`live.samples`). 파이썬과 같은 결과인지 `tools/supabase_live_load.py --parity` · `--parity-model` |
 | Supabase (`supabase/ev.sql`) | 전기차 충전기 상태 5분마다(4일 보관 → 맥이 `tools/ev_pull.py` 로 모음) |
-| Supabase (`supabase/schema.sql`) | 구조대 확인·현장 조사·사진. 앱의 공개 키로는 **넣기만**(횟수 제한) 되고, 읽기는 자전거별 확인 수(집계)만. 위치·메모·사진은 우리만 본다 |
+| Supabase (`supabase/schema.sql`) | 현장 확인·현장 조사·사진. 앱의 공개 키로는 **넣기만**(횟수 제한) 되고, 읽기는 자전거별 확인 수(집계)만. 위치·메모·사진은 우리만 본다 |
 | 앱·웹앱 | Supabase 의 목록을 **어디서든** 읽는다(백업: GitHub `live-data`, 같은 와이파이의 맥 서버). 인터넷이 없으면 앱 안의 시연 자료 |
 | 맥 (가끔) | 지난 기록 분석·AI 학습(`analysis/snapshot_model.py`), 주 1회 실시간 점검·다시 배우기(`tools/retrain.py`) |
 
@@ -104,10 +104,10 @@ flowchart LR
 | 출근·통학하는 사람 | 고장 자전거가 빨리 치워져 헛걸음이 준다 — 경보가 있었다면 서울 하루 90\~243건. 번호로 직접 확인도 가능 | 측정 |
 | 관광객·어르신·처음 타는 사람 | 따로 앱을 깔지 않으므로, **공식 따릉이 앱에 경고가 뜰 때** 가장 도움이 된다 | 가능성 |
 | 다른 도시 공공자전거 | 대전 타슈에 서울 기준 그대로 적용해 확인(다음 사람 41.6\~43.6% 포기) | 대전 측정 |
-| 전기차 운전자 | 앱엔 '사용 가능' 인데 안 되는 충전기 — 서울 충전기 수집 중. 고장이 아닌 기록(0초 충전 등)을 거른 뒤 3분 안에 끊긴 충전 약 3\~4% ([중간 검증](docs/ev_validation.md)) | 재는 중 |
-| 현장 확인(구조대) | 도움을 받는 쪽이라기보다, 경보가 진짜 고장이었는지 사람 눈으로 확인하는 **검증 도구** | 검증 |
+| 전기차 운전자 | 앱엔 '사용 가능' 인데 안 되는 충전기 — 2026년 8월 권익위 '전기차 충전' 민원주의보(3년 새 1.8배). 연달아 두 번 바로 끊긴 충전기는 다음도 57%, 세 번이면 88% 끊김(평소 2.7%, 예비 47건, [중간 검증](docs/ev_validation.md)) | 재는 중 |
+| 현장 확인 | 하루 한 번 넘게 대여소를 도는 공단 직원(지나가는 이용자도 가능)이 의심 자전거 앞에서 탭 한 번 — 확인된 곳이 정비 순위 맨 위로 | 검증 |
 
-> **정비 기사와 구조대의 차이** — 정비 기사는 공단 직원으로 자전거를 실제로 고치거나 수거한다. 구조대는 일반 시민으로, 지나가다 3초 보고 "체인·타이어·안장·브레이크·멀쩡함" 중 하나만 누른다. 구조대가 확인한 곳이 정비 목록 맨 위로 올라가, 기사는 확실한 고장부터 간다.
+> **왜 순회 직원에게 목록이 필요한가** — 공단은 하루 한 번 넘게 대여소를 돌며 수거의 절반가량을 신고 없이 눈으로 찾는다. 하지만 경보가 울린 자전거의 82\~91% 는 하루 안에 또 빌려진다 — 체인·브레이크처럼 타 봐야 아는 고장은 눈으로 못 거른다([공단 운영 조사](docs/operations.md)). RIDEY 는 '어디부터 볼지' 를 주고, 현장에서 탭 한 번으로 확인한 곳이 정비 순위 맨 위로 올라간다.
 
 ## 화면
 
@@ -115,7 +115,7 @@ flowchart LR
   <tr>
     <td align="center"><img src="docs/shots/1_morning.png" alt="아침 목록" width="220"><br><b>아침 목록</b><br><sub>지도 · 정비 순위 · 동선</sub></td>
     <td align="center"><img src="docs/shots/2_lookup.png" alt="자전거 조회" width="220"><br><b>자전거 조회</b><br><sub>번호·QR → 경고</sub></td>
-    <td align="center"><img src="docs/shots/3_rescue.png" alt="구조대" width="220"><br><b>구조대</b><br><sub>3초 확인</sub></td>
+    <td align="center"><img src="docs/shots/3_rescue.png" alt="현장 확인" width="220"><br><b>현장 확인</b><br><sub>탭 한 번</sub></td>
     <td align="center"><img src="docs/shots/4_replay.png" alt="시연" width="220"><br><b>시연</b><br><sub>하루 재생</sub></td>
   </tr>
 </table>
@@ -197,7 +197,7 @@ GitHub 에 올릴 때마다 `test`(파이썬·웹), `ios`(Swift 엔진·Xcode �
 | [`engine/`](engine) | 헛대여·연쇄·경보 규칙(`core.py`), 아침 목록(`morning.py`), 충전기 헛충전(`ev.py`) |
 | [`server/`](server) | 실시간 경보(`live.py`), 매일 아침 목록(`daily_job.py`), 웹 서버(`app.py`), 서울 API, 충전기 수집, 맥 자동 실행 |
 | [`analysis/`](analysis) | 검증 스크립트 — 기준 선택, 실시간 가능성, API 대조, 현장 검증, 그림 |
-| [`web/`](web) | 웹앱 — 아침 목록·자전거 조회(QR)·구조대·시연·현장 조사, 오프라인 동작 |
+| [`web/`](web) | 웹앱 — 아침 목록·자전거 조회(QR)·현장 확인·시연·현장 조사, 오프라인 동작 |
 | [`ios/`](ios/README.md) | 아이폰 앱(SwiftUI) — 엔진 패키지 `Core/`, 화면 `App/` |
 | [`android-app/`](android-app) | 안드로이드 앱(APK) — `web/` 을 Capacitor 로 감쌈 |
 | [`supabase/`](supabase/schema.sql) | 쓰기 DB 표·권한(누구나 넣기만, 확인 수만 읽기) |

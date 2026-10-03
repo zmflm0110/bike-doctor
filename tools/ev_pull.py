@@ -17,10 +17,16 @@ def main():
     start = psql("select to_char(min(at), 'YYYY-MM-DD\"T\"HH24:MI:SS') from live.ev_runs").strip()
     if not start:
         print("클라우드에 아직 찍은 기록이 없어요."); return 1
-    runs = list(csv.reader(io.StringIO(psql("copy (select to_char(at, 'YYYY-MM-DD\"T\"HH24:MI:SS'), items from live.ev_runs order by at) to stdout with csv"))))
-    snap = list(csv.reader(io.StringIO(psql("copy (select to_char(at, 'YYYY-MM-DD\"T\"HH24:MI:SS'), charger, stat, stat_upd, ts, te, now_ts "
-                                             "from live.ev_snap order by at) to stdout with csv"))))
     c = ev_db()   # 표가 없으면 만든다 (예전 맥 기록에는 runs 표가 없었음)
+    # 맥에 이미 있는 것은 다시 받지 않는다 — 마지막으로 받은 때 1시간 전부터만 (무료 DB 에 4일 치를 매번 읽히지 않게, 2026-10-03)
+    have = c.execute("select max(at) from runs").fetchone()[0]
+    if have:
+        import datetime as dt
+        start = max(start, (dt.datetime.fromisoformat(have) - dt.timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S"))
+    since = f"'{start.replace('T', ' ')}'::timestamp"
+    runs = list(csv.reader(io.StringIO(psql(f"copy (select to_char(at, 'YYYY-MM-DD\"T\"HH24:MI:SS'), items from live.ev_runs where at >= {since} order by at) to stdout with csv"))))
+    snap = list(csv.reader(io.StringIO(psql(f"copy (select to_char(at, 'YYYY-MM-DD\"T\"HH24:MI:SS'), charger, stat, stat_upd, ts, te, now_ts "
+                                             f"from live.ev_snap where at >= {since} order by at) to stdout with csv"))))
     with c:
         c.execute("delete from snap where at >= ?", (start,))
         c.execute("delete from runs where at >= ?", (start,))

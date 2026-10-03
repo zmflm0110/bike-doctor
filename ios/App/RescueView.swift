@@ -9,7 +9,7 @@ struct RescueView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("근처 의심 자전거,\n3초만 봐 주세요")
+                    Text("의심 자전거 앞에서,\n탭 한 번으로 확인")
                         .font(.system(size: 26, weight: .bold)).foregroundStyle(Palette.ink)
                         .padding(.horizontal, 4).padding(.top, 8)
                     Text("확인 결과는 바로 정비 순위에 반영돼요.").font(.body).foregroundStyle(Palette.sub).padding(.horizontal, 4)
